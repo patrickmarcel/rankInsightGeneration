@@ -91,7 +91,7 @@ vals="('AA','UA','US')"
 meas="sum(nb_flights)"
 #queryPattern="SELECT " + gb + "," + meas + " FROM " + table + " WHERE " + sel + " in " + vals + "group by " + gb +";"
 
-hypothesis=[('AA', 1),('UA', 2),('US', 3)]
+#hypothesis=[('AA', 1),('UA', 2),('US', 3)]
 q0=""
 epsilon=0.05
 alpha=0.05
@@ -117,11 +117,28 @@ if __name__ == "__main__":
     if conn:
         #drawing a query
         pwsert = powerset(groupbyAtt)
-        l= len(pwsert)
+        #l= len(pwsert)
+        #print(pwsert)
+        # empty group by set removed from powerset
+        # since it is used to generate the hypothesis
+        # note that hypothesis could also be user given
+        pwsert.remove(())
+
+        queryEmptyGb=("SELECT " +  sel + ","
+                 + " rank () over (  order by " + meas + " desc ) as rank" +
+                 " FROM " + table + " WHERE " + sel + " in " + vals + " group by " + sel + ";")
+        resultEmptyGb = execute_query(conn, queryEmptyGb)
+
+        if resultEmptyGb is not None:
+            print("Overall the ranking is as follows:")
+            for row in resultEmptyGb:
+                print(row)
+
+        hypothesis=resultEmptyGb;
 
         for i in range(n):
 
-            nb=random.randint(0, l-1)
+            nb=random.randint(0, len(pwsert)-1)
             gb=pwsert[nb]
             strgb=""
             for i in range(len(gb)):
@@ -173,9 +190,9 @@ if __name__ == "__main__":
             resultCountGb = execute_query(conn, queryCountGb)
             resultCountExcept = execute_query(conn, queryCountExcept)
 
-            print( resultCountGb[0][0] )
-            print(resultCountExcept[0][0])
-            print( resultCountExcept[0][0]  / resultCountGb[0][0])
+            print("number of tuples checked: " + str( resultCountGb[0][0] ))
+            print("number of exceptions: " + str(resultCountExcept[0][0]))
+            print("ratio is: " + str(resultCountExcept[0][0]  / resultCountGb[0][0]))
 
             ratio=resultCountExcept[0][0]  / resultCountGb[0][0]
 
