@@ -1,3 +1,4 @@
+departure_airport	date	departure_hour	flight	airline	nb_flights	departure_delay	late_aircraft
 DFW	1-1-2015	647	1104	AA	1	-8	\N
 IAH	1-1-2015	727	1294	UA	1	0	\N
 CLE	1-1-2015	845	1108	UA	1	-1	\N
