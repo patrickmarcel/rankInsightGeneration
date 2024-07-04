@@ -38,6 +38,20 @@ n = math.log(2 / alpha, 10) / pow(2, epsilon * epsilon)
 print("n>= " + str(n))
 n = math.ceil(n)
 
+
+def get_hypothesis():
+    global hypothesis
+    queryEmptyGb = ("SELECT " + sel + ","
+                    + " rank () over (  order by " + meas + " desc ) as rank" +
+                    " FROM " + table + " WHERE " + sel + " in " + vals + " group by " + sel + ";")
+    resultEmptyGb = execute_query(conn, queryEmptyGb)
+    if resultEmptyGb is not None:
+        print("Overall the ranking is as follows:")
+        for row in resultEmptyGb:
+            print(row)
+    return resultEmptyGb
+
+
 if __name__ == "__main__":
     # Database connection parameters
     dbname = "covid"
@@ -60,17 +74,7 @@ if __name__ == "__main__":
         pwsert.remove(())
         print("len of power set", len(pwsert))
 
-        queryEmptyGb = ("SELECT " + sel + ","
-                        + " rank () over (  order by " + meas + " desc ) as rank" +
-                        " FROM " + table + " WHERE " + sel + " in " + vals + " group by " + sel + ";")
-        resultEmptyGb = execute_query(conn, queryEmptyGb)
-
-        if resultEmptyGb is not None:
-            print("Overall the ranking is as follows:")
-            for row in resultEmptyGb:
-                print(row)
-
-        hypothesis = resultEmptyGb
+        hypothesis = get_hypothesis()
 
         for i in range(n):
 
