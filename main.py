@@ -194,7 +194,6 @@ if __name__ == "__main__":
             print("probability is: " + str(sum(H)/len(H)))
 
 
-
             # Close the connection
         close_connection(conn)
 
