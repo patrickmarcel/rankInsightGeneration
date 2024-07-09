@@ -3,9 +3,10 @@ from psycopg2 import sql
 import random
 from itertools import chain, combinations
 import math
-import numpy as np
 from scipy import stats
 from scipy.stats import skew
+import numpy as np
+from scipy.stats import f
 
 def connect_to_db(dbname, user, password, host='localhost', port='5432'):
     """
@@ -170,13 +171,13 @@ def claireStat(skew1, skew2, count1, count2, threshold=0.049):
 
     stat = abs(skew1/count1 - skew2/count2)
     if stat<threshold:
+        # test can be used
         return True
     else:
         return False
 
 
-import numpy as np
-from scipy.stats import f
+
 
 
 def brown_forsythe_test(*groups):
@@ -314,6 +315,7 @@ def generateRandomQuery(pwsert,hypothesis):
     queryValues = ("SELECT measure FROM (SELECT " + strgb + "," + sel + "," + meas + " as measure FROM "
                    + table + " WHERE " + sel + " in " + str(vals) + " group by " + strgb + "," + sel + " ) x;")
 
+
     queryExcept = ("select " + strgb + "," + sel + ", rank from  (" + query + " ) t3 except all " + queryHyp + " ")
 
     queryCountGb = ("select count(*) from (" + queryHyp + ") t4;")
@@ -321,6 +323,17 @@ def generateRandomQuery(pwsert,hypothesis):
 
     #return query, queryHyp, queryValues, queryExcept, strgb
     return queryValues,queryCountGb,queryCountExcept
+
+
+def getValues(queryValues, vals, v, conn):
+    queryVal = queryValues.replace(str(vals), "('" + v + "')")
+    resultValues = execute_query(conn, queryVal)
+    data = []
+    for row in resultValues:
+        data.append(float(row[0]))
+
+    np.array(data)
+    return data
 
 
 #queryPattern="SELECT " + gb + "," + meas + " FROM " + table + " WHERE " + sel + " in " + vals + "group by " + gb +";"
@@ -369,6 +382,7 @@ if __name__ == "__main__":
         pwsert = powerset(groupbyAtt)
 
         # generating the hypothesis
+        # hypothesis is a ranking of members
 
         # empty group by set removed from powerset
         # since it is used to generate the hypothesis
@@ -385,6 +399,7 @@ if __name__ == "__main__":
             #query, queryHyp, queryValues, queryExcept, strgb = generateRandomQuery(pwsert,hypothesis)
             queryValues,queryCountGb,queryCountExcept=generateRandomQuery(pwsert,hypothesis)
 
+
             # some statistics on the random query result: skew and size
             resultValues = execute_query(conn, queryValues)
             data=[]
@@ -392,12 +407,40 @@ if __name__ == "__main__":
                 data.append(float(row[0]))
             nvalues=len(data)
             data=np.array(data)
-
             # Compute skewness
             skewness = compute_skewness(data)
-            # Print result
+
             print("Size of the data: " + str(nvalues))
             print(f"Skewness of the data: {skewness}")
+
+            S=[]
+            # compute stats for every member of the hypothesis
+            for v in vals:
+                queryVal=queryValues.replace(str(vals),"('" + str(v) + "')")
+                #print(queryVal)
+                resultValues = execute_query(conn, queryVal)
+                data = []
+                for row in resultValues:
+                    data.append(float(row[0]))
+                nvalues = len(data)
+                data = np.array(data)
+                # Compute skewness
+                skewness = compute_skewness(data)
+                # Print result
+                #print("Size of the data: " + str(nvalues))
+                #print(f"Skewness of the data: {skewness}")
+                S.append((v,nvalues,skewness))
+
+            #print(S)
+            # example of statstical test for first 2 members
+            b=claireStat(S[0][2], S[1][2], S[0][1], S[1][1])
+            print("for " + S[0][0] + " and " + S[1][0] + " Claire test says: " + str(b))
+            if b:
+                print("Welch test can be used")
+                sample1 = getValues(queryValues,vals, S[0][0], conn)
+                sample2 = getValues(queryValues,vals, S[1][0], conn)
+                t_stat, p_value, conclusion=welch_ttest(sample1, sample2)
+                print(conclusion)
 
 
             #strategy: use the db engine to check whether the hypothesis holds
