@@ -46,7 +46,7 @@ def execute_query(conn, query):
         cursor = conn.cursor()
         cursor.execute(query)
         conn.commit()
-        print("Query executed successfully.")
+        #print("Query executed successfully.")
 
         try:
             result = cursor.fetchall()
@@ -169,7 +169,7 @@ def claireStat(skew1, skew2, count1, count2, threshold=0.049):
     - skewness: boolean indicating if Welch test can be used
     """
 
-    stat = abs(skew1/count1 - skew2/count2)
+    stat = abs((skew1/count1) - (skew2/count2))
     if stat<threshold:
         # test can be used
         return True
@@ -269,6 +269,7 @@ def ExampleUsage():
     print(f"P-value: {p_value}")
 
 
+
 def generateHypothesis(conn):
     # compute top sizeOfVals members - could look for best combinations?
     queryEmptyGb = ("SELECT " + sel + ","
@@ -285,6 +286,8 @@ def generateHypothesis(conn):
     """
 
     return resultEmptyGb
+
+
 
 def generateRandomQuery(pwsert,hypothesis):
     nb = random.randint(0, len(pwsert) - 1)
@@ -336,6 +339,43 @@ def getValues(queryValues, vals, v, conn):
     return data
 
 
+def computeStats(queryValues, vals, conn):
+    S = []
+
+    #  statistics (skew and size) for all members
+    resultValues = execute_query(conn, queryValues)
+    data = []
+    for row in resultValues:
+        data.append(float(row[0]))
+    nvalues = len(data)
+    data = np.array(data)
+    skewness = compute_skewness(data)
+    S.append(('ALL', nvalues, skewness))
+
+    #print("Size of the data: " + str(nvalues))
+    #print(f"Skewness of the data: {skewness}")
+
+    # compute stats for every member of the hypothesis
+    for v in vals:
+        queryVal = queryValues.replace(str(vals), "('" + str(v) + "')")
+        # print(queryVal)
+        resultValues = execute_query(conn, queryVal)
+        data = []
+        for row in resultValues:
+            data.append(float(row[0]))
+        nvalues = len(data)
+        data = np.array(data)
+        # Compute skewness
+        skewness = compute_skewness(data)
+        # Print result
+        # print("Size of the data: " + str(nvalues))
+        # print(f"Skewness of the data: {skewness}")
+        S.append((v, nvalues, skewness))
+
+    return S
+
+
+
 #queryPattern="SELECT " + gb + "," + meas + " FROM " + table + " WHERE " + sel + " in " + vals + "group by " + gb +";"
 #hypothesis=[('AA', 1),('UA', 2),('US', 3)]
 
@@ -355,8 +395,8 @@ meas="avg(departure_delay)"
 
 sizeOfVals=5 #number of members for the hypothesis
 q0=""
-epsilon=0.05
-alpha=0.05
+epsilon=0.01
+alpha=0.01
 p=0
 H=[]
 nbTests=0
@@ -379,7 +419,7 @@ if __name__ == "__main__":
 
     if conn:
         #compute powerset of categorical attributes
-        pwsert = powerset(groupbyAtt)
+        pwset = powerset(groupbyAtt)
 
         # generating the hypothesis
         # hypothesis is a ranking of members
@@ -387,60 +427,33 @@ if __name__ == "__main__":
         # empty group by set removed from powerset
         # since it is used to generate the hypothesis
         # TODO hypothesis could also be user given
-        pwsert.remove(())
+        pwset.remove(())
 
         hypothesis=generateHypothesis(conn);
         vals=tuple([x[0] for x in hypothesis])
 
         # n queries enough according to Hoeffding
+        print("n: " + str(n))
         for i in range(n):
 
             # generate the random query
             #query, queryHyp, queryValues, queryExcept, strgb = generateRandomQuery(pwsert,hypothesis)
-            queryValues,queryCountGb,queryCountExcept=generateRandomQuery(pwsert,hypothesis)
+            queryValues,queryCountGb,queryCountExcept=generateRandomQuery(pwset, hypothesis)
 
+            # compute skew and size for the members of vals in the result of the random query
+            S=computeStats(queryValues, vals, conn)
 
-            # some statistics on the random query result: skew and size
-            resultValues = execute_query(conn, queryValues)
-            data=[]
-            for row in resultValues:
-                data.append(float(row[0]))
-            nvalues=len(data)
-            data=np.array(data)
-            # Compute skewness
-            skewness = compute_skewness(data)
+            for i in range(2,len(S)):
 
-            print("Size of the data: " + str(nvalues))
-            print(f"Skewness of the data: {skewness}")
-
-            S=[]
-            # compute stats for every member of the hypothesis
-            for v in vals:
-                queryVal=queryValues.replace(str(vals),"('" + str(v) + "')")
-                #print(queryVal)
-                resultValues = execute_query(conn, queryVal)
-                data = []
-                for row in resultValues:
-                    data.append(float(row[0]))
-                nvalues = len(data)
-                data = np.array(data)
-                # Compute skewness
-                skewness = compute_skewness(data)
-                # Print result
-                #print("Size of the data: " + str(nvalues))
-                #print(f"Skewness of the data: {skewness}")
-                S.append((v,nvalues,skewness))
-
-            #print(S)
-            # example of statstical test for first 2 members
-            b=claireStat(S[0][2], S[1][2], S[0][1], S[1][1])
-            print("for " + S[0][0] + " and " + S[1][0] + " Claire test says: " + str(b))
-            if b:
-                print("Welch test can be used")
-                sample1 = getValues(queryValues,vals, S[0][0], conn)
-                sample2 = getValues(queryValues,vals, S[1][0], conn)
-                t_stat, p_value, conclusion=welch_ttest(sample1, sample2)
-                print(conclusion)
+                # example of statstical test for first 2 members
+                b=claireStat(S[1][2], S[i][2], S[1][1], S[i][1])
+                print("for " + S[1][0] + " and " + S[i][0] + " Claire test says: " + str(b))
+                if b:
+                    print("Welch test can be used")
+                    sample1 = getValues(queryValues,vals, S[1][0], conn)
+                    sample2 = getValues(queryValues,vals, S[i][0], conn)
+                    t_stat, p_value, conclusion=welch_ttest(sample1, sample2)
+                    print(conclusion)
 
 
             #strategy: use the db engine to check whether the hypothesis holds
