@@ -3,10 +3,106 @@ from psycopg2 import sql
 import random
 from itertools import chain, combinations
 import math
+import scipy.stats as stats
 from scipy import stats
 from scipy.stats import skew
 import numpy as np
 from scipy.stats import f
+
+import pandas as pd
+
+
+def balanced_rank_estimation(pairwise_comparisons, max_iterations=1000, tol=1e-6):
+    """
+    Perform Balanced Rank Estimation based on pairwise comparisons.
+
+    Parameters:
+    - pairwise_comparisons: list of tuples (item1, item2, result)
+      where result is 1 if item1 > item2, -1 if item1 < item2, and 0 if item1 == item2.
+    - max_iterations: maximum number of iterations for the algorithm (default is 1000).
+    - tol: tolerance for convergence (default is 1e-6).
+
+    Returns:
+    - ranks: dictionary with items as keys and their estimated ranks as values.
+    """
+    # Extract unique items from the pairwise comparisons
+    items = set()
+    for item1, item2, result in pairwise_comparisons:
+        items.add(item1)
+        items.add(item2)
+
+    items = list(items)
+    n = len(items)
+    item_index = {item: i for i, item in enumerate(items)}
+
+    # Initialize ranks to zero
+    ranks = np.zeros(n)
+
+    # Create a matrix to keep track of comparisons and results
+    comparison_matrix = np.zeros((n, n))
+    for item1, item2, result in pairwise_comparisons:
+        i, j = item_index[item1], item_index[item2]
+        comparison_matrix[i, j] = result
+        comparison_matrix[j, i] = -result
+
+    for iteration in range(max_iterations):
+        old_ranks = ranks.copy()
+
+        for i in range(n):
+            sum_comparisons = 0
+            sum_ranks = 0
+            for j in range(n):
+                if comparison_matrix[i, j] != 0:
+                    sum_comparisons += 1
+                    sum_ranks += old_ranks[j] + comparison_matrix[i, j]
+
+            if sum_comparisons > 0:
+                ranks[i] = sum_ranks / sum_comparisons
+
+        if np.linalg.norm(ranks - old_ranks, ord=1) < tol:
+            break
+
+    return {items[i]: ranks[i] for i in range(n)}
+
+
+
+def benjamini_hochberg(p_values, alpha=0.05):
+    """
+    Perform Benjamini-Hochberg correction for multiple hypothesis testing.
+
+    Parameters:
+    - p_values: list or array of p-values from individual hypothesis tests.
+    - alpha: desired FDR control level (default is 0.05).
+
+    Returns:
+    - rejected: boolean array indicating which hypotheses are rejected.
+    - corrected_p_values: array of adjusted p-values.
+    """
+    p_values = np.asarray(p_values)
+    n = len(p_values)
+    sorted_indices = np.argsort(p_values)
+    sorted_p_values = p_values[sorted_indices]
+
+    # Compute the Benjamini-Hochberg critical values
+    bh_critical_values = np.arange(1, n + 1) * alpha / n
+
+    # Determine the largest k where p(k) <= (k/n) * alpha
+    rejected = sorted_p_values <= bh_critical_values
+    max_k = np.max(np.where(rejected)) if np.any(rejected) else -1
+
+    # Adjust p-values
+    corrected_p_values = np.minimum.accumulate((n / np.arange(n, 0, -1)) * sorted_p_values)
+    corrected_p_values = np.minimum(corrected_p_values, 1.0)
+
+    # Reorder corrected p-values to match original order
+    corrected_p_values = corrected_p_values[np.argsort(sorted_indices)]
+
+    # Determine which hypotheses are rejected
+    rejected = np.zeros(n, dtype=bool)
+    if max_k >= 0:
+        rejected[sorted_indices[:max_k + 1]] = True
+
+    return rejected, corrected_p_values
 
 def connect_to_db(dbname, user, password, host='localhost', port='5432'):
     """
@@ -103,6 +199,44 @@ def generateGB(groupAtts):
             meas = "sum(" + m + ")"
 
             queryVals = ("select distinct " + sel + " from " + table + ";")
+
+
+def welch_t_statistic(x1, x2):
+    """Calculate Welch's t-statistic for two samples."""
+    mean1, mean2 = np.mean(x1), np.mean(x2)
+    var1, var2 = np.var(x1, ddof=1), np.var(x2, ddof=1)
+    n1, n2 = len(x1), len(x2)
+    t_stat = (mean1 - mean2) / np.sqrt(var1 / n1 + var2 / n2)
+    return t_stat
+
+
+def permutation_test(x1, x2, num_permutations=10000, alpha=0.05):
+    """Perform a permutation test using Welch's t-statistic as the test statistic."""
+    # Calculate observed Welch's t-statistic
+    observed_t_stat = welch_t_statistic(x1, x2)
+
+    # Combine the samples
+    combined = np.concatenate([x1, x2])
+
+    # Generate the null distribution by permutation
+    permuted_t_stats = []
+    for _ in range(num_permutations):
+        np.random.shuffle(combined)
+        perm_x1 = combined[:len(x1)]
+        perm_x2 = combined[len(x1):]
+        permuted_t_stats.append(welch_t_statistic(perm_x1, perm_x2))
+
+    permuted_t_stats = np.array(permuted_t_stats)
+
+    # Calculate the p-value
+    p_value = np.mean(np.abs(permuted_t_stats) >= np.abs(observed_t_stat))
+
+    if p_value < alpha:
+        conclusion = "Reject the null hypothesis: There is a significant difference between the means of the two groups."
+    else:
+        conclusion = "Fail to reject the null hypothesis: There is no significant difference between the means of the two groups."
+
+    return observed_t_stat, p_value, permuted_t_stats, conclusion
 
 
 
@@ -268,6 +402,35 @@ def ExampleUsage():
     print(f"Brown-Forsythe test statistic: {W}")
     print(f"P-value: {p_value}")
 
+# Example usage for permutation test:
+    np.random.seed(0)
+    x1 = np.random.normal(0, 1, 30)
+    x2 = np.random.normal(0.5, 1.5, 35)
+
+    observed_t_stat, p_value, permuted_t_stats = permutation_test(x1, x2)
+    print(f"Observed Welch's t-statistic: {observed_t_stat}")
+    print(f"P-value: {p_value}")
+
+    # Example usage of benjamini_hochberg:
+    p_values = [0.01, 0.04, 0.03, 0.002, 0.05, 0.001, 0.03, 0.04]
+    alpha = 0.05
+    rejected, corrected_p_values = benjamini_hochberg(p_values, alpha)
+
+    print("Rejected hypotheses:", rejected)
+    print("Corrected p-values:", corrected_p_values)
+
+    # Example usage BRE:
+    pairwise_comparisons = [
+        ('A', 'B', 1),
+        ('A', 'C', -1),
+        ('B', 'C', 0),
+        ('A', 'D', 1),
+        ('B', 'D', -1),
+        ('C', 'D', 1)
+    ]
+
+    ranks = balanced_rank_estimation(pairwise_comparisons)
+    print("Balanced Rank Estimation:", ranks)
 
 
 def generateHypothesis(conn):
@@ -375,6 +538,54 @@ def computeStats(queryValues, vals, conn):
     return S
 
 
+def generateHypothesisTest(conn, meas, measBase, table, sel):
+
+    queryVals = ("SELECT  " + sel + ", " + meas + " FROM " + table + " group by " + sel + " order by " + meas + "  desc limit " + str(sizeOfVals) + ";")
+    #print(queryVals)
+    #queryVals = ("SELECT DISTINCT " + sel +  " FROM " + table + " limit " + str(sizeOfVals) + ";")
+    resultVals = execute_query(conn, queryVals)
+    Vals = tuple([x[0] for x in resultVals])
+
+    S = []
+    for v in Vals:
+        querySample = ("SELECT " + measBase + " FROM " + table + " TABLESAMPLE SYSTEM (10) WHERE " + sel + "='" + v + "';")
+
+        resultSample = execute_query(conn, querySample)
+        #print(resultSample)
+
+        data = []
+        for row in resultSample:
+            data.append(float(row[0]))
+
+        nvalues = len(data)
+        data = np.array(data)
+        skewness = compute_skewness(data)
+        S.append((v, nvalues, skewness, data))
+
+    #print(S)
+
+    for i in range(1, len(S)):
+        for j in range(i, len(S)):
+            b = claireStat(S[i-1][2], S[j][2], S[i-1][1], S[j][1])
+            print("for " + S[i-1][0] + " and " + S[j][0] + " Claire test says: " + str(b))
+            if b:
+                print("Welch test can be used")
+                #sample1 = getValues(queryValues, vals, S[1][0], conn)
+                #sample2 = getValues(queryValues, vals, S[i][0], conn)
+                t_stat, p_value, conclusion = welch_ttest(S[i-1][3], S[j][3])
+                print(t_stat, p_value, conclusion)
+            else:
+                print("Permutation test is used")
+                observed_t_stat, p_value, permuted_t_stats, conclusion = permutation_test(S[i-1][3], S[j][3])
+                print(f"Observed Welch's t-statistic: {observed_t_stat}")
+                print(f"P-value: {p_value}")
+                print(f"conclusion: {conclusion}")
+
+
+#def computeStatsDB():
+    # for all categorical attributes
+    # for all values
+    # send query to collect average, size, etc.
 
 #queryPattern="SELECT " + gb + "," + meas + " FROM " + table + " WHERE " + sel + " in " + vals + "group by " + gb +";"
 #hypothesis=[('AA', 1),('UA', 2),('US', 3)]
@@ -392,8 +603,9 @@ sel="airline"
 vals="('AA','UA','US')"
 #meas="sum(nb_flights)"
 meas="avg(departure_delay)"
+measBase="departure_delay"
 
-sizeOfVals=5 #number of members for the hypothesis
+sizeOfVals=7 #number of members for the hypothesis
 q0=""
 epsilon=0.01
 alpha=0.01
@@ -418,6 +630,11 @@ if __name__ == "__main__":
     conn = connect_to_db(dbname, user, password, host, port)
 
     if conn:
+
+        #test genertion hypothesis: only if statistically significant on samples
+        generateHypothesisTest(conn, meas, measBase, table, sel)
+
+
         #compute powerset of categorical attributes
         pwset = powerset(groupbyAtt)
 
@@ -444,7 +661,6 @@ if __name__ == "__main__":
             S=computeStats(queryValues, vals, conn)
 
             for i in range(2,len(S)):
-
                 # example of statstical test for first 2 members
                 b=claireStat(S[1][2], S[i][2], S[1][1], S[i][1])
                 print("for " + S[1][0] + " and " + S[i][0] + " Claire test says: " + str(b))
