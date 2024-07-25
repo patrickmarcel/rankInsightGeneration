@@ -117,11 +117,15 @@ def claireStat(skew1, skew2, count1, count2, threshold=0.049):
 
 
 
-def generateHypothesis(conn):
+def emptyGB(conn):
     # compute top sizeOfVals members - could look for best combinations?
+    #queryEmptyGb = ("SELECT " + sel + ","
+    #                + " rank () over (  order by " + meas + " desc ) as rank" +
+    #                " FROM " + table + " group by " + sel + " limit " + str(sizeOfVals) + ";")
+
     queryEmptyGb = ("SELECT " + sel + ","
                     + " rank () over (  order by " + meas + " desc ) as rank" +
-                    " FROM " + table + " group by " + sel + " limit " + str(sizeOfVals) + ";")
+                    " FROM " + table + " group by " + sel +  ";")
 
     resultEmptyGb = execute_query(conn, queryEmptyGb)
 
@@ -262,7 +266,6 @@ def generateHypothesisTest(conn, meas, measBase, table, sel, sampleSize):
 
     #print(S)
 
-
     #according to  Wauthier &al JMLR 2013, nlog(n) comparisons enough for recovering the true ranking
     nbOfComparisons=len(Sels)*math.log(len(Sels),2)
     print("Number of comparisons to make: " + str(nbOfComparisons))
@@ -274,13 +277,11 @@ def generateHypothesisTest(conn, meas, measBase, table, sel, sampleSize):
     for i in range(1, len(S)):
         for j in range(i, len(S)):
             b = claireStat(S[i-1][2], S[j][2], S[i-1][1], S[j][1])
-            print("for " + S[i-1][0] + " and " + S[j][0] + " Claire test says: " + str(b))
+            #print("for " + S[i-1][0] + " and " + S[j][0] + " Claire test says: " + str(b))
             if b:
-                print("Welch test can be used")
-                #sample1 = getValues(queryValues, vals, S[1][0], conn)
-                #sample2 = getValues(queryValues, vals, S[i][0], conn)
+                #print("Welch test can be used")
                 t_stat, p_value, conclusion = welch_ttest(S[i-1][3], S[j][3])
-                print(t_stat, p_value, conclusion)
+                #print(t_stat, p_value, conclusion)
                 tabPValues.append(p_value)
                 comp=0 # not significant
                 if p_value < 0.05 and t_stat < 0:
@@ -289,11 +290,12 @@ def generateHypothesisTest(conn, meas, measBase, table, sel, sampleSize):
                     comp = 1
                 pairwiseComparison.append((S[i-1][0],S[j][0],comp))
             else:
-                print("Permutation test is used")
+                #print("Permutation test is used")
                 observed_t_stat, p_value, permuted_t_stats, conclusion = permutation_test(S[i-1][3], S[j][3])
-                print(f"Observed Welch's t-statistic: {observed_t_stat}")
-                print(f"P-value: {p_value}")
-                print(f"conclusion: {conclusion}")
+                #print(f"Observed Welch's t-statistic: {observed_t_stat}")
+                #print(f"P-value: {p_value}")
+                #print(f"conclusion: {conclusion}")
+                #print(observed_t_stat, p_value, conclusion)
                 tabPValues.append(p_value)
                 comp = 0  # not significant
                 if p_value < 0.05 and observed_t_stat < 0:
@@ -305,12 +307,33 @@ def generateHypothesisTest(conn, meas, measBase, table, sel, sampleSize):
     #print(pairwiseComparison)
     # before correction
     ranks = balanced_rank_estimation(pairwiseComparison)
-    print("Balanced Rank Estimation:", ranks)
+    #print("Balanced Rank Estimation:", ranks)
+
+    sorted_items = sorted(ranks.items(), key=lambda item: item[1], reverse=True)
+    print(sorted_items)
+    hypothesis=[]
+    rank=0
+    for s in sorted_items:
+        if rank == 0:
+            rank=1
+            hypothesis.append((s[0],rank))
+            val=s[1]
+        else:
+            if s[1] == val:
+                hypothesis.append((s[0], rank))
+            else:
+                rank=rank+1
+                hypothesis.append((s[0], rank))
+    #print(hypothesis)
+
+    #TODO correct tests with BH
 
     alpha = 0.05
     rejected, corrected_p_values = benjamini_hochberg(tabPValues, alpha)
-    print("Rejected hypotheses:", rejected)
-    print("Corrected p-values:", corrected_p_values)
+    #print("Rejected hypotheses:", rejected)
+    #print("Corrected p-values:", corrected_p_values)
+
+    return hypothesis
 
 
 
@@ -323,7 +346,7 @@ def hoeffdingForRank(groupbyAtt, n, hypothesis):
     # TODO hypothesis could also be user given
     pwset.remove(())
 
-    print("Hypothesis is:" + str(hypothesis))
+    #print("Hypothesis is:" + str(hypothesis))
 
 #   hypothesis = generateHypothesis(conn);
 #    vals = tuple([x[0] for x in hypothesis])
@@ -422,8 +445,9 @@ if __name__ == "__main__":
     if conn:
 
         #test genertion hypothesis: only if statistically significant on samples
-        generateHypothesisTest(conn, meas, measBase, table, sel, sampleSize)
+        hypothesis=generateHypothesisTest(conn, meas, measBase, table, sel, sampleSize)
 
+        print("Hypothesis as predicted: ", hypothesis)
 
         #compute powerset of categorical attributes
         #pwset = powerset(groupbyAtt)
@@ -436,7 +460,10 @@ if __name__ == "__main__":
         # TODO hypothesis could also be user given
         #pwset.remove(())
 
-        hypothesis=generateHypothesis(conn);
+        emptyGB=emptyGB(conn);
+
+        print("Empty GB says:", emptyGB)
+
         vals=tuple([x[0] for x in hypothesis])
 
         hoeffdingForRank(groupbyAtt, n, hypothesis)
