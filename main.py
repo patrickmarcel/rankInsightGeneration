@@ -3,7 +3,7 @@ from itertools import chain, combinations
 import math
 import numpy as np
 from dbStuff import execute_query, connect_to_db, close_connection
-from statStuff import benjamini_hochberg, welch_ttest, permutation_test, compute_skewness
+from statStuff import benjamini_hochberg, welch_ttest, permutation_test, compute_skewness, compute_kendall_tau
 
 import pandas as pd
 
@@ -228,14 +228,6 @@ def computeStats(queryValues, vals, conn):
 
 def generateHypothesisTest(conn, meas, measBase, table, sel, sampleSize):
 
-    # 2 options
-    # top k measures order by by agg(measure) desc
-    #queryVals = ("SELECT  " + sel + ", " + meas + " FROM " + table + " group by " + sel + " order by " + meas + "  desc limit " + str(sizeOfVals) + ";")
-    # or all values
-    #queryVals = ("SELECT DISTINCT " + sel +  " FROM " + table +  ";")
-    #queryVals = ("SELECT DISTINCT " + sel +  " FROM " + table + " limit " + str(sizeOfVals) + ";")
-    # print(queryVals)
-
     querySample = (
             "SELECT " + sel + ", " + measBase + " FROM " + table + " TABLESAMPLE SYSTEM (" + str(sampleSize) + ");")
 
@@ -310,7 +302,7 @@ def generateHypothesisTest(conn, meas, measBase, table, sel, sampleSize):
     #print("Balanced Rank Estimation:", ranks)
 
     sorted_items = sorted(ranks.items(), key=lambda item: item[1], reverse=True)
-    print(sorted_items)
+    #print(sorted_items)
     hypothesis=[]
     rank=0
     for s in sorted_items:
@@ -327,6 +319,7 @@ def generateHypothesisTest(conn, meas, measBase, table, sel, sampleSize):
     #print(hypothesis)
 
     #TODO correct tests with BH
+    print("warning: BH not done!")
 
     alpha = 0.05
     rejected, corrected_p_values = benjamini_hochberg(tabPValues, alpha)
@@ -393,16 +386,6 @@ def hoeffdingForRank(groupbyAtt, n, hypothesis):
 
 
 
-
-#def computeStatsDB():
-    # for all categorical attributes
-    # for all values
-    # send query to collect average, size, etc.
-
-#queryPattern="SELECT " + gb + "," + meas + " FROM " + table + " WHERE " + sel + " in " + vals + "group by " + gb +";"
-#hypothesis=[('AA', 1),('UA', 2),('US', 3)]
-
-
 table="fact_table"
 measures=["nb_flights","departure_delay","late_aircraft"]
 groupAtts=["departure_airport","date","departure_hour","flight","airline"]
@@ -428,7 +411,7 @@ n=math.log(2/alpha,10) / pow(2,epsilon*epsilon)
 print("n>= " + str(n))
 n=math.ceil(n)
 
-sampleSize=20
+sampleSize=50
 
 if __name__ == "__main__":
 
@@ -461,8 +444,23 @@ if __name__ == "__main__":
         #pwset.remove(())
 
         emptyGB=emptyGB(conn);
-
         print("Empty GB says:", emptyGB)
+
+        # compute kendall tau between hypothesis and emptyGB
+        hypothesis.sort(key=lambda x: x[0])
+        emptyGB.sort(key=lambda x: x[0])
+
+        #print(hypothesis)
+        #print(emptyGB)
+
+        rankings_with_ties1 = [x[1] for x in hypothesis]
+        rankings_with_ties2 = [x[1] for x in emptyGB]
+
+        #print(rankings_with_ties1)
+        #print(rankings_with_ties2)
+
+        tau, p_value = compute_kendall_tau(rankings_with_ties1, rankings_with_ties2)
+        print(f"Kendall Tau-b: {tau}, p-value: {p_value}")
 
         vals=tuple([x[0] for x in hypothesis])
 

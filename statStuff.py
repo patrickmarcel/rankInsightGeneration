@@ -187,3 +187,17 @@ def brown_forsythe_test(*groups):
 
 
 
+def compute_kendall_tau(rankings1, rankings2):
+    """
+    Compute Kendall Tau-b correlation coefficient for rankings with ties.
+
+    Parameters:
+    - rankings1: list, the first ranking.
+    - rankings2: list, the second ranking.
+
+    Returns:
+    - tau: float, the Kendall Tau-b correlation coefficient.
+    - p_value: float, the p-value for testing non-correlation.
+    """
+    tau, p_value = stats.kendalltau(rankings1, rankings2)
+    return tau, p_value
