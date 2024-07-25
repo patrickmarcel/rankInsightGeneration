@@ -222,17 +222,21 @@ def computeStats(queryValues, vals, conn):
     return S
 
 
-def generateHypothesisTest(conn, meas, measBase, table, sel):
+def generateHypothesisTest(conn, meas, measBase, table, sel, sampleSize):
 
-    queryVals = ("SELECT  " + sel + ", " + meas + " FROM " + table + " group by " + sel + " order by " + meas + "  desc limit " + str(sizeOfVals) + ";")
-    #print(queryVals)
+    # 2 options
+    # top k measures order by by agg(measure) desc
+    #queryVals = ("SELECT  " + sel + ", " + meas + " FROM " + table + " group by " + sel + " order by " + meas + "  desc limit " + str(sizeOfVals) + ";")
+    # or all values
+    queryVals = ("SELECT DISTINCT " + sel +  " FROM " + table +  ";")
     #queryVals = ("SELECT DISTINCT " + sel +  " FROM " + table + " limit " + str(sizeOfVals) + ";")
+    # print(queryVals)
     resultVals = execute_query(conn, queryVals)
     Vals = tuple([x[0] for x in resultVals])
 
     S = []
     for v in Vals:
-        querySample = ("SELECT " + measBase + " FROM " + table + " TABLESAMPLE SYSTEM (10) WHERE " + sel + "='" + v + "';")
+        querySample = ("SELECT " + measBase + " FROM " + table + " TABLESAMPLE SYSTEM (" + sampleSize + ") WHERE " + sel + "='" + v + "';")
 
         resultSample = execute_query(conn, querySample)
         #print(resultSample)
@@ -367,6 +371,8 @@ n=math.log(2/alpha,10) / pow(2,epsilon*epsilon)
 print("n>= " + str(n))
 n=math.ceil(n)
 
+sampleSize=20
+
 if __name__ == "__main__":
 
     # Database connection parameters
@@ -382,7 +388,7 @@ if __name__ == "__main__":
     if conn:
 
         #test genertion hypothesis: only if statistically significant on samples
-        generateHypothesisTest(conn, meas, measBase, table, sel)
+        generateHypothesisTest(conn, meas, measBase, table, sel, sampleSize)
 
 
         #compute powerset of categorical attributes
