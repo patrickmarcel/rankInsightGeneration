@@ -260,10 +260,17 @@ def generateHypothesisTest(conn, meas, measBase, table, sel, sampleSize):
         skewness = compute_skewness(data)
         S.append((v, nvalues, skewness, data))
 
-    print(S)
+    #print(S)
+
+
+    #according to  Wauthier &al JMLR 2013, nlog(n) comparisons enough for recovering the true ranking
+    nbOfComparisons=len(Sels)*math.log(len(Sels),2)
+    print("Number of comparisons to make: " + str(nbOfComparisons))
 
     tabPValues=[]
-    # all tests
+    pairwiseComparison=[]
+
+    # so far all tests
     for i in range(1, len(S)):
         for j in range(i, len(S)):
             b = claireStat(S[i-1][2], S[j][2], S[i-1][1], S[j][1])
@@ -275,6 +282,12 @@ def generateHypothesisTest(conn, meas, measBase, table, sel, sampleSize):
                 t_stat, p_value, conclusion = welch_ttest(S[i-1][3], S[j][3])
                 print(t_stat, p_value, conclusion)
                 tabPValues.append(p_value)
+                comp=0 # not significant
+                if p_value < 0.05 and t_stat < 0:
+                    comp = -1
+                if p_value < 0.05 and t_stat > 0:
+                    comp = 1
+                pairwiseComparison.append((S[i-1][0],S[j][0],comp))
             else:
                 print("Permutation test is used")
                 observed_t_stat, p_value, permuted_t_stats, conclusion = permutation_test(S[i-1][3], S[j][3])
@@ -282,6 +295,17 @@ def generateHypothesisTest(conn, meas, measBase, table, sel, sampleSize):
                 print(f"P-value: {p_value}")
                 print(f"conclusion: {conclusion}")
                 tabPValues.append(p_value)
+                comp = 0  # not significant
+                if p_value < 0.05 and observed_t_stat < 0:
+                    comp = -1
+                if p_value < 0.05 and observed_t_stat > 0:
+                    comp = 1
+                pairwiseComparison.append((S[i - 1][0], S[j][0], comp))
+
+    #print(pairwiseComparison)
+    # before correction
+    ranks = balanced_rank_estimation(pairwiseComparison)
+    print("Balanced Rank Estimation:", ranks)
 
     alpha = 0.05
     rejected, corrected_p_values = benjamini_hochberg(tabPValues, alpha)
