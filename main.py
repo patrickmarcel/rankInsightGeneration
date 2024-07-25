@@ -228,29 +228,39 @@ def generateHypothesisTest(conn, meas, measBase, table, sel, sampleSize):
     # top k measures order by by agg(measure) desc
     #queryVals = ("SELECT  " + sel + ", " + meas + " FROM " + table + " group by " + sel + " order by " + meas + "  desc limit " + str(sizeOfVals) + ";")
     # or all values
-    queryVals = ("SELECT DISTINCT " + sel +  " FROM " + table +  ";")
+    #queryVals = ("SELECT DISTINCT " + sel +  " FROM " + table +  ";")
     #queryVals = ("SELECT DISTINCT " + sel +  " FROM " + table + " limit " + str(sizeOfVals) + ";")
     # print(queryVals)
-    resultVals = execute_query(conn, queryVals)
-    Vals = tuple([x[0] for x in resultVals])
+
+    querySample = (
+            "SELECT " + sel + ", " + measBase + " FROM " + table + " TABLESAMPLE SYSTEM (" + str(sampleSize) + ");")
+
+    #print(querySample)
+    resultVals = execute_query(conn, querySample)
+    Sels = tuple([x[0] for x in resultVals])
+    Sels = list(dict.fromkeys(Sels))
+    #print(Sels)
+    Vals = tuple([x[1] for x in resultVals])
+    #print(Vals)
 
     S = []
-    for v in Vals:
-        querySample = ("SELECT " + measBase + " FROM " + table + " TABLESAMPLE SYSTEM (" + sampleSize + ") WHERE " + sel + "='" + v + "';")
+    for v in Sels:
+        #querySample = ("SELECT " + measBase + " FROM " + table + " TABLESAMPLE SYSTEM (" + sampleSize + ") WHERE " + sel + "='" + v + "';")
 
-        resultSample = execute_query(conn, querySample)
+        #resultSample = execute_query(conn, querySample)
         #print(resultSample)
 
         data = []
-        for row in resultSample:
-            data.append(float(row[0]))
+        for row in resultVals:
+            if row[0]==v:
+                data.append(float(row[1]))
 
         nvalues = len(data)
         data = np.array(data)
         skewness = compute_skewness(data)
         S.append((v, nvalues, skewness, data))
 
-    #print(S)
+    print(S)
 
     tabPValues=[]
     # all tests
