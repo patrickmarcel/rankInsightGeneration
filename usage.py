@@ -68,13 +68,17 @@ def ExampleUsage():
     print("Balanced Rank Estimation:", ranks)
 
     # Example usage
-    x = [1, 2, 3, 4, 5]
-    y = [2, 3, 5, 7, 11]
-    z = [1, 4, 6, 8, 10]
+    data = [
+        (1, 2, 3),
+        (2, 3, 4),
+        (3, 4, 5),
+        (4, 5, 6),
+        (5, 6, 7)
+    ]
 
-    plot_curves(x, y, z)
+    curve_names = ["Curve 1", "Curve 2"]
 
-
+    plotStuff.plot_curves(data, curve_names)
 
 # below to trash
 """ 

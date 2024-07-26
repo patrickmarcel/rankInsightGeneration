@@ -5,7 +5,7 @@ import numpy as np
 from plotStuff import plot_curves
 from dbStuff import execute_query, connect_to_db, close_connection
 from statStuff import benjamini_hochberg_gpt, welch_ttest, permutation_test, compute_skewness, compute_kendall_tau, benjamini_hochberg
-
+import time
 
 import pandas as pd
 
@@ -467,10 +467,10 @@ n=math.log(2/alpha,10) / pow(2,epsilon*epsilon)
 #print("n>= " + str(n))
 n=math.ceil(n)
 
-sampleSize=10
+sampleSize=20
 samplingMethod='BERNOULLI' # or SYSTEM
 
-nbruns=10
+nbruns=20
 
 if __name__ == "__main__":
 
@@ -488,6 +488,8 @@ if __name__ == "__main__":
 
         resultRuns=[]
         for i in range(nbruns):
+
+            start_time=time.time()
             #generate hypothesis: ordering of members such that mean is greater (statistically significant on sample)
             hypothesis=generateHypothesisTest(conn, meas, measBase, table, sel, sampleSize, samplingMethod)
 
@@ -516,10 +518,15 @@ if __name__ == "__main__":
 
             expected=hoeffdingForRank(groupbyAtt, n, hypothesis)
 
-            resultRuns.append((i, float(tau),expected))
+            end_time = time.time()
+            elapsed_time = end_time - start_time
+
+            resultRuns.append((i, float(tau),expected,elapsed_time))
 
 
         print(resultRuns)
-        plot_curves([x[0] for x in resultRuns], [x[1] for x in resultRuns], [x[2] for x in resultRuns], 'tau', 'expected')
+        names=['tau','expected','time']
+        title='Sample size=' + str(sampleSize)
+        plot_curves(resultRuns,  names, 'time', 'expected', title)
         # Close the connection
         close_connection(conn)
