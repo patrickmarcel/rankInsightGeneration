@@ -2,6 +2,7 @@ import random
 from itertools import chain, combinations
 import math
 import numpy as np
+from plotStuff import plot_curves
 from dbStuff import execute_query, connect_to_db, close_connection
 from statStuff import benjamini_hochberg_gpt, welch_ttest, permutation_test, compute_skewness, compute_kendall_tau, benjamini_hochberg
 
@@ -287,23 +288,25 @@ def generateHypothesisTest(conn, meas, measBase, table, sel, sampleSize, method)
         alreadyCompared.add(item1)
         alreadyCompared.add(item2)
 
-    print("alreadyCompared: ", alreadyCompared)
+    #print("alreadyCompared: ", alreadyCompared)
 
     allValues = set()
     for s in Sels:
         allValues.add(s)
 
-    print("allValues: ", allValues)
+    #print("allValues: ", allValues)
 
     difference = allValues.difference(alreadyCompared)
-    print("difference: ", difference)
+    #print("difference: ", difference)
 
     if len(difference) != 0:
         # compare the ones in difference with one already compared
         for d in difference:
             for cl in claireTab:
+                #print(cl[0], cl[1])
                 if cl[0] == d or cl[1] == d:
                     # print("Permutation test is used")
+                    print("adding a test")
                     nbPermut = nbPermut + 1
                     observed_t_stat, p_value, permuted_t_stats, conclusion = permutation_test(cl[3], cl[4])
                     # print(f"Observed Welch's t-statistic: {observed_t_stat}")
@@ -318,7 +321,7 @@ def generateHypothesisTest(conn, meas, measBase, table, sel, sampleSize, method)
                     if p_value < 0.05 and observed_t_stat > 0:
                         comp = 1
                     pairwiseComparison.append((cl[0], cl[1], comp))
-                break
+                    break
 
     # Benjamini Hochberg correction
     # to be checked
@@ -429,7 +432,9 @@ def hoeffdingForRank(groupbyAtt, n, hypothesis):
 
         nbTests = nbTests + 1
 
+        expectedValue=sum(H) / len(H)
         print("Expected value is: " + str(sum(H) / len(H)))
+        return expectedValue
 
 
 #groupAtts=["departure_airport","date","departure_hour","flight","airline"]
@@ -465,6 +470,7 @@ n=math.ceil(n)
 sampleSize=10
 samplingMethod='BERNOULLI' # or SYSTEM
 
+nbruns=10
 
 if __name__ == "__main__":
 
@@ -480,33 +486,40 @@ if __name__ == "__main__":
 
     if conn:
 
-        #generate hypothesis: ordering of members such that mean is greater (statistically significant on sample)
-        hypothesis=generateHypothesisTest(conn, meas, measBase, table, sel, sampleSize, samplingMethod)
+        resultRuns=[]
+        for i in range(nbruns):
+            #generate hypothesis: ordering of members such that mean is greater (statistically significant on sample)
+            hypothesis=generateHypothesisTest(conn, meas, measBase, table, sel, sampleSize, samplingMethod)
 
-        print("Hypothesis as predicted: ", hypothesis)
+            print("Hypothesis as predicted: ", hypothesis)
 
-        emptyGB=emptyGB(conn);
-        print("Empty GB says:", emptyGB)
+            emptyGBresult=emptyGB(conn);
+            print("Empty GB says:", emptyGBresult)
 
-        # compute kendall tau between hypothesis and emptyGB
-        hypothesis.sort(key=lambda x: x[0])
-        emptyGB.sort(key=lambda x: x[0])
+            # compute kendall tau between hypothesis and emptyGB
+            hypothesis.sort(key=lambda x: x[0])
+            emptyGBresult.sort(key=lambda x: x[0])
 
-        #print(hypothesis)
-        #print(emptyGB)
+            #print(hypothesis)
+            #print(emptyGB)
 
-        rankings_with_ties1 = [x[1] for x in hypothesis]
-        rankings_with_ties2 = [x[1] for x in emptyGB]
+            rankings_with_ties1 = [x[1] for x in hypothesis]
+            rankings_with_ties2 = [x[1] for x in emptyGBresult]
 
-        #print(rankings_with_ties1)
-        #print(rankings_with_ties2)
+            #print(rankings_with_ties1)
+            #print(rankings_with_ties2)
 
-        tau, p_value = compute_kendall_tau(rankings_with_ties1, rankings_with_ties2)
-        print(f"Kendall Tau-c: {tau}, p-value: {p_value}")
+            tau, p_value = compute_kendall_tau(rankings_with_ties1, rankings_with_ties2)
+            print(f"Kendall Tau-c: {tau}, p-value: {p_value}")
 
-        vals=tuple([x[0] for x in hypothesis])
+            vals=tuple([x[0] for x in hypothesis])
 
-        hoeffdingForRank(groupbyAtt, n, hypothesis)
+            expected=hoeffdingForRank(groupbyAtt, n, hypothesis)
 
+            resultRuns.append((i, float(tau),expected))
+
+
+        print(resultRuns)
+        plot_curves([x[0] for x in resultRuns], [x[1] for x in resultRuns], [x[2] for x in resultRuns], 'tau', 'expected')
         # Close the connection
         close_connection(conn)

@@ -1,6 +1,7 @@
 import numpy as np
 import main
 import statStuff
+import plotStuff
 
 def ExampleUsage():
 
@@ -65,6 +66,14 @@ def ExampleUsage():
 
     ranks = main.balanced_rank_estimation(pairwise_comparisons)
     print("Balanced Rank Estimation:", ranks)
+
+    # Example usage
+    x = [1, 2, 3, 4, 5]
+    y = [2, 3, 5, 7, 11]
+    z = [1, 4, 6, 8, 10]
+
+    plot_curves(x, y, z)
+
 
 
 # below to trash
