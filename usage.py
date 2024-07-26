@@ -65,3 +65,78 @@ def ExampleUsage():
 
     ranks = main.balanced_rank_estimation(pairwise_comparisons)
     print("Balanced Rank Estimation:", ranks)
+
+
+# below to trash
+""" 
+    # so far all tests
+    # TODO only n*log(n)
+    for i in range(1, len(S)):
+        for j in range(i, len(S)):
+            b = claireStat(S[i-1][2], S[j][2], S[i-1][1], S[j][1])
+            #print("for " + S[i-1][0] + " and " + S[j][0] + " Claire test says: " + str(b))
+            if b:
+                #print("Welch test can be used")
+                t_stat, p_value, conclusion = welch_ttest(S[i-1][3], S[j][3])
+                #print(t_stat, p_value, conclusion)
+                tabStat.append(t_stat)
+                tabPValues.append(float(p_value))
+                comp=0 # not significant
+                if p_value < 0.05 and t_stat < 0:
+                    comp = -1
+                if p_value < 0.05 and t_stat > 0:
+                    comp = 1
+                pairwiseComparison.append((S[i-1][0],S[j][0],comp))
+            else:
+                #print("Permutation test is used")
+                observed_t_stat, p_value, permuted_t_stats, conclusion = permutation_test(S[i-1][3], S[j][3])
+                #print(f"Observed Welch's t-statistic: {observed_t_stat}")
+                #print(f"P-value: {p_value}")
+                #print(f"conclusion: {conclusion}")
+                #print(observed_t_stat, p_value, conclusion)
+                tabStat.append(observed_t_stat)
+                tabPValues.append(float(p_value))
+                comp = 0  # not significant
+                if p_value < 0.05 and observed_t_stat < 0:
+                    comp = -1
+                if p_value < 0.05 and observed_t_stat > 0:
+                    comp = 1
+                pairwiseComparison.append((S[i - 1][0], S[j][0], comp))
+"""
+
+""" 
+def computeStats(queryValues, vals, conn):
+    S = []
+
+    #  statistics (skew and size) for all members
+    resultValues = execute_query(conn, queryValues)
+    data = []
+    for row in resultValues:
+        data.append(float(row[0]))
+    nvalues = len(data)
+    data = np.array(data)
+    skewness = compute_skewness(data)
+    S.append(('ALL', nvalues, skewness))
+
+    #print("Size of the data: " + str(nvalues))
+    #print(f"Skewness of the data: {skewness}")
+
+    # compute stats for every member of the hypothesis
+    for v in vals:
+        queryVal = queryValues.replace(str(vals), "('" + str(v) + "')")
+        # print(queryVal)
+        resultValues = execute_query(conn, queryVal)
+        data = []
+        for row in resultValues:
+            data.append(float(row[0]))
+        nvalues = len(data)
+        data = np.array(data)
+        # Compute skewness
+        skewness = compute_skewness(data)
+        # Print result
+        # print("Size of the data: " + str(nvalues))
+        # print(f"Skewness of the data: {skewness}")
+        S.append((v, nvalues, skewness))
+
+    return S
+"""

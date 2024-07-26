@@ -183,53 +183,20 @@ def getValues(queryValues, vals, v, conn):
     np.array(data)
     return data
 
-""" 
-def computeStats(queryValues, vals, conn):
-    S = []
-
-    #  statistics (skew and size) for all members
-    resultValues = execute_query(conn, queryValues)
-    data = []
-    for row in resultValues:
-        data.append(float(row[0]))
-    nvalues = len(data)
-    data = np.array(data)
-    skewness = compute_skewness(data)
-    S.append(('ALL', nvalues, skewness))
-
-    #print("Size of the data: " + str(nvalues))
-    #print(f"Skewness of the data: {skewness}")
-
-    # compute stats for every member of the hypothesis
-    for v in vals:
-        queryVal = queryValues.replace(str(vals), "('" + str(v) + "')")
-        # print(queryVal)
-        resultValues = execute_query(conn, queryVal)
-        data = []
-        for row in resultValues:
-            data.append(float(row[0]))
-        nvalues = len(data)
-        data = np.array(data)
-        # Compute skewness
-        skewness = compute_skewness(data)
-        # Print result
-        # print("Size of the data: " + str(nvalues))
-        # print(f"Skewness of the data: {skewness}")
-        S.append((v, nvalues, skewness))
-
-    return S
-"""
-
-def generateHypothesisTest(conn, meas, measBase, table, sel, sampleSize):
-
-    #sampling using postgresql: https://www.postgresql.org/docs/current/sql-select.html#SQL-FROM
-    #system (faster) is block based, bernouili (slower) is row based
+def getSample(conn, meas, measBase, table, sel, sampleSize, method):
+    # sampling using postgresql: https://www.postgresql.org/docs/current/sql-select.html#SQL-FROM
+    # system (faster) is block based, bernouili (slower) is row based
     # TODO try bernouilli method instead
     querySample = (
-            "SELECT " + sel + ", " + measBase + " FROM " + table + " TABLESAMPLE SYSTEM (" + str(sampleSize) + ");")
-    #print(querySample)
+            "SELECT " + sel + ", " + measBase + " FROM " + table + " TABLESAMPLE " + method + " (" + str(sampleSize) + ");")
+    # print(querySample)
     resultVals = execute_query(conn, querySample)
     print("Sample size in tuples: ", len(resultVals))
+    return resultVals
+
+def generateHypothesisTest(conn, meas, measBase, table, sel, sampleSize, method):
+
+    resultVals = getSample(conn, meas, measBase, table, sel, sampleSize, method)
 
     Sels = tuple([x[0] for x in resultVals])
     Sels = list(dict.fromkeys(Sels))
@@ -264,42 +231,55 @@ def generateHypothesisTest(conn, meas, measBase, table, sel, sampleSize):
     pairwiseComparison=[]
     tabStat=[]
 
-    # so far all tests
-    # TODO only n*log(n)
+    # compute Claire statistics for all pairs
+    claireTab=[]
     for i in range(1, len(S)):
         for j in range(i, len(S)):
             b = claireStat(S[i-1][2], S[j][2], S[i-1][1], S[j][1])
-            #print("for " + S[i-1][0] + " and " + S[j][0] + " Claire test says: " + str(b))
-            if b:
-                #print("Welch test can be used")
-                t_stat, p_value, conclusion = welch_ttest(S[i-1][3], S[j][3])
-                #print(t_stat, p_value, conclusion)
-                tabStat.append(t_stat)
-                tabPValues.append(float(p_value))
-                comp=0 # not significant
-                if p_value < 0.05 and t_stat < 0:
-                    comp = -1
-                if p_value < 0.05 and t_stat > 0:
-                    comp = 1
-                pairwiseComparison.append((S[i-1][0],S[j][0],comp))
-            else:
-                #print("Permutation test is used")
-                observed_t_stat, p_value, permuted_t_stats, conclusion = permutation_test(S[i-1][3], S[j][3])
-                #print(f"Observed Welch's t-statistic: {observed_t_stat}")
-                #print(f"P-value: {p_value}")
-                #print(f"conclusion: {conclusion}")
-                #print(observed_t_stat, p_value, conclusion)
-                tabStat.append(observed_t_stat)
-                tabPValues.append(float(p_value))
-                comp = 0  # not significant
-                if p_value < 0.05 and observed_t_stat < 0:
-                    comp = -1
-                if p_value < 0.05 and observed_t_stat > 0:
-                    comp = 1
-                pairwiseComparison.append((S[i - 1][0], S[j][0], comp))
+            claireTab.append((S[i-1][0], S[j][0],b, S[i - 1][3], S[j][3]))
 
-    #print("raw pairwise comparisons: ", pairwiseComparison)
-    #print("size: ", len(pairwiseComparison))
+    #print("Claire Tab: ", claireTab)
+
+    # compute all Welch tests
+    nbWelch=0
+    for cl in claireTab:
+        if cl[2]:
+            # print("Welch test can be used")
+            nbWelch=nbWelch+1
+            t_stat, p_value, conclusion = welch_ttest(cl[3], cl[4])
+            # print(t_stat, p_value, conclusion)
+            tabStat.append(t_stat)
+            tabPValues.append(float(p_value))
+            comp = 0  # not significant
+            if p_value < 0.05 and t_stat < 0:
+                comp = -1
+            if p_value < 0.05 and t_stat > 0:
+                comp = 1
+            pairwiseComparison.append((cl[0], cl[1], comp))
+    nbremaining = nbOfComparisons - nbWelch
+    nbPermut=0
+    for cl in claireTab:
+        if not cl[2]:
+            # print("Permutation test is used")
+            nbPermut=nbPermut+1
+            observed_t_stat, p_value, permuted_t_stats, conclusion = permutation_test(cl[3], cl[4])
+            # print(f"Observed Welch's t-statistic: {observed_t_stat}")
+            # print(f"P-value: {p_value}")
+            # print(f"conclusion: {conclusion}")
+            # print(observed_t_stat, p_value, conclusion)
+            tabStat.append(observed_t_stat)
+            tabPValues.append(float(p_value))
+            comp = 0  # not significant
+            if p_value < 0.05 and observed_t_stat < 0:
+                comp = -1
+            if p_value < 0.05 and observed_t_stat > 0:
+                comp = 1
+            pairwiseComparison.append((cl[0], cl[1], comp))
+        if nbremaining - nbPermut <= 0:
+            break
+
+    print("raw pairwise comparisons: ", pairwiseComparison)
+    print("size: ", len(pairwiseComparison))
 
     # Benjamini Hochberg correction
     # TODO check BH
@@ -439,7 +419,8 @@ n=math.log(2/alpha,10) / pow(2,epsilon*epsilon)
 print("n>= " + str(n))
 n=math.ceil(n)
 
-sampleSize=70
+sampleSize=20
+samplingMethod='BERNOULLI' # or SYSTEM
 
 if __name__ == "__main__":
 
@@ -456,7 +437,7 @@ if __name__ == "__main__":
     if conn:
 
         #generate hypothesis: ordering of members such that mean is greater (statistically significant on sample)
-        hypothesis=generateHypothesisTest(conn, meas, measBase, table, sel, sampleSize)
+        hypothesis=generateHypothesisTest(conn, meas, measBase, table, sel, sampleSize, samplingMethod)
 
         print("Hypothesis as predicted: ", hypothesis)
 
@@ -483,7 +464,7 @@ if __name__ == "__main__":
         #print(rankings_with_ties2)
 
         tau, p_value = compute_kendall_tau(rankings_with_ties1, rankings_with_ties2)
-        print(f"Kendall Tau-b: {tau}, p-value: {p_value}")
+        print(f"Kendall Tau-c: {tau}, p-value: {p_value}")
 
         vals=tuple([x[0] for x in hypothesis])
 

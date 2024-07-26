@@ -202,5 +202,5 @@ def compute_kendall_tau(rankings1, rankings2):
     - tau: float, the Kendall Tau-b correlation coefficient.
     - p_value: float, the p-value for testing non-correlation.
     """
-    tau, p_value = stats.kendalltau(rankings1, rankings2)
+    tau, p_value = stats.kendalltau(rankings1, rankings2, method='asymptotic', variant='c')
     return tau, p_value
