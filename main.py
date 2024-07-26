@@ -281,8 +281,41 @@ def generateHypothesisTest(conn, meas, measBase, table, sel, sampleSize, method)
     print("raw pairwise comparisons: ", pairwiseComparison)
     print("size: ", len(pairwiseComparison))
 
+    # the ones already compared
+    alreadyCompared = set()
+    for item1, item2, comp in pairwiseComparison:
+        alreadyCompared.add(item1)
+        alreadyCompared.add(item2)
+
+    allValues = set()
+    for s in Sels:
+        allValues.add(s)
+
+    difference = allValues.difference(alreadyCompared)
+    if len(difference) != 0:
+        # compare the ones in difference with one already compared
+        for d in difference:
+            for cl in claireTab:
+                if not cl[0] == d or cl[1] == d:
+                    # print("Permutation test is used")
+                    nbPermut = nbPermut + 1
+                    observed_t_stat, p_value, permuted_t_stats, conclusion = permutation_test(cl[3], cl[4])
+                    # print(f"Observed Welch's t-statistic: {observed_t_stat}")
+                    # print(f"P-value: {p_value}")
+                    # print(f"conclusion: {conclusion}")
+                    # print(observed_t_stat, p_value, conclusion)
+                    tabStat.append(observed_t_stat)
+                    tabPValues.append(float(p_value))
+                    comp = 0  # not significant
+                    if p_value < 0.05 and observed_t_stat < 0:
+                        comp = -1
+                    if p_value < 0.05 and observed_t_stat > 0:
+                        comp = 1
+                    pairwiseComparison.append((cl[0], cl[1], comp))
+                break
+
     # Benjamini Hochberg correction
-    # TODO check BH
+    # to be checked
 
     alpha = 0.05
     # rejected, corrected_p_values = benjamini_hochberg_gpt(tabPValues, alpha)
