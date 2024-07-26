@@ -130,13 +130,6 @@ def emptyGB(conn):
 
     resultEmptyGb = execute_query(conn, queryEmptyGb)
 
-    """
-    if resultEmptyGb is not None:
-        print("Overall the ranking is as follows:")
-        for row in resultEmptyGb:
-            print(row)
-    """
-
     return resultEmptyGb
 
 
@@ -190,7 +183,7 @@ def getValues(queryValues, vals, v, conn):
     np.array(data)
     return data
 
-
+""" 
 def computeStats(queryValues, vals, conn):
     S = []
 
@@ -225,7 +218,7 @@ def computeStats(queryValues, vals, conn):
         S.append((v, nvalues, skewness))
 
     return S
-
+"""
 
 def generateHypothesisTest(conn, meas, measBase, table, sel, sampleSize):
 
@@ -234,9 +227,10 @@ def generateHypothesisTest(conn, meas, measBase, table, sel, sampleSize):
     # TODO try bernouilli method instead
     querySample = (
             "SELECT " + sel + ", " + measBase + " FROM " + table + " TABLESAMPLE SYSTEM (" + str(sampleSize) + ");")
-
     #print(querySample)
     resultVals = execute_query(conn, querySample)
+    print("Sample size in tuples: ", len(resultVals))
+
     Sels = tuple([x[0] for x in resultVals])
     Sels = list(dict.fromkeys(Sels))
     #print(Sels)
@@ -304,11 +298,11 @@ def generateHypothesisTest(conn, meas, measBase, table, sel, sampleSize):
                     comp = 1
                 pairwiseComparison.append((S[i - 1][0], S[j][0], comp))
 
-    print(pairwiseComparison)
+    #print("raw pairwise comparisons: ", pairwiseComparison)
+    #print("size: ", len(pairwiseComparison))
 
     # Benjamini Hochberg correction
     # TODO check BH
-    #print("warning: BH not done!")
 
     alpha = 0.05
     # rejected, corrected_p_values = benjamini_hochberg_gpt(tabPValues, alpha)
@@ -331,9 +325,10 @@ def generateHypothesisTest(conn, meas, measBase, table, sel, sampleSize):
             pairwiseComparison.remove(c)
             pairwiseComparison.append((c[0], c[1], comp))
 
-    print("number of BH corrections: ", nbChanges, " ratio: ", nbChanges/len(tabPValues), "%")
+    print("Number of BH corrections: ", nbChanges, " ratio: ", nbChanges/len(tabPValues), "%")
 
-    print(pairwiseComparison)
+    #print(pairwiseComparison)
+
 
 
     # ranking
@@ -444,7 +439,7 @@ n=math.log(2/alpha,10) / pow(2,epsilon*epsilon)
 print("n>= " + str(n))
 n=math.ceil(n)
 
-sampleSize=50
+sampleSize=70
 
 if __name__ == "__main__":
 
