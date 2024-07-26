@@ -287,16 +287,22 @@ def generateHypothesisTest(conn, meas, measBase, table, sel, sampleSize, method)
         alreadyCompared.add(item1)
         alreadyCompared.add(item2)
 
+    print("alreadyCompared: ", alreadyCompared)
+
     allValues = set()
     for s in Sels:
         allValues.add(s)
 
+    print("allValues: ", allValues)
+
     difference = allValues.difference(alreadyCompared)
+    print("difference: ", difference)
+
     if len(difference) != 0:
         # compare the ones in difference with one already compared
         for d in difference:
             for cl in claireTab:
-                if not cl[0] == d or cl[1] == d:
+                if cl[0] == d or cl[1] == d:
                     # print("Permutation test is used")
                     nbPermut = nbPermut + 1
                     observed_t_stat, p_value, permuted_t_stats, conclusion = permutation_test(cl[3], cl[4])
@@ -426,34 +432,39 @@ def hoeffdingForRank(groupbyAtt, n, hypothesis):
         print("Expected value is: " + str(sum(H) / len(H)))
 
 
+#groupAtts=["departure_airport","date","departure_hour","flight","airline"]
+#selectionAtt="airline"
+#measure="nb_flights"
+#sizeOfVals=7 #number of members for the hypothesis
+#gb=""
+#vals="('AA','UA','US')"
+#q0=""
+
 
 table="fact_table"
 measures=["nb_flights","departure_delay","late_aircraft"]
-groupAtts=["departure_airport","date","departure_hour","flight","airline"]
-
-measure="nb_flights"
-selectionAtt="airline"
 groupbyAtt=["departure_airport","date","departure_hour","flight"]
-gb=""
+#sel="airline"
+#meas="avg(departure_delay)"
+#measBase="departure_delay"
 sel="airline"
-vals="('AA','UA','US')"
-#meas="sum(nb_flights)"
 meas="avg(departure_delay)"
 measBase="departure_delay"
 
-sizeOfVals=7 #number of members for the hypothesis
-q0=""
+
+
 epsilon=0.01
 alpha=0.01
 p=0
 H=[]
 threshold=0.1 # 10% of tuples violating the order
 n=math.log(2/alpha,10) / pow(2,epsilon*epsilon)
-print("n>= " + str(n))
+#print("n>= " + str(n))
 n=math.ceil(n)
 
-sampleSize=20
+sampleSize=10
 samplingMethod='BERNOULLI' # or SYSTEM
+
 
 if __name__ == "__main__":
 
@@ -473,12 +484,6 @@ if __name__ == "__main__":
         hypothesis=generateHypothesisTest(conn, meas, measBase, table, sel, sampleSize, samplingMethod)
 
         print("Hypothesis as predicted: ", hypothesis)
-
-
-        # empty group by set removed from powerset
-        # since it is used to generate the hypothesis
-        # TODO hypothesis could also be user given
-        #pwset.remove(())
 
         emptyGB=emptyGB(conn);
         print("Empty GB says:", emptyGB)
