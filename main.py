@@ -3,7 +3,8 @@ from itertools import chain, combinations
 import math
 import numpy as np
 from dbStuff import execute_query, connect_to_db, close_connection
-from statStuff import benjamini_hochberg, welch_ttest, permutation_test, compute_skewness, compute_kendall_tau
+from statStuff import benjamini_hochberg_gpt, welch_ttest, permutation_test, compute_skewness, compute_kendall_tau, benjamini_hochberg
+
 
 import pandas as pd
 
@@ -228,6 +229,9 @@ def computeStats(queryValues, vals, conn):
 
 def generateHypothesisTest(conn, meas, measBase, table, sel, sampleSize):
 
+    #sampling using postgresql: https://www.postgresql.org/docs/current/sql-select.html#SQL-FROM
+    #system (faster) is block based, bernouili (slower) is row based
+    # TODO try bernouilli method instead
     querySample = (
             "SELECT " + sel + ", " + measBase + " FROM " + table + " TABLESAMPLE SYSTEM (" + str(sampleSize) + ");")
 
@@ -264,8 +268,10 @@ def generateHypothesisTest(conn, meas, measBase, table, sel, sampleSize):
 
     tabPValues=[]
     pairwiseComparison=[]
+    tabStat=[]
 
     # so far all tests
+    # TODO only n*log(n)
     for i in range(1, len(S)):
         for j in range(i, len(S)):
             b = claireStat(S[i-1][2], S[j][2], S[i-1][1], S[j][1])
@@ -274,7 +280,8 @@ def generateHypothesisTest(conn, meas, measBase, table, sel, sampleSize):
                 #print("Welch test can be used")
                 t_stat, p_value, conclusion = welch_ttest(S[i-1][3], S[j][3])
                 #print(t_stat, p_value, conclusion)
-                tabPValues.append(p_value)
+                tabStat.append(t_stat)
+                tabPValues.append(float(p_value))
                 comp=0 # not significant
                 if p_value < 0.05 and t_stat < 0:
                     comp = -1
@@ -288,7 +295,8 @@ def generateHypothesisTest(conn, meas, measBase, table, sel, sampleSize):
                 #print(f"P-value: {p_value}")
                 #print(f"conclusion: {conclusion}")
                 #print(observed_t_stat, p_value, conclusion)
-                tabPValues.append(p_value)
+                tabStat.append(observed_t_stat)
+                tabPValues.append(float(p_value))
                 comp = 0  # not significant
                 if p_value < 0.05 and observed_t_stat < 0:
                     comp = -1
@@ -296,8 +304,39 @@ def generateHypothesisTest(conn, meas, measBase, table, sel, sampleSize):
                     comp = 1
                 pairwiseComparison.append((S[i - 1][0], S[j][0], comp))
 
-    #print(pairwiseComparison)
-    # before correction
+    print(pairwiseComparison)
+
+    # Benjamini Hochberg correction
+    # TODO check BH
+    #print("warning: BH not done!")
+
+    alpha = 0.05
+    # rejected, corrected_p_values = benjamini_hochberg_gpt(tabPValues, alpha)
+    # print("Rejected hypotheses:", rejected)
+    #print("raw p-values:", tabPValues)
+    # print("Corrected p-values (gpt):", corrected_p_values)
+    corrected=benjamini_hochberg(tabPValues, alpha)
+    #print("Corrected p-values (scipy):", corrected)
+
+    i=0
+    nbChanges=0
+    for c in pairwiseComparison:
+        comp=0
+        if corrected[i] < 0.05 and tabStat[i] < 0:
+            comp=-1
+        if corrected[i] > 0.05 and tabStat[i] > 0:
+            comp=1
+        if c[2] != comp:
+            nbChanges=nbChanges+1
+            pairwiseComparison.remove(c)
+            pairwiseComparison.append((c[0], c[1], comp))
+
+    print("number of BH corrections: ", nbChanges, " ratio: ", nbChanges/len(tabPValues), "%")
+
+    print(pairwiseComparison)
+
+
+    # ranking
     ranks = balanced_rank_estimation(pairwiseComparison)
     #print("Balanced Rank Estimation:", ranks)
 
@@ -318,19 +357,19 @@ def generateHypothesisTest(conn, meas, measBase, table, sel, sampleSize):
                 hypothesis.append((s[0], rank))
     #print(hypothesis)
 
-    #TODO correct tests with BH
-    print("warning: BH not done!")
-
-    alpha = 0.05
-    rejected, corrected_p_values = benjamini_hochberg(tabPValues, alpha)
-    #print("Rejected hypotheses:", rejected)
-    #print("Corrected p-values:", corrected_p_values)
 
     return hypothesis
 
 
 
 def hoeffdingForRank(groupbyAtt, n, hypothesis):
+
+    print("Size of confidence interval around p: " + str(epsilon))
+    print("Probability is of making a mistake: " + str(alpha))
+
+    # n queries enough according to Hoeffding
+    print("n: " + str(n))
+
     # compute powerset of categorical attributes
     pwset = powerset(groupbyAtt)
 
@@ -341,11 +380,7 @@ def hoeffdingForRank(groupbyAtt, n, hypothesis):
 
     #print("Hypothesis is:" + str(hypothesis))
 
-#   hypothesis = generateHypothesis(conn);
-#    vals = tuple([x[0] for x in hypothesis])
 
-    # n queries enough according to Hoeffding
-    print("n: " + str(n))
     nbTests = 0
     for i in range(n):
 
@@ -381,8 +416,6 @@ def hoeffdingForRank(groupbyAtt, n, hypothesis):
         nbTests = nbTests + 1
 
         print("Expected value is: " + str(sum(H) / len(H)))
-        print("Size of confidence interval around p: " + str(epsilon))
-        print("Probability is of making a mistake: " + str(alpha))
 
 
 
@@ -427,16 +460,11 @@ if __name__ == "__main__":
 
     if conn:
 
-        #test genertion hypothesis: only if statistically significant on samples
+        #generate hypothesis: ordering of members such that mean is greater (statistically significant on sample)
         hypothesis=generateHypothesisTest(conn, meas, measBase, table, sel, sampleSize)
 
         print("Hypothesis as predicted: ", hypothesis)
 
-        #compute powerset of categorical attributes
-        #pwset = powerset(groupbyAtt)
-
-        # generating the hypothesis
-        # hypothesis is a ranking of members
 
         # empty group by set removed from powerset
         # since it is used to generate the hypothesis
@@ -468,65 +496,3 @@ if __name__ == "__main__":
 
         # Close the connection
         close_connection(conn)
-
-
-
-
-"""
-        # n queries enough according to Hoeffding
-        print("n: " + str(n))
-        for i in range(n):
-
-            # generate the random query
-            #query, queryHyp, queryValues, queryExcept, strgb = generateRandomQuery(pwsert,hypothesis)
-            queryValues,queryCountGb,queryCountExcept=generateRandomQuery(pwset, hypothesis)
-
-            # compute skew and size for the members of vals in the result of the random query
-            S=computeStats(queryValues, vals, conn)
-
-            for i in range(2,len(S)):
-                # example of statstical test for first 2 members
-                b=claireStat(S[1][2], S[i][2], S[1][1], S[i][1])
-                print("for " + S[1][0] + " and " + S[i][0] + " Claire test says: " + str(b))
-                if b:
-                    print("Welch test can be used")
-                    sample1 = getValues(queryValues,vals, S[1][0], conn)
-                    sample2 = getValues(queryValues,vals, S[i][0], conn)
-                    t_stat, p_value, conclusion=welch_ttest(sample1, sample2)
-                    print(conclusion)
-
-
-            #strategy: use the db engine to check whether the hypothesis holds
-            #cross join hypothesis to chosen group by set
-            # compute the actual ranks of vals in the hypothesis for each group
-            # except all the actual ranks with the hypothesis
-            # remaining only the groups where hypothesis does not hold
-
-
-            resultCountGb = execute_query(conn, queryCountGb)
-            resultCountExcept = execute_query(conn, queryCountExcept)
-
-            print("number of tuples checked: " + str( resultCountGb[0][0] ))
-            print("number of exceptions: " + str(resultCountExcept[0][0]))
-            print("ratio is: " + str(resultCountExcept[0][0]  / resultCountGb[0][0]))
-
-            ratio=resultCountExcept[0][0]  / resultCountGb[0][0]
-
-
-            # keep actual ratio
-            # could use Bernouilli random variables instead: 1 if less than 10% errors
-            if ratio > threshold:
-                H.append(ratio)
-            #    H.append(0)
-            else:
-                H.append(ratio)
-            #    H.append(1)
-
-            nbTests=nbTests+1
-
-            print("Expected value is: " + str(sum(H)/len(H)))
-            print("Size of confidence interval around p: " + str(epsilon))
-            print("Probability is of making a mistake: " + str(alpha))
-"""
-
-
