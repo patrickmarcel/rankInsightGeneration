@@ -100,7 +100,7 @@ def claireStat(skew1, skew2, count1, count2, threshold=0.049):
 
 
 
-def emptyGB(conn, vals):
+def emptyGB(conn, nb):
 
     #queryEmptyGb = ("SELECT " + sel + ","
     #                + " rank () over (  order by " + meas + " desc ) as rank" +
@@ -108,25 +108,28 @@ def emptyGB(conn, vals):
     #queryEmptyGb = ("SELECT " + sel + ","
     #                + " rank () over (  order by " + meas + " desc ) as rank" +
     #                " FROM " + table + " group by " + sel + ";")
+    #queryEmptyGb = ("SELECT " + sel + ","
+     #               + " rank () over (  order by " + meas + " desc ) as rank" +
+      #              " FROM " + table +  " WHERE " + sel + " in (" + hyp + ") group by " + sel +  ";")
 
-    hyp = ""
-    for i in range(len(vals)):
-        hyp = hyp + "'" + str(vals[i]) + "'"
-        if i != len(vals) - 1:
-            hyp = hyp + ","
+    #hyp = ""
+    #for i in range(len(vals)):
+    #    hyp = hyp + "'" + str(vals[i]) + "'"
+    #    if i != len(vals) - 1:
+    #        hyp = hyp + ","
 
     queryEmptyGb = ("SELECT " + sel + ","
                     + " rank () over (  order by " + meas + " desc ) as rank" +
-                    " FROM " + table +  " WHERE " + sel + " in (" + hyp + ") group by " + sel +  ";")
+                    " FROM " + table +  " group by " + sel + " limit " + str(nb) + ";")
 
-    #print(queryEmptyGb)
+    print(queryEmptyGb)
     resultEmptyGb = execute_query(conn, queryEmptyGb)
 
     return resultEmptyGb
 
 
 
-def generateRandomQuery(pwsert,hypothesis):
+def generateRandomQuery(pwsert,valsToSelect,hypothesis):
     nb = random.randint(0, len(pwsert) - 1)
     gb = pwsert[nb]
     strgb = ""
@@ -140,7 +143,7 @@ def generateRandomQuery(pwsert,hypothesis):
     # for debugging
     # strgb = "departure_airport"
 
-    print("vals in gen queries:", vals)
+    #print("vals in gen queries:", valsToSelect)
     hyp = ""
     for i in range(len(hypothesis)):
         hyp = hyp + str(hypothesis[i])
@@ -151,10 +154,10 @@ def generateRandomQuery(pwsert,hypothesis):
 
     query = ("SELECT " + strgb + "," + sel + "," + meas + ", "
              + " rank () over ( partition by " + strgb + " order by " + meas + " desc ) as rank" +
-             " FROM " + table + " WHERE " + sel + " in " + str(vals) + " group by " + strgb + "," + sel + " ")
+             " FROM " + table + " WHERE " + sel + " in " + str(valsToSelect) + " group by " + strgb + "," + sel + " ")
 
     queryValues = ("SELECT measure FROM (SELECT " + strgb + "," + sel + "," + meas + " as measure FROM "
-                   + table + " WHERE " + sel + " in " + str(vals) + " group by " + strgb + "," + sel + " ) x;")
+                   + table + " WHERE " + sel + " in " + str(valsToSelect) + " group by " + strgb + "," + sel + " ) x;")
 
 
     queryExcept = ("select " + strgb + "," + sel + ", rank from  (" + query + " ) t3 except all " + queryHyp + " ")
@@ -373,7 +376,7 @@ def generateHypothesisTest(conn, meas, measBase, table, sel, sampleSize, method)
 
 
 
-def hoeffdingForRank(groupbyAtt, n, hypothesis):
+def hoeffdingForRank(groupbyAtt, n, valsToSelect,limitedHyp):
 
     print("Size of confidence interval around p: " + str(epsilon))
     print("Probability is of making a mistake: " + str(alpha))
@@ -397,7 +400,7 @@ def hoeffdingForRank(groupbyAtt, n, hypothesis):
 
         # generate the random query
         # query, queryHyp, queryValues, queryExcept, strgb = generateRandomQuery(pwsert,hypothesis)
-        queryValues, queryCountGb, queryCountExcept = generateRandomQuery(pwset, hypothesis)
+        queryValues, queryCountGb, queryCountExcept = generateRandomQuery(pwset, valsToSelect,limitedHyp)
 
 
         # strategy: use the db engine to check whether the hypothesis holds
@@ -431,14 +434,7 @@ def hoeffdingForRank(groupbyAtt, n, hypothesis):
     return expectedValue
 
 
-#groupAtts=["departure_airport","date","departure_hour","flight","airline"]
-#selectionAtt="airline"
-#measure="nb_flights"
-#sizeOfVals=7 #number of members for the hypothesis
-#gb=""
-#vals="('AA','UA','US')"
-#q0=""
-
+#parameters
 
 table="fact_table"
 measures=["nb_flights","departure_delay","late_aircraft"]
@@ -454,15 +450,16 @@ measBase="departure_delay"
 # number of values of adom to consider - top ones after hypothesis is generated
 nbAdomVals=5
 
+# for Hoeffding
 epsilon=0.01
 alpha=0.01
 p=0
 H=[]
 threshold=0.1 # 10% of tuples violating the order
 n=math.log(2/alpha,10) / pow(2,epsilon*epsilon)
-#print("n>= " + str(n))
 n=math.ceil(n)
 
+# for DB sampling
 sampleSize=30
 samplingMethod='BERNOULLI' # or SYSTEM
 
@@ -512,7 +509,7 @@ if __name__ == "__main__":
             #print("Hypothesis limited: ", limitedHyp)
             #print("vals: ",valsToSelect)
 
-            emptyGBresult=emptyGB(conn,valsToSelect);
+            emptyGBresult=emptyGB(conn,nbAdomVals);
             print("Empty GB says:", emptyGBresult)
 
             # compute kendall tau between hypothesis and emptyGB
@@ -533,9 +530,12 @@ if __name__ == "__main__":
             tau, p_value = compute_kendall_tau(rankings_with_ties1, rankings_with_ties2)
             print(f"Kendall Tau-c: {tau}, p-value: {p_value}")
 
-            vals=tuple([x[0] for x in limitedHyp])
+            #vals=tuple([x[0] for x in limitedHyp])
+            #print("********** vals nnd vals2sel ")
+            #print(vals)
+            #print(tuple(valsToSelect))
 
-            expected=hoeffdingForRank(groupbyAtt, n, limitedHyp)
+            expected=hoeffdingForRank(groupbyAtt, n, tuple(valsToSelect),limitedHyp)
 
             end_time = time.time()
             elapsed_time = end_time - start_time
