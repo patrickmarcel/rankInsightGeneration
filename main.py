@@ -75,22 +75,6 @@ def powerset(s):
     return list(chain.from_iterable(combinations(s, r) for r in range(len(s) + 1)))
 
 
-def generateGB(groupAtts):
-    """
-    Generates group bys and sel from the list of all categorical attributes - unused so far
-
-    :param groupAtts: all the categorical attributes
-    :return:
-    """
-    for g in groupAtts:
-        gb = groupAtts.remove(g)
-        groupbyAtt = gb
-        sel = g
-        for m in measures:
-            meas = "sum(" + m + ")"
-
-            queryVals = ("select distinct " + sel + " from " + table + ";")
-
 
 def claireStat(skew1, skew2, count1, count2, threshold=0.049):
     """
@@ -116,19 +100,26 @@ def claireStat(skew1, skew2, count1, count2, threshold=0.049):
 
 
 
+def emptyGB(conn, vals):
 
-
-
-def emptyGB(conn):
-    # compute top sizeOfVals members - could look for best combinations?
     #queryEmptyGb = ("SELECT " + sel + ","
     #                + " rank () over (  order by " + meas + " desc ) as rank" +
     #                " FROM " + table + " group by " + sel + " limit " + str(sizeOfVals) + ";")
+    #queryEmptyGb = ("SELECT " + sel + ","
+    #                + " rank () over (  order by " + meas + " desc ) as rank" +
+    #                " FROM " + table + " group by " + sel + ";")
+
+    hyp = ""
+    for i in range(len(vals)):
+        hyp = hyp + "'" + str(vals[i]) + "'"
+        if i != len(vals) - 1:
+            hyp = hyp + ","
 
     queryEmptyGb = ("SELECT " + sel + ","
                     + " rank () over (  order by " + meas + " desc ) as rank" +
-                    " FROM " + table + " group by " + sel +  ";")
+                    " FROM " + table +  " WHERE " + sel + " in (" + hyp + ") group by " + sel +  ";")
 
+    #print(queryEmptyGb)
     resultEmptyGb = execute_query(conn, queryEmptyGb)
 
     return resultEmptyGb
@@ -149,6 +140,7 @@ def generateRandomQuery(pwsert,hypothesis):
     # for debugging
     # strgb = "departure_airport"
 
+    print("vals in gen queries:", vals)
     hyp = ""
     for i in range(len(hypothesis)):
         hyp = hyp + str(hypothesis[i])
@@ -187,13 +179,14 @@ def getValues(queryValues, vals, v, conn):
 def getSample(conn, meas, measBase, table, sel, sampleSize, method):
     # sampling using postgresql: https://www.postgresql.org/docs/current/sql-select.html#SQL-FROM
     # system (faster) is block based, bernouili (slower) is row based
-    # TODO try bernouilli method instead
+
     querySample = (
             "SELECT " + sel + ", " + measBase + " FROM " + table + " TABLESAMPLE " + method + " (" + str(sampleSize) + ");")
     # print(querySample)
     resultVals = execute_query(conn, querySample)
     print("Sample size in tuples: ", len(resultVals))
     return resultVals
+
 
 def generateHypothesisTest(conn, meas, measBase, table, sel, sampleSize, method):
 
@@ -224,7 +217,8 @@ def generateHypothesisTest(conn, meas, measBase, table, sel, sampleSize, method)
 
     #print(S)
 
-    #according to  Wauthier &al JMLR 2013, nlog(n) comparisons enough for recovering the true ranking
+    # nlog(n) comparisons enough for recovering the true ranking when commarisons are certain (not noisy)
+    # we should try less
     nbOfComparisons=len(Sels)*math.log(len(Sels),2)
     print("Number of comparisons to make: " + str(nbOfComparisons))
 
@@ -392,7 +386,7 @@ def hoeffdingForRank(groupbyAtt, n, hypothesis):
 
     # empty group by set removed from powerset
     # since it WAS used to generate the hypothesis
-    # TODO hypothesis could also be user given
+
     pwset.remove(())
 
     #print("Hypothesis is:" + str(hypothesis))
@@ -430,11 +424,11 @@ def hoeffdingForRank(groupbyAtt, n, hypothesis):
             H.append(ratio)
         #    H.append(1)
 
-        nbTests = nbTests + 1
+        #nbTests = nbTests + 1
 
-        expectedValue=sum(H) / len(H)
-        print("Expected value is: " + str(sum(H) / len(H)))
-        return expectedValue
+    expectedValue=sum(H) / len(H)
+    print("Expected value is: " + str(sum(H) / len(H)))
+    return expectedValue
 
 
 #groupAtts=["departure_airport","date","departure_hour","flight","airline"]
@@ -448,15 +442,17 @@ def hoeffdingForRank(groupbyAtt, n, hypothesis):
 
 table="fact_table"
 measures=["nb_flights","departure_delay","late_aircraft"]
-groupbyAtt=["departure_airport","date","departure_hour","flight"]
+#groupbyAtt=["departure_airport","date","departure_hour","flight"]
 #sel="airline"
 #meas="avg(departure_delay)"
 #measBase="departure_delay"
+groupbyAtt=["departure_airport","date","departure_hour","flight"]
 sel="airline"
 meas="avg(departure_delay)"
 measBase="departure_delay"
 
-
+# number of values of adom to consider - top ones after hypothesis is generated
+nbAdomVals=5
 
 epsilon=0.01
 alpha=0.01
@@ -467,10 +463,19 @@ n=math.log(2/alpha,10) / pow(2,epsilon*epsilon)
 #print("n>= " + str(n))
 n=math.ceil(n)
 
-sampleSize=20
+sampleSize=30
 samplingMethod='BERNOULLI' # or SYSTEM
 
-nbruns=20
+nbruns=10
+
+# TODO
+#  check stability of hypothesis - BRE was generated by GPT...
+#   also ranking is either all nb 1 or total order? also tau is nan when all 1's
+#  check expected values, too good to be true
+#  loop over sample size from 5 to 95 or so
+#  change sel and measures
+#  use other databases
+#  hypothesis could also be user given
 
 if __name__ == "__main__":
 
@@ -495,17 +500,31 @@ if __name__ == "__main__":
 
             print("Hypothesis as predicted: ", hypothesis)
 
-            emptyGBresult=emptyGB(conn);
+            # limit hypothesis to top nbAdomVals
+            limitedHyp=[]
+            valsToSelect=[]
+            j=0
+            for h in hypothesis:
+                if(h[1]<=nbAdomVals and j<nbAdomVals):
+                    limitedHyp.append(h)
+                    valsToSelect.append(h[0])
+                    j=j+1
+            #print("Hypothesis limited: ", limitedHyp)
+            #print("vals: ",valsToSelect)
+
+            emptyGBresult=emptyGB(conn,valsToSelect);
             print("Empty GB says:", emptyGBresult)
 
             # compute kendall tau between hypothesis and emptyGB
-            hypothesis.sort(key=lambda x: x[0])
+            limitedHyp.sort(key=lambda x: x[0])
             emptyGBresult.sort(key=lambda x: x[0])
+
+            # should also compute tau between hypothesis of different runs
 
             #print(hypothesis)
             #print(emptyGB)
 
-            rankings_with_ties1 = [x[1] for x in hypothesis]
+            rankings_with_ties1 = [x[1] for x in limitedHyp]
             rankings_with_ties2 = [x[1] for x in emptyGBresult]
 
             #print(rankings_with_ties1)
@@ -514,9 +533,9 @@ if __name__ == "__main__":
             tau, p_value = compute_kendall_tau(rankings_with_ties1, rankings_with_ties2)
             print(f"Kendall Tau-c: {tau}, p-value: {p_value}")
 
-            vals=tuple([x[0] for x in hypothesis])
+            vals=tuple([x[0] for x in limitedHyp])
 
-            expected=hoeffdingForRank(groupbyAtt, n, hypothesis)
+            expected=hoeffdingForRank(groupbyAtt, n, limitedHyp)
 
             end_time = time.time()
             elapsed_time = end_time - start_time

@@ -153,3 +153,69 @@ def computeStats(queryValues, vals, conn):
 
     return S
 """
+
+import numpy as np
+
+
+class UnbalancedRankedEstimation:
+    def __init__(self, num_items, learning_rate=0.01, max_iter=1000, tol=1e-6):
+        self.num_items = num_items
+        self.learning_rate = learning_rate
+        self.max_iter = max_iter
+        self.tol = tol
+        self.scores = np.zeros(num_items)
+
+    def fit(self, comparisons):
+        """
+        Fit the URE model to the pairwise comparison data.
+
+        Parameters:
+        - comparisons: list of tuples (i, j, outcome), where
+          - i, j are indices of items
+          - outcome is 1 if i is preferred over j, -1 otherwise.
+        """
+        for iteration in range(self.max_iter):
+            gradient = np.zeros(self.num_items)
+            for (i, j, outcome) in comparisons:
+                pred_diff = self.scores[i] - self.scores[j]
+                gradient[i] += outcome * self._sigmoid(-outcome * pred_diff)
+                gradient[j] -= outcome * self._sigmoid(-outcome * pred_diff)
+
+            gradient_norm = np.linalg.norm(gradient)
+            if gradient_norm < self.tol:
+                print(f"Converged after {iteration} iterations.")
+                break
+
+            self.scores += self.learning_rate * gradient
+            if iteration % 100 == 0:
+                print(f"Iteration {iteration}, Gradient norm: {gradient_norm}")
+
+        return self
+
+    def _sigmoid(self, x):
+        return 1 / (1 + np.exp(-x))
+
+    def predict(self):
+        """
+        Get the estimated scores for the items.
+
+        Returns:
+        - scores: numpy array of estimated scores for each item.
+        """
+        return self.scores
+
+
+# Example usage:
+comparisons = [
+    (0, 1, 1),  # item 0 is preferred over item 1
+    (1, 2, -1),  # item 2 is preferred over item 1
+    (0, 2, 1),  # item 0 is preferred over item 2
+    (1, 3, 1),  # item 1 is preferred over item 3
+    (2, 3, 1)  # item 2 is preferred over item 3
+]
+
+num_items = 4
+ure = UnbalancedRankedEstimation(num_items)
+ure.fit(comparisons)
+scores = ure.predict()
+print("Estimated scores:", scores)

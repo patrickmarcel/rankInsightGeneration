@@ -69,3 +69,21 @@ def close_connection(conn):
         print("Database connection closed.")
     except Exception as e:
         print(f"Error closing connection: {e}")
+
+
+
+def generateGB(groupAtts, measures, table):
+    """
+    Generates group bys and sel from the list of all categorical attributes - unused so far
+
+    :param groupAtts: all the categorical attributes
+    :return:
+    """
+    for g in groupAtts:
+        gb = groupAtts.remove(g)
+        groupbyAtt = gb
+        sel = g
+        for m in measures:
+            meas = "sum(" + m + ")"
+
+            queryVals = ("select distinct " + sel + " from " + table + ";")
