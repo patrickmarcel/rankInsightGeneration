@@ -4,9 +4,13 @@ from scipy import stats
 from scipy.stats import skew
 from scipy.stats import f
 from scipy.stats import false_discovery_control
+from statsmodels.stats.multitest import fdrcorrection
 
 def benjamini_hochberg(p_values, alpha=0.05):
     return false_discovery_control(p_values)
+
+def benjamini_hochberg_statmod(p_values, alpha=0.05):
+    return fdrcorrection(p_values, alpha)
 
 def benjamini_hochberg_gpt(p_values, alpha=0.05):
     """

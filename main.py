@@ -1,10 +1,12 @@
 import random
-from itertools import chain, combinations
 import math
 import numpy as np
+
+import utilities
+from utilities import powerset, jaccard_similarity
 from plotStuff import plot_curves
 from dbStuff import execute_query, connect_to_db, close_connection
-from statStuff import benjamini_hochberg_gpt, welch_ttest, permutation_test, compute_skewness, compute_kendall_tau, benjamini_hochberg
+from statStuff import benjamini_hochberg_gpt, welch_ttest, permutation_test, compute_skewness, compute_kendall_tau, benjamini_hochberg, benjamini_hochberg_statmod
 import time
 
 import pandas as pd
@@ -63,19 +65,6 @@ def balanced_rank_estimation(pairwise_comparisons, max_iterations=1000, tol=1e-6
     return {items[i]: ranks[i] for i in range(n)}
 
 
-
-def powerset(s):
-    """
-    Generates the powerset of a given set s.
-
-    :param s: The input set
-    :return: A list of subsets representing the powerset
-    """
-    s = list(s)
-    return list(chain.from_iterable(combinations(s, r) for r in range(len(s) + 1)))
-
-
-
 def claireStat(skew1, skew2, count1, count2, threshold=0.049):
     """
     Compute Claire statistics for testing if Welch test can be used
@@ -122,10 +111,15 @@ def emptyGB(conn, nb):
                     + " rank () over (  order by " + meas + " desc ) as rank" +
                     " FROM " + table +  " group by " + sel + " limit " + str(nb) + ";")
 
-    print(queryEmptyGb)
+    #print(queryEmptyGb)
     resultEmptyGb = execute_query(conn, queryEmptyGb)
 
-    return resultEmptyGb
+    queryEmptyGbAll = ("SELECT " + sel + ","
+                    + " rank () over (  order by " + meas + " desc ) as rank" +
+                    " FROM " + table + " group by " + sel + ";")
+    resultEmptyGbAll = execute_query(conn, queryEmptyGbAll)
+
+    return resultEmptyGb, resultEmptyGbAll
 
 
 
@@ -228,6 +222,7 @@ def generateHypothesisTest(conn, meas, measBase, table, sel, sampleSize, method)
     tabPValues=[]
     pairwiseComparison=[]
     tabStat=[]
+    tabRej=[]
 
     # compute Claire statistics for all pairs
     claireTab=[]
@@ -254,6 +249,8 @@ def generateHypothesisTest(conn, meas, measBase, table, sel, sampleSize, method)
             if p_value < 0.05 and t_stat > 0:
                 comp = 1
             pairwiseComparison.append((cl[0], cl[1], comp))
+            tabRej.append(comp)
+    print("nb welch tests: ", nbWelch)
     nbremaining = nbOfComparisons - nbWelch
     nbPermut=0
     for cl in claireTab:
@@ -273,11 +270,14 @@ def generateHypothesisTest(conn, meas, measBase, table, sel, sampleSize, method)
             if p_value < 0.05 and observed_t_stat > 0:
                 comp = 1
             pairwiseComparison.append((cl[0], cl[1], comp))
+            tabRej.append(comp)
         if nbremaining - nbPermut <= 0:
             break
 
-    print("raw pairwise comparisons: ", pairwiseComparison)
-    print("size: ", len(pairwiseComparison))
+    #print("nb permut tests: ", nbPermut)
+    #print("raw pairwise comparisons: ", pairwiseComparison)
+    #print("size: ", len(pairwiseComparison))
+    print("nb non zeros in raw: ", utilities.countNonZeros(pairwiseComparison))
 
     # the ones already compared
     alreadyCompared = set()
@@ -303,7 +303,7 @@ def generateHypothesisTest(conn, meas, measBase, table, sel, sampleSize, method)
                 #print(cl[0], cl[1])
                 if cl[0] == d or cl[1] == d:
                     # print("Permutation test is used")
-                    print("adding a test")
+                    #print("adding a test")
                     nbPermut = nbPermut + 1
                     observed_t_stat, p_value, permuted_t_stats, conclusion = permutation_test(cl[3], cl[4])
                     # print(f"Observed Welch's t-statistic: {observed_t_stat}")
@@ -318,6 +318,7 @@ def generateHypothesisTest(conn, meas, measBase, table, sel, sampleSize, method)
                     if p_value < 0.05 and observed_t_stat > 0:
                         comp = 1
                     pairwiseComparison.append((cl[0], cl[1], comp))
+                    tabRej.append(comp)
                     break
 
     # Benjamini Hochberg correction
@@ -329,26 +330,53 @@ def generateHypothesisTest(conn, meas, measBase, table, sel, sampleSize, method)
     #print("raw p-values:", tabPValues)
     # print("Corrected p-values (gpt):", corrected_p_values)
     corrected=benjamini_hochberg(tabPValues, alpha)
+    rejected,corrected2=benjamini_hochberg_statmod(tabPValues, alpha)
+
     #print("Corrected p-values (scipy):", corrected)
 
-    i=0
-    nbChanges=0
+    #print("len tabPvalues: ", len(tabPValues))
+    #print("len corrected: ", len(corrected))
+    #print("nb different pvalues: ", utilities.listComp(tabPValues,corrected))
+    #print("nb different pvalues: ", utilities.listComp(tabPValues,corrected2))
+    print("nb of True in rejected: ", utilities.nbTrueInList(rejected))
+    #print(tabRej)
+
+
+    #i=0
+    #nbChanges=0
+    #for c in pairwiseComparison:
+    #    comp=0
+    #    if corrected2[i] < 0.05 and tabStat[i] < 0:
+    #        comp=-1
+    #    if corrected2[i] < 0.05 and tabStat[i] > 0:
+    #        comp=1
+    #    if c[2] != comp:
+    #        nbChanges=nbChanges+1
+    #        pairwiseComparison.remove(c)
+    #        pairwiseComparison.append((c[0], c[1], comp))
+    #    i=i+1
+
+
+    i = 0
+    nbChanges = 0
     for c in pairwiseComparison:
-        comp=0
-        if corrected[i] < 0.05 and tabStat[i] < 0:
-            comp=-1
-        if corrected[i] > 0.05 and tabStat[i] > 0:
-            comp=1
-        if c[2] != comp:
-            nbChanges=nbChanges+1
-            pairwiseComparison.remove(c)
-            pairwiseComparison.append((c[0], c[1], comp))
+        comp = 0
+        if rejected[i] == True and tabStat[i] < 0:
+            comp = -1
+        if rejected[i] == True and tabStat[i] > 0:
+            comp = 1
+
+        #nbChanges = nbChanges + 1
+        pairwiseComparison.remove(c)
+        pairwiseComparison.append((c[0], c[1], comp))
+        i = i + 1
+
 
     print("Number of BH corrections: ", nbChanges, " ratio: ", nbChanges/len(tabPValues), "%")
 
-    #print(pairwiseComparison)
+    #print("pairwise comparison: ", pairwiseComparison)
 
-
+    print("nb non zeros after corrections: ", utilities.countNonZeros(pairwiseComparison))
 
     # ranking
     ranks = balanced_rank_estimation(pairwiseComparison)
@@ -369,7 +397,7 @@ def generateHypothesisTest(conn, meas, measBase, table, sel, sampleSize, method)
             else:
                 rank=rank+1
                 hypothesis.append((s[0], rank))
-    #print(hypothesis)
+    print("hypothesis", hypothesis)
 
 
     return hypothesis
@@ -488,6 +516,7 @@ if __name__ == "__main__":
 
     if conn:
 
+        tabHypo=[]
         resultRuns=[]
         for i in range(nbruns):
 
@@ -495,7 +524,7 @@ if __name__ == "__main__":
             #generate hypothesis: ordering of members such that mean is greater (statistically significant on sample)
             hypothesis=generateHypothesisTest(conn, meas, measBase, table, sel, sampleSize, samplingMethod)
 
-            print("Hypothesis as predicted: ", hypothesis)
+            #print("Hypothesis as predicted: ", hypothesis)
 
             # limit hypothesis to top nbAdomVals
             limitedHyp=[]
@@ -509,26 +538,34 @@ if __name__ == "__main__":
             #print("Hypothesis limited: ", limitedHyp)
             #print("vals: ",valsToSelect)
 
-            emptyGBresult=emptyGB(conn,nbAdomVals);
+            # should only be done once
+            emptyGBresult, emptyGBresultAll=emptyGB(conn,nbAdomVals)
             print("Empty GB says:", emptyGBresult)
 
             # compute kendall tau between hypothesis and emptyGB
             limitedHyp.sort(key=lambda x: x[0])
             emptyGBresult.sort(key=lambda x: x[0])
+            hypothesis.sort(key=lambda x: x[0])
+            emptyGBresultAll.sort(key=lambda x: x[0])
+
+            # record all hypotheses
+            tabHypo.append(limitedHyp)
 
             # should also compute tau between hypothesis of different runs
 
             #print(hypothesis)
             #print(emptyGB)
 
-            rankings_with_ties1 = [x[1] for x in limitedHyp]
-            rankings_with_ties2 = [x[1] for x in emptyGBresult]
+            rankings_with_ties1 = [x[1] for x in hypothesis]
+            rankings_with_ties2 = [x[1] for x in emptyGBresultAll]
 
             #print(rankings_with_ties1)
             #print(rankings_with_ties2)
 
             tau, p_value = compute_kendall_tau(rankings_with_ties1, rankings_with_ties2)
-            print(f"Kendall Tau-c: {tau}, p-value: {p_value}")
+            print("Tau-c between hypothesis and emptyGBAll: ", tau, "p-value: ", p_value)
+
+            #todo should also compute for limitedHyp and emptyGB
 
             #vals=tuple([x[0] for x in limitedHyp])
             #print("********** vals nnd vals2sel ")
@@ -544,6 +581,9 @@ if __name__ == "__main__":
 
 
         print(resultRuns)
+        print(tabHypo)
+        # compute hamming dist in tabhypo or jaccard
+
         names=['tau','expected','time']
         title='Sample size=' + str(sampleSize)
         plot_curves(resultRuns,  names, 'time', 'expected', title)
