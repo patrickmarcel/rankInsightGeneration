@@ -67,7 +67,7 @@ def ExampleUsage():
     ranks = main.balanced_rank_estimation(pairwise_comparisons)
     print("Balanced Rank Estimation:", ranks)
 
-    # Example usage
+    # Example usage plot
     data = [
         (1, 2, 3),
         (2, 3, 4),

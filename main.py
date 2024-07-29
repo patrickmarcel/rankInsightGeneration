@@ -11,6 +11,19 @@ import time
 
 import pandas as pd
 
+def computeRanksForAll(pairwiseComparison, Sels):
+    # this is borda count style
+    ranks={}
+    for s in Sels:
+        ranks[s]=0
+    for p in pairwiseComparison:
+        if p[2] == 1:
+            ranks.update({p[0]: ranks[p[0]] + 1})
+        if p[2] == -1:
+            ranks.update({p[1]: ranks[p[1]] + 1})
+
+    print("ranks:", ranks)
+    return ranks
 
 def balanced_rank_estimation(pairwise_comparisons, max_iterations=1000, tol=1e-6):
     """
@@ -173,6 +186,8 @@ def getValues(queryValues, vals, v, conn):
     np.array(data)
     return data
 
+
+
 def getSample(conn, meas, measBase, table, sel, sampleSize, method):
     # sampling using postgresql: https://www.postgresql.org/docs/current/sql-select.html#SQL-FROM
     # system (faster) is block based, bernouili (slower) is row based
@@ -185,6 +200,267 @@ def getSample(conn, meas, measBase, table, sel, sampleSize, method):
     return resultVals
 
 
+def computeBHcorrection(pairwiseComparison, tabPValues, tabStat, alpha = 0.05):
+
+    # rejected, corrected_p_values = benjamini_hochberg_gpt(tabPValues, alpha)
+    # print("Rejected hypotheses:", rejected)
+    # print("raw p-values:", tabPValues)
+    # print("Corrected p-values (gpt):", corrected_p_values)
+    corrected = benjamini_hochberg(tabPValues, alpha)
+    rejected, corrected2 = benjamini_hochberg_statmod(tabPValues, alpha)
+
+    # print("Corrected p-values (scipy):", corrected)
+
+    # print("len tabPvalues: ", len(tabPValues))
+    # print("len corrected: ", len(corrected))
+    # print("nb different pvalues: ", utilities.listComp(tabPValues,corrected))
+    # print("nb different pvalues: ", utilities.listComp(tabPValues,corrected2))
+    print("nb of True in rejected: ", utilities.nbTrueInList(rejected))
+    # print(tabRej)
+
+    # i=0
+    # nbChanges=0
+    # for c in pairwiseComparison:
+    #    comp=0
+    #    if corrected2[i] < 0.05 and tabStat[i] < 0:
+    #        comp=-1
+    #    if corrected2[i] < 0.05 and tabStat[i] > 0:
+    #        comp=1
+    #    if c[2] != comp:
+    #        nbChanges=nbChanges+1
+    #        pairwiseComparison.remove(c)
+    #        pairwiseComparison.append((c[0], c[1], comp))
+    #    i=i+1
+
+    i = 0
+    nbChanges = 0
+    for c in pairwiseComparison:
+        comp = 0
+        if rejected[i] == True and tabStat[i] < 0:
+            comp = -1
+        if rejected[i] == True and tabStat[i] > 0:
+            comp = 1
+
+        # nbChanges = nbChanges + 1
+        pairwiseComparison.remove(c)
+        pairwiseComparison.append((c[0], c[1], comp))
+        i = i + 1
+
+    print("Number of BH corrections: ", nbChanges, " ratio: ", nbChanges / len(tabPValues), "%")
+
+    # print("pairwise comparison: ", pairwiseComparison)
+
+    print("nb non zeros after corrections: ", utilities.countNonZeros(pairwiseComparison))
+
+    return pairwiseComparison
+
+
+
+def generateAllComparisons(Sels, S, nbOfComparisons):
+    tabPValues = []
+    pairwiseComparison = []
+    tabStat = []
+
+    # compute Claire statistics for all pairs
+    claireTab = []
+    for i in range(1, len(S)):
+        for j in range(i, len(S)):
+            b = claireStat(S[i - 1][2], S[j][2], S[i - 1][1], S[j][1])
+            claireTab.append((S[i - 1][0], S[j][0], b, S[i - 1][3], S[j][3]))
+
+            if b:
+                # print("Welch test can be used")
+                t_stat, p_value, conclusion = welch_ttest(S[i - 1][3], S[j][3])
+                # print(t_stat, p_value, conclusion)
+                tabStat.append(t_stat)
+                tabPValues.append(float(p_value))
+                comp = 0  # not significant
+                if p_value < 0.05 and t_stat < 0:
+                    comp = -1
+                if p_value < 0.05 and t_stat > 0:
+                    comp = 1
+                pairwiseComparison.append((S[i - 1][0], S[j][0], comp))
+            else:
+                # print("Permutation test is used")
+                observed_t_stat, p_value, permuted_t_stats, conclusion = permutation_test(S[i - 1][3], S[j][3])
+                # print(f"Observed Welch's t-statistic: {observed_t_stat}")
+                # print(f"P-value: {p_value}")
+                # print(f"conclusion: {conclusion}")
+                # print(observed_t_stat, p_value, conclusion)
+                tabStat.append(observed_t_stat)
+                tabPValues.append(float(p_value))
+                comp = 0  # not significant
+                if p_value < 0.05 and observed_t_stat < 0:
+                    comp = -1
+                if p_value < 0.05 and observed_t_stat > 0:
+                    comp = 1
+                pairwiseComparison.append((S[i - 1][0], S[j][0], comp))
+
+    pairwiseComparison=computeBHcorrection(pairwiseComparison, tabPValues, tabStat, 0.05)
+    return pairwiseComparison
+
+
+
+def generateComparisons(Sels, S, nbOfComparisons):
+    # todo : modify to do as few test as possible
+    tabPValues = []
+    pairwiseComparison = []
+    tabStat = []
+    tabRej = []
+
+    # compute Claire statistics for all pairs
+    claireTab = []
+    for i in range(1, len(S)):
+        for j in range(i, len(S)):
+            b = claireStat(S[i - 1][2], S[j][2], S[i - 1][1], S[j][1])
+            claireTab.append((S[i - 1][0], S[j][0], b, S[i - 1][3], S[j][3]))
+
+    # print("Claire Tab: ", claireTab)
+
+    # compute all Welch tests
+    nbWelch = 0
+    for cl in claireTab:
+        if cl[2]:
+            # print("Welch test can be used")
+            nbWelch = nbWelch + 1
+            t_stat, p_value, conclusion = welch_ttest(cl[3], cl[4])
+            # print(t_stat, p_value, conclusion)
+            tabStat.append(t_stat)
+            tabPValues.append(float(p_value))
+            comp = 0  # not significant
+            if p_value < 0.05 and t_stat < 0:
+                comp = -1
+            if p_value < 0.05 and t_stat > 0:
+                comp = 1
+            pairwiseComparison.append((cl[0], cl[1], comp))
+            tabRej.append(comp)
+    print("nb welch tests: ", nbWelch)
+    nbremaining = nbOfComparisons - nbWelch
+    nbPermut = 0
+    for cl in claireTab:
+        if not cl[2]:
+            # print("Permutation test is used")
+            nbPermut = nbPermut + 1
+            observed_t_stat, p_value, permuted_t_stats, conclusion = permutation_test(cl[3], cl[4])
+            # print(f"Observed Welch's t-statistic: {observed_t_stat}")
+            # print(f"P-value: {p_value}")
+            # print(f"conclusion: {conclusion}")
+            # print(observed_t_stat, p_value, conclusion)
+            tabStat.append(observed_t_stat)
+            tabPValues.append(float(p_value))
+            comp = 0  # not significant
+            if p_value < 0.05 and observed_t_stat < 0:
+                comp = -1
+            if p_value < 0.05 and observed_t_stat > 0:
+                comp = 1
+            pairwiseComparison.append((cl[0], cl[1], comp))
+            tabRej.append(comp)
+        if nbremaining - nbPermut <= 0:
+            break
+
+    # print("nb permut tests: ", nbPermut)
+    # print("raw pairwise comparisons: ", pairwiseComparison)
+    # print("size: ", len(pairwiseComparison))
+    print("nb non zeros in raw: ", utilities.countNonZeros(pairwiseComparison))
+
+    # the ones already compared
+    alreadyCompared = set()
+    for item1, item2, comp in pairwiseComparison:
+        alreadyCompared.add(item1)
+        alreadyCompared.add(item2)
+
+    # print("alreadyCompared: ", alreadyCompared)
+
+    allValues = set()
+    for s in Sels:
+        allValues.add(s)
+
+    # print("allValues: ", allValues)
+
+    difference = allValues.difference(alreadyCompared)
+    # print("difference: ", difference)
+
+    if len(difference) != 0:
+        # compare the ones in difference with one already compared
+        for d in difference:
+            for cl in claireTab:
+                # print(cl[0], cl[1])
+                if cl[0] == d or cl[1] == d:
+                    # print("Permutation test is used")
+                    # print("adding a test")
+                    nbPermut = nbPermut + 1
+                    observed_t_stat, p_value, permuted_t_stats, conclusion = permutation_test(cl[3], cl[4])
+                    # print(f"Observed Welch's t-statistic: {observed_t_stat}")
+                    # print(f"P-value: {p_value}")
+                    # print(f"conclusion: {conclusion}")
+                    # print(observed_t_stat, p_value, conclusion)
+                    tabStat.append(observed_t_stat)
+                    tabPValues.append(float(p_value))
+                    comp = 0  # not significant
+                    if p_value < 0.05 and observed_t_stat < 0:
+                        comp = -1
+                    if p_value < 0.05 and observed_t_stat > 0:
+                        comp = 1
+                    pairwiseComparison.append((cl[0], cl[1], comp))
+                    tabRej.append(comp)
+                    break
+
+
+    # Benjamini Hochberg correction
+    alpha = 0.05
+    # rejected, corrected_p_values = benjamini_hochberg_gpt(tabPValues, alpha)
+    # print("Rejected hypotheses:", rejected)
+    # print("raw p-values:", tabPValues)
+    # print("Corrected p-values (gpt):", corrected_p_values)
+    corrected = benjamini_hochberg(tabPValues, alpha)
+    rejected, corrected2 = benjamini_hochberg_statmod(tabPValues, alpha)
+
+    # print("Corrected p-values (scipy):", corrected)
+
+    # print("len tabPvalues: ", len(tabPValues))
+    # print("len corrected: ", len(corrected))
+    # print("nb different pvalues: ", utilities.listComp(tabPValues,corrected))
+    # print("nb different pvalues: ", utilities.listComp(tabPValues,corrected2))
+    print("nb of True in rejected: ", utilities.nbTrueInList(rejected))
+    # print(tabRej)
+
+    # i=0
+    # nbChanges=0
+    # for c in pairwiseComparison:
+    #    comp=0
+    #    if corrected2[i] < 0.05 and tabStat[i] < 0:
+    #        comp=-1
+    #    if corrected2[i] < 0.05 and tabStat[i] > 0:
+    #        comp=1
+    #    if c[2] != comp:
+    #        nbChanges=nbChanges+1
+    #        pairwiseComparison.remove(c)
+    #        pairwiseComparison.append((c[0], c[1], comp))
+    #    i=i+1
+
+    i = 0
+    nbChanges = 0
+    for c in pairwiseComparison:
+        comp = 0
+        if rejected[i] == True and tabStat[i] < 0:
+            comp = -1
+        if rejected[i] == True and tabStat[i] > 0:
+            comp = 1
+
+        # nbChanges = nbChanges + 1
+        pairwiseComparison.remove(c)
+        pairwiseComparison.append((c[0], c[1], comp))
+        i = i + 1
+
+    print("Number of BH corrections: ", nbChanges, " ratio: ", nbChanges / len(tabPValues), "%")
+
+    # print("pairwise comparison: ", pairwiseComparison)
+
+    print("nb non zeros after corrections: ", utilities.countNonZeros(pairwiseComparison))
+
+    return pairwiseComparison
+
+
 def generateHypothesisTest(conn, meas, measBase, table, sel, sampleSize, method):
 
     resultVals = getSample(conn, meas, measBase, table, sel, sampleSize, method)
@@ -195,12 +471,9 @@ def generateHypothesisTest(conn, meas, measBase, table, sel, sampleSize, method)
     Vals = tuple([x[1] for x in resultVals])
     #print(Vals)
 
+    #analyse sample for each adom value: value, nb of measures, skewness, and tuples
     S = []
     for v in Sels:
-        #querySample = ("SELECT " + measBase + " FROM " + table + " TABLESAMPLE SYSTEM (" + sampleSize + ") WHERE " + sel + "='" + v + "';")
-
-        #resultSample = execute_query(conn, querySample)
-        #print(resultSample)
 
         data = []
         for row in resultVals:
@@ -219,171 +492,16 @@ def generateHypothesisTest(conn, meas, measBase, table, sel, sampleSize, method)
     nbOfComparisons=len(Sels)*math.log(len(Sels),2)
     print("Number of comparisons to make: " + str(nbOfComparisons))
 
-    tabPValues=[]
-    pairwiseComparison=[]
-    tabStat=[]
-    tabRej=[]
-
-    # compute Claire statistics for all pairs
-    claireTab=[]
-    for i in range(1, len(S)):
-        for j in range(i, len(S)):
-            b = claireStat(S[i-1][2], S[j][2], S[i-1][1], S[j][1])
-            claireTab.append((S[i-1][0], S[j][0],b, S[i - 1][3], S[j][3]))
-
-    #print("Claire Tab: ", claireTab)
-
-    # compute all Welch tests
-    nbWelch=0
-    for cl in claireTab:
-        if cl[2]:
-            # print("Welch test can be used")
-            nbWelch=nbWelch+1
-            t_stat, p_value, conclusion = welch_ttest(cl[3], cl[4])
-            # print(t_stat, p_value, conclusion)
-            tabStat.append(t_stat)
-            tabPValues.append(float(p_value))
-            comp = 0  # not significant
-            if p_value < 0.05 and t_stat < 0:
-                comp = -1
-            if p_value < 0.05 and t_stat > 0:
-                comp = 1
-            pairwiseComparison.append((cl[0], cl[1], comp))
-            tabRej.append(comp)
-    print("nb welch tests: ", nbWelch)
-    nbremaining = nbOfComparisons - nbWelch
-    nbPermut=0
-    for cl in claireTab:
-        if not cl[2]:
-            # print("Permutation test is used")
-            nbPermut=nbPermut+1
-            observed_t_stat, p_value, permuted_t_stats, conclusion = permutation_test(cl[3], cl[4])
-            # print(f"Observed Welch's t-statistic: {observed_t_stat}")
-            # print(f"P-value: {p_value}")
-            # print(f"conclusion: {conclusion}")
-            # print(observed_t_stat, p_value, conclusion)
-            tabStat.append(observed_t_stat)
-            tabPValues.append(float(p_value))
-            comp = 0  # not significant
-            if p_value < 0.05 and observed_t_stat < 0:
-                comp = -1
-            if p_value < 0.05 and observed_t_stat > 0:
-                comp = 1
-            pairwiseComparison.append((cl[0], cl[1], comp))
-            tabRej.append(comp)
-        if nbremaining - nbPermut <= 0:
-            break
-
-    #print("nb permut tests: ", nbPermut)
-    #print("raw pairwise comparisons: ", pairwiseComparison)
-    #print("size: ", len(pairwiseComparison))
-    print("nb non zeros in raw: ", utilities.countNonZeros(pairwiseComparison))
-
-    # the ones already compared
-    alreadyCompared = set()
-    for item1, item2, comp in pairwiseComparison:
-        alreadyCompared.add(item1)
-        alreadyCompared.add(item2)
-
-    #print("alreadyCompared: ", alreadyCompared)
-
-    allValues = set()
-    for s in Sels:
-        allValues.add(s)
-
-    #print("allValues: ", allValues)
-
-    difference = allValues.difference(alreadyCompared)
-    #print("difference: ", difference)
-
-    if len(difference) != 0:
-        # compare the ones in difference with one already compared
-        for d in difference:
-            for cl in claireTab:
-                #print(cl[0], cl[1])
-                if cl[0] == d or cl[1] == d:
-                    # print("Permutation test is used")
-                    #print("adding a test")
-                    nbPermut = nbPermut + 1
-                    observed_t_stat, p_value, permuted_t_stats, conclusion = permutation_test(cl[3], cl[4])
-                    # print(f"Observed Welch's t-statistic: {observed_t_stat}")
-                    # print(f"P-value: {p_value}")
-                    # print(f"conclusion: {conclusion}")
-                    # print(observed_t_stat, p_value, conclusion)
-                    tabStat.append(observed_t_stat)
-                    tabPValues.append(float(p_value))
-                    comp = 0  # not significant
-                    if p_value < 0.05 and observed_t_stat < 0:
-                        comp = -1
-                    if p_value < 0.05 and observed_t_stat > 0:
-                        comp = 1
-                    pairwiseComparison.append((cl[0], cl[1], comp))
-                    tabRej.append(comp)
-                    break
-
-    # Benjamini Hochberg correction
-    # to be checked
-
-    alpha = 0.05
-    # rejected, corrected_p_values = benjamini_hochberg_gpt(tabPValues, alpha)
-    # print("Rejected hypotheses:", rejected)
-    #print("raw p-values:", tabPValues)
-    # print("Corrected p-values (gpt):", corrected_p_values)
-    corrected=benjamini_hochberg(tabPValues, alpha)
-    rejected,corrected2=benjamini_hochberg_statmod(tabPValues, alpha)
-
-    #print("Corrected p-values (scipy):", corrected)
-
-    #print("len tabPvalues: ", len(tabPValues))
-    #print("len corrected: ", len(corrected))
-    #print("nb different pvalues: ", utilities.listComp(tabPValues,corrected))
-    #print("nb different pvalues: ", utilities.listComp(tabPValues,corrected2))
-    print("nb of True in rejected: ", utilities.nbTrueInList(rejected))
-    #print(tabRej)
-
-
-    #i=0
-    #nbChanges=0
-    #for c in pairwiseComparison:
-    #    comp=0
-    #    if corrected2[i] < 0.05 and tabStat[i] < 0:
-    #        comp=-1
-    #    if corrected2[i] < 0.05 and tabStat[i] > 0:
-    #        comp=1
-    #    if c[2] != comp:
-    #        nbChanges=nbChanges+1
-    #        pairwiseComparison.remove(c)
-    #        pairwiseComparison.append((c[0], c[1], comp))
-    #    i=i+1
-
-
-    i = 0
-    nbChanges = 0
-    for c in pairwiseComparison:
-        comp = 0
-        if rejected[i] == True and tabStat[i] < 0:
-            comp = -1
-        if rejected[i] == True and tabStat[i] > 0:
-            comp = 1
-
-        #nbChanges = nbChanges + 1
-        pairwiseComparison.remove(c)
-        pairwiseComparison.append((c[0], c[1], comp))
-        i = i + 1
-
-
-    print("Number of BH corrections: ", nbChanges, " ratio: ", nbChanges/len(tabPValues), "%")
-
-    #print("pairwise comparison: ", pairwiseComparison)
-
-    print("nb non zeros after corrections: ", utilities.countNonZeros(pairwiseComparison))
+    pairwiseComparison=generateAllComparisons(Sels, S, nbOfComparisons)
 
     # ranking
-    ranks = balanced_rank_estimation(pairwiseComparison)
+    #ranks = balanced_rank_estimation(pairwiseComparison)
     #print("Balanced Rank Estimation:", ranks)
+    ranks=computeRanksForAll(pairwiseComparison,Sels)
 
     sorted_items = sorted(ranks.items(), key=lambda item: item[1], reverse=True)
     #print(sorted_items)
+
     hypothesis=[]
     rank=0
     for s in sorted_items:
@@ -397,8 +515,8 @@ def generateHypothesisTest(conn, meas, measBase, table, sel, sampleSize, method)
             else:
                 rank=rank+1
                 hypothesis.append((s[0], rank))
-    print("hypothesis", hypothesis)
 
+    print("hypothesis", hypothesis)
 
     return hypothesis
 
@@ -491,7 +609,7 @@ n=math.ceil(n)
 sampleSize=30
 samplingMethod='BERNOULLI' # or SYSTEM
 
-nbruns=10
+nbruns=5
 
 # TODO
 #  check stability of hypothesis - BRE was generated by GPT...
