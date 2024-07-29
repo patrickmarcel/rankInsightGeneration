@@ -200,66 +200,47 @@ def getSample(conn, meas, measBase, table, sel, sampleSize, method):
     return resultVals
 
 
-def computeBHcorrection(pairwiseComparison, tabPValues, tabStat, alpha = 0.05):
+def computeBHcorrection(pairwiseComparison, alpha = 0.05):
 
     # rejected, corrected_p_values = benjamini_hochberg_gpt(tabPValues, alpha)
     # print("Rejected hypotheses:", rejected)
     # print("raw p-values:", tabPValues)
     # print("Corrected p-values (gpt):", corrected_p_values)
+    tabPValues=[]
+    for p in pairwiseComparison:
+        tabPValues.append(p[4])
+
     corrected = benjamini_hochberg(tabPValues, alpha)
     rejected, corrected2 = benjamini_hochberg_statmod(tabPValues, alpha)
 
-    # print("Corrected p-values (scipy):", corrected)
-
-    # print("len tabPvalues: ", len(tabPValues))
-    # print("len corrected: ", len(corrected))
-    # print("nb different pvalues: ", utilities.listComp(tabPValues,corrected))
-    # print("nb different pvalues: ", utilities.listComp(tabPValues,corrected2))
     print("nb of True in rejected: ", utilities.nbTrueInList(rejected))
-    # print(tabRej)
 
-    # i=0
-    # nbChanges=0
-    # for c in pairwiseComparison:
-    #    comp=0
-    #    if corrected2[i] < 0.05 and tabStat[i] < 0:
-    #        comp=-1
-    #    if corrected2[i] < 0.05 and tabStat[i] > 0:
-    #        comp=1
-    #    if c[2] != comp:
-    #        nbChanges=nbChanges+1
-    #        pairwiseComparison.remove(c)
-    #        pairwiseComparison.append((c[0], c[1], comp))
-    #    i=i+1
-
+    pairwiseComp2=[]
     i = 0
     nbChanges = 0
     for c in pairwiseComparison:
-        comp = 0
-        if rejected[i] == True and tabStat[i] < 0:
+        comp = 0  # not significant
+        if corrected[i] < 0.05 and c[3] < 0:
             comp = -1
-        if rejected[i] == True and tabStat[i] > 0:
+        if corrected[i] < 0.05 and c[3] > 0:
             comp = 1
+        if comp != c[2]:
+            nbChanges=nbChanges+1
+        pairwiseComp2.append((c[0], c[1], comp, c[2], corrected[i]))
+        i=i+1
 
-        # nbChanges = nbChanges + 1
-        pairwiseComparison.remove(c)
-        pairwiseComparison.append((c[0], c[1], comp))
-        i = i + 1
+    print("Number of BH corrections: ", nbChanges)
 
-    print("Number of BH corrections: ", nbChanges, " ratio: ", nbChanges / len(tabPValues), "%")
+    print("nb non zeros after corrections: ", utilities.countNonZeros(pairwiseComp2))
 
-    # print("pairwise comparison: ", pairwiseComparison)
-
-    print("nb non zeros after corrections: ", utilities.countNonZeros(pairwiseComparison))
-
-    return pairwiseComparison
+    return pairwiseComp2
 
 
 
 def generateAllComparisons(Sels, S, nbOfComparisons):
-    tabPValues = []
+    #tabPValues = []
     pairwiseComparison = []
-    tabStat = []
+    #tabStat = []
 
     # compute Claire statistics for all pairs
     claireTab = []
@@ -272,14 +253,14 @@ def generateAllComparisons(Sels, S, nbOfComparisons):
                 # print("Welch test can be used")
                 t_stat, p_value, conclusion = welch_ttest(S[i - 1][3], S[j][3])
                 # print(t_stat, p_value, conclusion)
-                tabStat.append(t_stat)
-                tabPValues.append(float(p_value))
+                #tabStat.append(t_stat)
+                #tabPValues.append(float(p_value))
                 comp = 0  # not significant
                 if p_value < 0.05 and t_stat < 0:
                     comp = -1
                 if p_value < 0.05 and t_stat > 0:
                     comp = 1
-                pairwiseComparison.append((S[i - 1][0], S[j][0], comp))
+                pairwiseComparison.append((S[i - 1][0], S[j][0], comp,t_stat,float(p_value)))
             else:
                 # print("Permutation test is used")
                 observed_t_stat, p_value, permuted_t_stats, conclusion = permutation_test(S[i - 1][3], S[j][3])
@@ -287,16 +268,16 @@ def generateAllComparisons(Sels, S, nbOfComparisons):
                 # print(f"P-value: {p_value}")
                 # print(f"conclusion: {conclusion}")
                 # print(observed_t_stat, p_value, conclusion)
-                tabStat.append(observed_t_stat)
-                tabPValues.append(float(p_value))
+                #tabStat.append(observed_t_stat)
+                #tabPValues.append(float(p_value))
                 comp = 0  # not significant
                 if p_value < 0.05 and observed_t_stat < 0:
                     comp = -1
                 if p_value < 0.05 and observed_t_stat > 0:
                     comp = 1
-                pairwiseComparison.append((S[i - 1][0], S[j][0], comp))
+                pairwiseComparison.append((S[i - 1][0], S[j][0], comp, observed_t_stat, float(p_value)))
 
-    pairwiseComparison=computeBHcorrection(pairwiseComparison, tabPValues, tabStat, 0.05)
+    pairwiseComparison=computeBHcorrection(pairwiseComparison, 0.05)
     return pairwiseComparison
 
 
