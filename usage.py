@@ -219,3 +219,165 @@ ure = UnbalancedRankedEstimation(num_items)
 ure.fit(comparisons)
 scores = ure.predict()
 print("Estimated scores:", scores)
+
+
+
+
+def generateComparisons(Sels, S, nbOfComparisons):
+    # todo : modify to do as few test as possible
+    tabPValues = []
+    pairwiseComparison = []
+    tabStat = []
+    tabRej = []
+
+    # compute Claire statistics for all pairs
+    claireTab = []
+    for i in range(1, len(S)):
+        for j in range(i, len(S)):
+            b = claireStat(S[i - 1][2], S[j][2], S[i - 1][1], S[j][1])
+            claireTab.append((S[i - 1][0], S[j][0], b, S[i - 1][3], S[j][3]))
+
+    # print("Claire Tab: ", claireTab)
+
+    # compute all Welch tests
+    nbWelch = 0
+    for cl in claireTab:
+        if cl[2]:
+            # print("Welch test can be used")
+            nbWelch = nbWelch + 1
+            t_stat, p_value, conclusion = welch_ttest(cl[3], cl[4])
+            # print(t_stat, p_value, conclusion)
+            tabStat.append(t_stat)
+            tabPValues.append(float(p_value))
+            comp = 0  # not significant
+            if p_value < 0.05 and t_stat < 0:
+                comp = -1
+            if p_value < 0.05 and t_stat > 0:
+                comp = 1
+            pairwiseComparison.append((cl[0], cl[1], comp))
+            tabRej.append(comp)
+    print("nb welch tests: ", nbWelch)
+    nbremaining = nbOfComparisons - nbWelch
+    nbPermut = 0
+    for cl in claireTab:
+        if not cl[2]:
+            # print("Permutation test is used")
+            nbPermut = nbPermut + 1
+            observed_t_stat, p_value, permuted_t_stats, conclusion = permutation_test(cl[3], cl[4])
+            # print(f"Observed Welch's t-statistic: {observed_t_stat}")
+            # print(f"P-value: {p_value}")
+            # print(f"conclusion: {conclusion}")
+            # print(observed_t_stat, p_value, conclusion)
+            tabStat.append(observed_t_stat)
+            tabPValues.append(float(p_value))
+            comp = 0  # not significant
+            if p_value < 0.05 and observed_t_stat < 0:
+                comp = -1
+            if p_value < 0.05 and observed_t_stat > 0:
+                comp = 1
+            pairwiseComparison.append((cl[0], cl[1], comp))
+            tabRej.append(comp)
+        if nbremaining - nbPermut <= 0:
+            break
+
+    # print("nb permut tests: ", nbPermut)
+    # print("raw pairwise comparisons: ", pairwiseComparison)
+    # print("size: ", len(pairwiseComparison))
+    print("nb non zeros in raw: ", utilities.countNonZeros(pairwiseComparison))
+
+    # the ones already compared
+    alreadyCompared = set()
+    for item1, item2, comp in pairwiseComparison:
+        alreadyCompared.add(item1)
+        alreadyCompared.add(item2)
+
+    # print("alreadyCompared: ", alreadyCompared)
+
+    allValues = set()
+    for s in Sels:
+        allValues.add(s)
+
+    # print("allValues: ", allValues)
+
+    difference = allValues.difference(alreadyCompared)
+    # print("difference: ", difference)
+
+    if len(difference) != 0:
+        # compare the ones in difference with one already compared
+        for d in difference:
+            for cl in claireTab:
+                # print(cl[0], cl[1])
+                if cl[0] == d or cl[1] == d:
+                    # print("Permutation test is used")
+                    # print("adding a test")
+                    nbPermut = nbPermut + 1
+                    observed_t_stat, p_value, permuted_t_stats, conclusion = permutation_test(cl[3], cl[4])
+                    # print(f"Observed Welch's t-statistic: {observed_t_stat}")
+                    # print(f"P-value: {p_value}")
+                    # print(f"conclusion: {conclusion}")
+                    # print(observed_t_stat, p_value, conclusion)
+                    tabStat.append(observed_t_stat)
+                    tabPValues.append(float(p_value))
+                    comp = 0  # not significant
+                    if p_value < 0.05 and observed_t_stat < 0:
+                        comp = -1
+                    if p_value < 0.05 and observed_t_stat > 0:
+                        comp = 1
+                    pairwiseComparison.append((cl[0], cl[1], comp))
+                    tabRej.append(comp)
+                    break
+
+
+    # Benjamini Hochberg correction
+    alpha = 0.05
+    # rejected, corrected_p_values = benjamini_hochberg_gpt(tabPValues, alpha)
+    # print("Rejected hypotheses:", rejected)
+    # print("raw p-values:", tabPValues)
+    # print("Corrected p-values (gpt):", corrected_p_values)
+    corrected = benjamini_hochberg(tabPValues, alpha)
+    rejected, corrected2 = benjamini_hochberg_statmod(tabPValues, alpha)
+
+    # print("Corrected p-values (scipy):", corrected)
+
+    # print("len tabPvalues: ", len(tabPValues))
+    # print("len corrected: ", len(corrected))
+    # print("nb different pvalues: ", utilities.listComp(tabPValues,corrected))
+    # print("nb different pvalues: ", utilities.listComp(tabPValues,corrected2))
+    print("nb of True in rejected: ", utilities.nbTrueInList(rejected))
+    # print(tabRej)
+
+    # i=0
+    # nbChanges=0
+    # for c in pairwiseComparison:
+    #    comp=0
+    #    if corrected2[i] < 0.05 and tabStat[i] < 0:
+    #        comp=-1
+    #    if corrected2[i] < 0.05 and tabStat[i] > 0:
+    #        comp=1
+    #    if c[2] != comp:
+    #        nbChanges=nbChanges+1
+    #        pairwiseComparison.remove(c)
+    #        pairwiseComparison.append((c[0], c[1], comp))
+    #    i=i+1
+
+    i = 0
+    nbChanges = 0
+    for c in pairwiseComparison:
+        comp = 0
+        if rejected[i] == True and tabStat[i] < 0:
+            comp = -1
+        if rejected[i] == True and tabStat[i] > 0:
+            comp = 1
+
+        # nbChanges = nbChanges + 1
+        pairwiseComparison.remove(c)
+        pairwiseComparison.append((c[0], c[1], comp))
+        i = i + 1
+
+    print("Number of BH corrections: ", nbChanges, " ratio: ", nbChanges / len(tabPValues), "%")
+
+    # print("pairwise comparison: ", pairwiseComparison)
+
+    print("nb non zeros after corrections: ", utilities.countNonZeros(pairwiseComparison))
+
+    return pairwiseComparison
