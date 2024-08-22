@@ -105,3 +105,35 @@ def getSample(conn, measBase, table, sel, sampleSize, method="SYSTEM", repeatabl
     resultVals = execute_query(conn, querySample)
     print("Sample size in tuples: ", len(resultVals))
     return resultVals
+
+
+def emptyGB(conn, nb_of_adom_vals, table, sel, meas):
+    #queryEmptyGb = ("SELECT " + sel + ","
+    #                + " rank () over (  order by " + meas + " desc ) as rank" +
+    #                " FROM " + table + " group by " + sel + " limit " + str(sizeOfVals) + ";")
+    #queryEmptyGb = ("SELECT " + sel + ","
+    #                + " rank () over (  order by " + meas + " desc ) as rank" +
+    #                " FROM " + table + " group by " + sel + ";")
+    #queryEmptyGb = ("SELECT " + sel + ","
+    #               + " rank () over (  order by " + meas + " desc ) as rank" +
+    #              " FROM " + table +  " WHERE " + sel + " in (" + hyp + ") group by " + sel +  ";")
+
+    #hyp = ""
+    #for i in range(len(vals)):
+    #    hyp = hyp + "'" + str(vals[i]) + "'"
+    #    if i != len(vals) - 1:
+    #        hyp = hyp + ","
+
+    queryEmptyGb = ("SELECT " + sel + ","
+                    + " rank () over (  order by " + meas + " desc ) as rank" +
+                    " FROM " + table + " group by " + sel + " limit " + str(nb_of_adom_vals) + ";")
+
+    #print(queryEmptyGb)
+    resultEmptyGb = execute_query(conn, queryEmptyGb)
+
+    queryEmptyGbAll = ("SELECT " + sel + ","
+                       + " rank () over (  order by " + meas + " desc ) as rank" +
+                       " FROM " + table + " group by " + sel + ";")
+    resultEmptyGbAll = execute_query(conn, queryEmptyGbAll)
+
+    return resultEmptyGb, resultEmptyGbAll

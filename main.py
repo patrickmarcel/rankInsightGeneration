@@ -6,7 +6,7 @@ import rankingFromPairwise
 import utilities
 from utilities import powerset
 from plotStuff import plot_curves
-from dbStuff import execute_query, connect_to_db, close_connection, getSample
+from dbStuff import execute_query, connect_to_db, close_connection, getSample, emptyGB
 from statStuff import welch_ttest, permutation_test, compute_skewness, compute_kendall_tau, benjamini_hochberg, \
     benjamini_hochberg_statmod, claireStat
 import time
@@ -42,36 +42,7 @@ else:
     nbruns = 10
 
 
-def emptyGB(conn, nb):
-    #queryEmptyGb = ("SELECT " + sel + ","
-    #                + " rank () over (  order by " + meas + " desc ) as rank" +
-    #                " FROM " + table + " group by " + sel + " limit " + str(sizeOfVals) + ";")
-    #queryEmptyGb = ("SELECT " + sel + ","
-    #                + " rank () over (  order by " + meas + " desc ) as rank" +
-    #                " FROM " + table + " group by " + sel + ";")
-    #queryEmptyGb = ("SELECT " + sel + ","
-    #               + " rank () over (  order by " + meas + " desc ) as rank" +
-    #              " FROM " + table +  " WHERE " + sel + " in (" + hyp + ") group by " + sel +  ";")
 
-    #hyp = ""
-    #for i in range(len(vals)):
-    #    hyp = hyp + "'" + str(vals[i]) + "'"
-    #    if i != len(vals) - 1:
-    #        hyp = hyp + ","
-
-    queryEmptyGb = ("SELECT " + sel + ","
-                    + " rank () over (  order by " + meas + " desc ) as rank" +
-                    " FROM " + table + " group by " + sel + " limit " + str(nb) + ";")
-
-    #print(queryEmptyGb)
-    resultEmptyGb = execute_query(conn, queryEmptyGb)
-
-    queryEmptyGbAll = ("SELECT " + sel + ","
-                       + " rank () over (  order by " + meas + " desc ) as rank" +
-                       " FROM " + table + " group by " + sel + ";")
-    resultEmptyGbAll = execute_query(conn, queryEmptyGbAll)
-
-    return resultEmptyGb, resultEmptyGbAll
 
 
 def generateRandomQuery(pwsert, valsToSelect, hypothesis):
@@ -389,7 +360,7 @@ if __name__ == "__main__":
             #print("vals: ",valsToSelect)
 
             # should only be done once
-            emptyGBresult, emptyGBresultAll = emptyGB(conn, nbAdomVals)
+            emptyGBresult, emptyGBresultAll = emptyGB(conn, nbAdomVals, table, sel, meas)
             print("Empty GB says:", emptyGBresult)
 
             # compute kendall tau between hypothesis and emptyGB
