@@ -87,3 +87,21 @@ def generateGB(groupAtts, measures, table):
             meas = "sum(" + m + ")"
 
             queryVals = ("select distinct " + sel + " from " + table + ";")
+
+
+def getSample(conn, measBase, table, sel, sampleSize, method="SYSTEM", repeatable=False):
+    # sampling using postgresql: https://www.postgresql.org/docs/current/sql-select.html#SQL-FROM
+    # system (faster) is block based, bernouili (slower) is row based
+
+    if repeatable:
+        is_repeatable = 'REPEATABLE(42)'
+    else:
+        is_repeatable = ''
+
+    querySample = (
+            "SELECT " + sel + ", " + measBase + " FROM " + table + " TABLESAMPLE " + method + " (" + str(
+        sampleSize) + ")" + is_repeatable + ";")
+    # print(querySample)
+    resultVals = execute_query(conn, querySample)
+    print("Sample size in tuples: ", len(resultVals))
+    return resultVals

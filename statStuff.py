@@ -208,3 +208,26 @@ def compute_kendall_tau(rankings1, rankings2):
     """
     tau, p_value = stats.kendalltau(rankings1, rankings2, method='asymptotic', variant='c')
     return tau, p_value
+
+
+def claireStat(skew1, skew2, count1, count2, threshold=0.049):
+    """
+    Compute Claire statistics for testing if Welch test can be used
+
+    Parameters:
+    - skew1: skewness of first samples
+    - skew2: skewness of second sample
+    - count1: size of first sample
+    - count2: size of second sample
+    - threshold: why would we want to change?
+
+    Returns:
+    - skewness: boolean indicating if Welch test can be used
+    """
+
+    stat = abs((skew1 / count1) - (skew2 / count2))
+    if stat < threshold:
+        # test can be used
+        return True
+    else:
+        return False
