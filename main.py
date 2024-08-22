@@ -16,33 +16,8 @@ import configparser
 import json
 
 
-# ------  Parameters  ------------
-
+# ------  Debug ?  ------------
 DEBUG_FLAG = True
-
-# number of values of adom to consider - top ones after hypothesis is generated
-nbAdomVals = 5
-
-# for Hoeffding
-epsilon = 0.01
-alpha = 0.01
-p = 0
-H = []
-threshold = 0.1  # 10% of tuples violating the order
-n = math.log(2 / alpha, 10) / pow(2, epsilon * epsilon)
-n = math.ceil(n)
-
-# for DB sampling
-sampleSize = 30
-samplingMethod = 'SYSTEM'  # or SYSTEM
-
-if DEBUG_FLAG:
-    nbruns = 1
-else:
-    nbruns = 10
-
-
-
 
 
 def generateRandomQuery(pwsert, valsToSelect, hypothesis):
@@ -315,14 +290,18 @@ def hoeffdingForRank(groupbyAtt, n, valsToSelect, limitedHyp):
 if __name__ == "__main__":
 
     config = configparser.ConfigParser()
+    # The DB wee want
     config.read('configs/flights.ini')
+    # The system this is running on
     USER = "AC"
+
     # Database connection parameters
     dbname = config[USER]['dbname']
     user = config[USER]['user']
     password = config[USER]['password']
     host = config[USER]['host']
     port = int(config[USER]['port'])
+
     # Cube info
     table = config["Common"]['table']
     measures = json.loads(config.get("Common", "measures"))
@@ -330,6 +309,27 @@ if __name__ == "__main__":
     sel = config["Common"]['sel']
     meas = config["Common"]['meas']
     measBase = config["Common"]['measBase']
+
+    # number of values of adom to consider - top ones after hypothesis is generated
+    nbAdomVals = 5
+
+    # for Hoeffding
+    epsilon = 0.01
+    alpha = 0.01
+    p = 0
+    H = []
+    threshold = 0.1  # 10% of tuples violating the order
+    n = math.log(2 / alpha, 10) / pow(2, epsilon * epsilon)
+    n = math.ceil(n)
+
+    # for DB sampling
+    sampleSize = 30
+    samplingMethod = 'SYSTEM'  # or SYSTEM
+
+    if DEBUG_FLAG:
+        nbruns = 1
+    else:
+        nbruns = 10
 
     # Connect to the database
     conn = connect_to_db(dbname, user, password, host, port)
