@@ -128,12 +128,12 @@ def emptyGB(conn, nb_of_adom_vals, table, sel, meas):
                     + " rank () over (  order by " + meas + " desc ) as rank" +
                     " FROM " + table + " group by " + sel + " limit " + str(nb_of_adom_vals) + ";")
 
-    #print(queryEmptyGb)
-    resultEmptyGb = execute_query(conn, queryEmptyGb)
+    # No need for this query since we do the complete order next
+    #resultEmptyGb = execute_query(conn, queryEmptyGb)
 
     queryEmptyGbAll = ("SELECT " + sel + ","
                        + " rank () over (  order by " + meas + " desc ) as rank" +
                        " FROM " + table + " group by " + sel + ";")
     resultEmptyGbAll = execute_query(conn, queryEmptyGbAll)
 
-    return resultEmptyGb, resultEmptyGbAll
+    return resultEmptyGbAll[:nb_of_adom_vals], resultEmptyGbAll

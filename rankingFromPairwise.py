@@ -19,7 +19,7 @@ def computeRanksForAll(pairwiseComparison, Sels):
         if result == -1:
             ranks.update({right: ranks[right] + 1})
 
-    print("ranks:", ranks)
+    #print("ranks:", ranks)
     return ranks
 
 

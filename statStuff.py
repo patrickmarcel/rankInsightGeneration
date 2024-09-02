@@ -64,7 +64,7 @@ def welch_t_statistic(x1, x2):
 def permutation_test(x1, x2, num_permutations=10000, alpha=0.05):
     """Perform a permutation test using Welch's t-statistic as the test statistic."""
     # Calculate observed Welch's t-statistic
-    observed_t_stat = welch_t_statistic(x1, x2)
+    observed_t_stat = np.mean(x1) - np.mean(x2) #welch_t_statistic(x1, x2)
 
     # Combine the samples
     combined = np.concatenate([x1, x2])
@@ -75,7 +75,7 @@ def permutation_test(x1, x2, num_permutations=10000, alpha=0.05):
         np.random.shuffle(combined)
         perm_x1 = combined[:len(x1)]
         perm_x2 = combined[len(x1):]
-        permuted_t_stats.append(welch_t_statistic(perm_x1, perm_x2))
+        permuted_t_stats.append( np.mean(perm_x1) - np.mean(perm_x2)) #welch_t_statistic(perm_x1, perm_x2))
 
     permuted_t_stats = np.array(permuted_t_stats)
 

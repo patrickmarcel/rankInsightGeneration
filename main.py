@@ -17,7 +17,7 @@ import json
 
 
 # ------  Debug ?  ------------
-DEBUG_FLAG = True
+DEBUG_FLAG = False
 
 
 def generateRandomQuery(pwsert, valsToSelect, hypothesis):
