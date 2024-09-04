@@ -1,5 +1,32 @@
 import psycopg2
+from utilities import powerset
+import random
+
 from psycopg2 import sql
+
+def getMVnames(conn):
+    return execute_query(conn, "select matviewname from pg_catalog.pg_matviews;")
+
+def getDefOfMV(conn, MVname):
+    return execute_query(conn, "select definition from pg_catalog.pg_matviews where matviewname='" + MVname +";")
+
+def getJSONPlannerForQuery(conn, query):
+    return execute_query(conn, "explain (format json) " + query)
+
+def createMV(conn, attInGB, selAtt, meas, table, percentOfLattice):
+    pwset = powerset(attInGB)
+    for p in pwset:
+        pwset.remove(p)
+        pwset.append(p + selAtt)
+
+    nbOfMV=len(pwset)*percentOfLattice
+
+    for i in range(nbOfMV):
+        nb = random.randint(0, len(pwset) - 1)
+        gb = pwset[nb]
+        pwset.remove(gb)
+        query="create materialized view MV" + gb + " as select " + gb + "," + meas + " from " + table + " group by " + gb +  ";"
+        execute_query(conn, query)
 
 def connect_to_db(dbname, user, password, host='localhost', port='5432'):
     """
