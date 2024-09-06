@@ -314,12 +314,12 @@ if __name__ == "__main__":
     nbAdomVals = 5
 
     # for Hoeffding
-    epsilon = 0.01
-    alpha = 0.01
+    epsilon = 0.1
+    alpha = 0.1
     p = 0
     H = []
     threshold = 0.1  # 10% of tuples violating the order
-    n = math.log(2 / alpha, 10) / pow(2, epsilon * epsilon)
+    n = math.log(2 / alpha, 10) / (2* epsilon * epsilon)
     n = math.ceil(n)
 
     # for DB sampling
