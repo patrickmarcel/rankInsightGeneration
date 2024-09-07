@@ -7,6 +7,12 @@ from psycopg2 import sql
 def getMVnames(conn):
     return execute_query(conn, "select matviewname from pg_catalog.pg_matviews;")
 
+def dropAllMVs(conn):
+    mvnames=getMVnames(conn)
+    for n in mvnames:
+        ns=[str(i) for i in n]
+        execute_query(conn, "drop materialized view "+ns[0]+";")
+
 def getDefOfMV(conn, MVname):
     return execute_query(conn, "select definition from pg_catalog.pg_matviews where matviewname='" + MVname +";")
 
@@ -22,8 +28,8 @@ def createMV(conn, attInGB, selAtt, meas, table, percentOfLattice):
         pwset2.append(tuple(l))
 
     nbOfMV=len(pwset2)*percentOfLattice
-    print(pwset2)
-    print(int(nbOfMV))
+    #print(pwset2)
+    #print(int(nbOfMV))
 
     for i in range(int(nbOfMV)):
         nb = random.randint(0, len(pwset2) - 1)
@@ -34,7 +40,7 @@ def createMV(conn, attInGB, selAtt, meas, table, percentOfLattice):
             gbs=gbs+s+','
         gbs=gbs[:-1]
         query="create materialized view MV" + str(i) + " as select " + gbs + "," + meas + " from " + table + " group by " + gbs +  ";"
-        print(query)
+        #print(query)
         execute_query(conn, query)
 
 def connect_to_db(dbname, user, password, host='localhost', port='5432'):
