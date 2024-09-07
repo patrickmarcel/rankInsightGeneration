@@ -15,17 +15,26 @@ def getJSONPlannerForQuery(conn, query):
 
 def createMV(conn, attInGB, selAtt, meas, table, percentOfLattice):
     pwset = powerset(attInGB)
+    pwset2=[]
     for p in pwset:
-        pwset.remove(p)
-        pwset.append(p + selAtt)
+        l=list(p)
+        l.append(selAtt)
+        pwset2.append(tuple(l))
 
-    nbOfMV=len(pwset)*percentOfLattice
+    nbOfMV=len(pwset2)*percentOfLattice
+    print(pwset2)
+    print(int(nbOfMV))
 
-    for i in range(nbOfMV):
-        nb = random.randint(0, len(pwset) - 1)
-        gb = pwset[nb]
-        pwset.remove(gb)
-        query="create materialized view MV" + gb + " as select " + gb + "," + meas + " from " + table + " group by " + gb +  ";"
+    for i in range(int(nbOfMV)):
+        nb = random.randint(0, len(pwset2) - 1)
+        gb = pwset2[nb]
+        pwset2.remove(gb)
+        gbs=''
+        for s in gb:
+            gbs=gbs+s+','
+        gbs=gbs[:-1]
+        query="create materialized view MV" + str(i) + " as select " + gbs + "," + meas + " from " + table + " group by " + gbs +  ";"
+        print(query)
         execute_query(conn, query)
 
 def connect_to_db(dbname, user, password, host='localhost', port='5432'):
