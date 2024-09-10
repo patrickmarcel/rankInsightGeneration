@@ -37,7 +37,7 @@ def createMV(conn, attInGB, selAtt, meas, table, percentOfLattice):
         pwset2.remove(gb)
         gbs=''
         for s in gb:
-            gbs=gbs+s+','
+            gbs = gbs + s + ','
         gbs=gbs[:-1]
         query="create materialized view MV" + str(i) + " as select " + gbs + "," + meas + " from " + table + " group by " + gbs +  ";"
         #print(query)
@@ -63,6 +63,9 @@ def connect_to_db(dbname, user, password, host='localhost', port='5432'):
             port=port
         )
         print("Connection to database established successfully.")
+        # Activate extension for sampling rows faster
+        act_ext_query = "CREATE EXTENSION  IF NOT EXISTS tsm_system_rows;"
+        execute_query(conn, act_ext_query)
         return conn
     except Exception as e:
         print(f"Error connecting to database: {e}")
@@ -131,7 +134,7 @@ def generateGB(groupAtts, measures, table):
             queryVals = ("select distinct " + sel + " from " + table + ";")
 
 
-def getSample(conn, measBase, table, sel, sampleSize, method="SYSTEM", repeatable=False):
+def getSample(conn, measBase, table, sel, sampleSize, method="SYSTEM_ROWS", repeatable=False):
     # sampling using postgresql: https://www.postgresql.org/docs/current/sql-select.html#SQL-FROM
     # system (faster) is block based, bernouili (slower) is row based
 
