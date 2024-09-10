@@ -223,6 +223,40 @@ def generateHypothesisTest(conn, meas, measBase, table, sel, sampleSize, method)
 
     return hypothesis
 
+#This function estimates the number of violations in all the cube of R
+#by randomly drawing tuples from the materialized cuboids (R included)
+#It uses Hoeffding concentration inequality for bounding the number of draws according to a confidence interval
+def estimateViolations(conn, measBase, table, sel, cuboids, ranking, epsilon = 0.1, alpha = 0.1):
+    #n is number of draws
+    n = math.log(2 / alpha, 10) / (2 * epsilon * epsilon)
+    n = math.ceil(n)
+
+    estimates=0
+
+    for i in range(n):
+        nCuboid = random.randint(1, len(cuboids)+1) #+1 is for R itself
+        if nCuboid == len(cuboids)+1:
+            #draw in R
+            tuples=getSample(conn, measBase, table, sel, 2)
+        else:
+            #draw in cuboid nCuboid
+            view=cuboids[nCuboid]
+            tuples=getSample(conn, measBase, view, sel, 2)
+        if checkViolation(tuples, ranking) == True:
+            estimates=estimates+1
+
+    return estimates
+
+#checks if tuples violate ranking, return True if this is the case
+def checkViolation(tuples, ranking):
+
+    rankt1 = ranking.index(tuples[0][0])
+    rankt2 = ranking.index(tuples[1][0])
+
+    if tuples[0][1] < tuples[1][1] and rankt1<rankt2:
+        return True
+    else:
+        return False
 
 def hoeffdingForRank(groupbyAtt, n, valsToSelect, limitedHyp):
     print("Size of confidence interval around p: " + str(epsilon))
@@ -333,7 +367,7 @@ if __name__ == "__main__":
     # The DB wee want
     config.read('configs/flights.ini')
     # The system this is running on
-    USER = "AC"
+    USER = "PM"
 
     # Database connection parameters
     dbname = config[USER]['dbname']
@@ -363,8 +397,8 @@ if __name__ == "__main__":
     n = math.ceil(n)
 
     # for DB sampling
-    sampleSize = 30
-    samplingMethod = 'SYSTEM'  # or SYSTEM
+    sampleSize = 3000
+    samplingMethod = 'SYSTEM_ROWS'  # or SYSTEM
 
     if DEBUG_FLAG:
         nbruns = 1
