@@ -19,6 +19,7 @@ def getDefOfMV(conn, MVname):
 def getJSONPlannerForQuery(conn, query):
     return execute_query(conn, "explain (format json) " + query)
 
+# percentOfLattice is a float in ]0,1]
 def createMV(conn, attInGB, selAtt, meas, table, percentOfLattice):
     pwset = powerset(attInGB)
     pwset2=[]
@@ -148,6 +149,7 @@ def getSample(conn, measBase, table, sel, sampleSize, method="SYSTEM_ROWS", repe
         sampleSize) + ")" + is_repeatable + ";")
     # print(querySample)
     resultVals = execute_query(conn, querySample)
+    #print(resultVals)
     print("Sample size in tuples: ", len(resultVals))
     return resultVals
 

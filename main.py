@@ -18,7 +18,7 @@ import json
 
 
 # ------  Debug ?  ------------
-DEBUG_FLAG = False
+DEBUG_FLAG = True
 
 
 def generateRandomQuery(pwsert, valsToSelect, hypothesis):
@@ -167,7 +167,8 @@ def generateAllComparisons(Sels, S, nbOfComparisons):
 
 
 def generateHypothesisTest(conn, meas, measBase, table, sel, sampleSize, method):
-    resultVals = getSample(conn, measBase, table, sel, sampleSize, method=method, repeatable=DEBUG_FLAG)
+    resultVals = getSample(conn, measBase, table, sel, sampleSize, method=method, repeatable=False)
+    #resultVals = getSample(conn, measBase, table, sel, sampleSize, method=method, repeatable=DEBUG_FLAG)
 
     # get adom values
     Sels = list(set([x[0] for x in resultVals]))
@@ -235,25 +236,43 @@ def estimateViolations(conn, measBase, table, sel, cuboids, ranking, epsilon = 0
 
     for i in range(n):
         nCuboid = random.randint(1, len(cuboids)+1) #+1 is for R itself
+        print("nCuboid: ",nCuboid)
         if nCuboid == len(cuboids)+1:
             #draw in R
+            #TODO draw tuples where only diff is on sel attribute! no gb on fact table !
             tuples=getSample(conn, measBase, table, sel, 2)
         else:
             #draw in cuboid nCuboid
-            view=cuboids[nCuboid]
-            tuples=getSample(conn, measBase, view, sel, 2)
+            view=cuboids[nCuboid][0]
+            tuples=getSample(conn, "avg", view, sel, 2)
         if checkViolation(tuples, ranking) == True:
             estimates=estimates+1
 
     return estimates
 
+# returns the rank of value in ranking
+# returns 0 if value not found
+def getRank(value, ranking):
+    for r in ranking:
+        if r[0] == value:
+            rank=r[1]
+    return rank
+
 #checks if tuples violate ranking, return True if this is the case
 def checkViolation(tuples, ranking):
+    print("tuples: ", tuples)
+    print("ranking: ", ranking)
 
-    rankt1 = ranking.index(tuples[0][0])
-    rankt2 = ranking.index(tuples[1][0])
+    meast1 = tuples[0][1]
+    meast2 = tuples[1][1]
 
-    if tuples[0][1] < tuples[1][1] and rankt1<rankt2:
+    valuet1 = tuples[0][0]
+    valuet2 = tuples[1][0]
+
+    rankt1 = getRank(valuet1,ranking)
+    rankt2 = getRank(valuet2, ranking)
+
+    if meast1<meast2 and rankt1<rankt2:
         return True
     else:
         return False
@@ -331,6 +350,9 @@ def countViolations(conn, viewName, ranking):
     #queryCountGb = ("select count(*) from (" + queryHyp + ") t4;")
     queryCountExcept = ("select count(*) from (" + queryExcept + ") t5;")
     return dbStuff.execute_query(conn, queryCountExcept)
+
+
+
 
 #draws n views, return those having less than threshold violations
 # TODO check!
@@ -419,8 +441,19 @@ if __name__ == "__main__":
             #generate hypothesis: ordering of members such that mean is greater (statistically significant on sample)
             hypothesis = generateHypothesisTest(conn, meas, measBase, table, sel, sampleSize, samplingMethod)
 
-            #print("Hypothesis as predicted: ", hypothesis)
+            # below some testing stuff
+            print("Hypothesis as predicted: ", hypothesis)
 
+            dbStuff.dropAllMVs(conn)
+            dbStuff.createMV(conn, groupbyAtt, sel, meas, table, 0.5)
+            tabView=dbStuff.getMVnames(conn)
+            n, nbV=estimateViolations(conn, meas, table, sel, tabView, hypothesis)
+
+            print("on " + n + " draws, there are " + nbV + " violations")
+            print("violation rate is: ", nbV/n)
+            '''
+            
+            
             # limit hypothesis to top nbAdomVals
             limitedHyp = []
             valsToSelect = []
@@ -477,6 +510,9 @@ if __name__ == "__main__":
         print(resultRuns)
         print(tabHypo)
         # compute hamming dist in tabhypo or jaccard
+
+        '''
+
 
         if not DEBUG_FLAG:
             names = ['tau', 'expected', 'time']
