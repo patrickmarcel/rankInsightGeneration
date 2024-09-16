@@ -1,6 +1,9 @@
 import numpy as np
 from statStuff import welch_ttest, permutation_test
 
+# global variable
+pairwiseComparison = []
+
 
 def computeRanksForAll(pairwiseComparison, Sels):
     """
@@ -76,7 +79,6 @@ def balanced_rank_estimation(pairwise_comparisons, max_iterations=1000, tol=1e-6
     return {items[i]: ranks[i] for i in range(n)}
 
 
-pairwiseComparison = []
 
 
 def findTuple(a, b, claireTab):

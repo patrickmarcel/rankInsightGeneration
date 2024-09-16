@@ -389,7 +389,7 @@ if __name__ == "__main__":
     # The DB wee want
     config.read('configs/flights.ini')
     # The system this is running on
-    USER = "PM"
+    USER = "AC"
 
     # Database connection parameters
     dbname = config[USER]['dbname']

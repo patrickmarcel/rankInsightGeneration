@@ -147,7 +147,7 @@ def getSample(conn, measBase, table, sel, sampleSize, method="SYSTEM_ROWS", repe
     querySample = (
             "SELECT " + sel + ", " + measBase + " FROM " + table + " TABLESAMPLE " + method + " (" + str(
         sampleSize) + ")" + is_repeatable + ";")
-    # print(querySample)
+    #print(querySample)
     resultVals = execute_query(conn, querySample)
     #print(resultVals)
     print("Sample size in tuples: ", len(resultVals))
