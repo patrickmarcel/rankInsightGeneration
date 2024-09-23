@@ -90,6 +90,18 @@ def print_comp_list(l):
         l = [str(a) + ">" + str(b) for a, b, c in l]
     print(" | ".join(l))
 
+def strip_comp_list(l):
+    if len(l[0]) == 2:
+        l = [str(a) + ">" + str(b) for a, b in l]
+    else:
+        l = [str(a) + ">" + str(b) for a, b, c in l]
+    return l
+
+def jaccard_similarity(list1, list2):
+    intersection = len(list(set(list1).intersection(list2)))
+    union = (len(set(list1)) + len(set(list2))) - intersection
+    return float(intersection) / union
+
 
 if __name__ == "__main__":
 
@@ -212,4 +224,5 @@ if __name__ == "__main__":
     print("NB de comparaisons significatives (exhaustif)", len(comparisons))
     print_comp_list(sorted(comparisons,key=lambda x : x[0]+x[1]))
 
-
+    print(jaccard_similarity(strip_comp_list(comparisons), strip_comp_list(w_comparisons)))
+    print(jaccard_similarity(strip_comp_list(comparisons), strip_comp_list(final)))
