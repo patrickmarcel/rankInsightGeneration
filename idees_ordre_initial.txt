@@ -1,0 +1,45 @@
+ from pwlistorder import agg_preferences, eval_ordering, minconflict, pagerank
+
+    # creating the dictionary of aggregated preferences
+    dct_prefs = agg_preferences(comparisons)
+
+    starting_order = copy(adom)
+    random.shuffle(starting_order)
+
+    # running min-conflict, requires a starting point
+    ordering_minconflict = minconflict(dct_prefs, starting_order)
+
+    print("min conflict local search", ordering_minconflict)
+
+    h = generateHypothesisTest_from_sample(conn, meas, measBase, table, sel, congress)
+
+    #stats method
+    import pandas
+    df = pandas.DataFrame(congress, columns=["group", "measure"])
+    test_results = pandas.DataFrame(matrix, columns=adom, index=adom)
+    print(df.head())
+    print(test_results.head())
+
+    import scikit_posthocs as sp
+
+    ranks = {}
+    o = [(item[0], np.mean(item[1])) for item in buckets.items()]
+    o = sorted(o, key=lambda item: item[1], reverse=True)
+    for i in range(len(o)):
+        ranks[o[i][0]] = i
+
+    sp.critical_difference_diagram(ranks, test_results, elbow_props={'color': 'gray'}, )
+    from matplotlib import pyplot as plt
+    plt.show()
+
+    # do all welch tests
+    # sort by distance of p value to 0.05
+    # expand our parametric test budget on those
+
+    # Start with every comparison equiprobable
+     # each step draw comparison
+     # set proba of redraw to 0
+     # if significant : a > b
+      # increase proba of drawing a > _ pairs
+      # if we have already drawn pairs c > b increase proba of all pairs a > c
+      # decrease proba of transitive pairs

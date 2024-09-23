@@ -83,6 +83,13 @@ def generateHypothesisTest_from_sample(conn, meas, measBase, table, sel, sample)
 
     return hypothesis
 
+def print_comp_list(l):
+    if len(l[0]) == 2:
+        l = [str(a) + ">" + str(b) for a, b in l]
+    else:
+        l = [str(a) + ">" + str(b) for a, b, c in l]
+    print(" | ".join(l))
+
 
 if __name__ == "__main__":
 
@@ -91,7 +98,7 @@ if __name__ == "__main__":
     config.read('configs/flights.ini')
     # The system this is running on
     USER = "AC"
-    SAMPLE_SIZE_REL = 0.1
+    SAMPLE_SIZE_REL = 0.2
 
     # Database connection parameters
     dbname = config[USER]['dbname']
@@ -113,10 +120,11 @@ if __name__ == "__main__":
     # collect some stats
     table_size = execute_query(conn, "select count(1) from " + table + ";")[0][0]
     adom = [x[0] for x in execute_query(conn, "select distinct  "+sel+" from "+table+";")]
+    print("NB de groupes",len(adom))
 
     # fetch the congressional sample
     sample_size = int(table_size*SAMPLE_SIZE_REL)
-    alpha = 0.5
+    alpha = 0.25
     house_size = sample_size*alpha
     senate_size = sample_size * (1-alpha)
 
@@ -136,34 +144,72 @@ if __name__ == "__main__":
     for item in congress:
         buckets[item[0]].append(item[1])
 
-    #stats mathod
 
+    # do all welch tests
+    param_budget = 20
+    param_budget = int(param_budget/2)
 
-    # preference method
+    from scipy.stats import ttest_ind
+
+    welch_matrix = [[1 for j in adom] for i in adom]
+    w_comparisons = []
+    w_comparisons_rej = []
+
+    for i in range(len(adom)):
+        for j in range(i  + 1):
+            left = adom[i]
+            right = adom[j]
+            res = ttest_ind(buckets[left], buckets[right], equal_var=False)
+            welch_matrix[i][j] = res.pvalue
+            welch_matrix[j][i] = res.pvalue
+            if res.pvalue < 0.05:
+                if res.statistic < 0:
+                    w_comparisons.append((left, right, res.pvalue))
+                else:
+                    w_comparisons.append((right, left, res.pvalue))
+            else:
+                if res.statistic < 0:
+                    w_comparisons_rej.append((left, right, res.pvalue))
+                else:
+                    w_comparisons_rej.append((right, left, res.pvalue))
+
+    print("NB de comparaisons significatives (welch)", len(w_comparisons))
+    print_comp_list(sorted(w_comparisons,key=lambda x : x[0]+x[1]))
+    by_prox_to_threshold = sorted(w_comparisons, key=lambda x: abs(0.05-x[2]), reverse=True)
+    #print(by_prox_to_threshold)
+
+    final = by_prox_to_threshold[param_budget:]
+    to_redo = by_prox_to_threshold[:param_budget]
+
+    to_redo.extend(sorted(w_comparisons_rej, key=lambda x: abs(0.05 - x[2]), reverse=True)[:param_budget])
+
+    for left, right, _ in to_redo:
+        res = permutation_test(buckets[left], buckets[right])
+        if res[3].startswith("Reject"):
+            if res[1] > 0:
+                final.append((left, right, -1))
+            else:
+                final.append((right, left, -1))
+
+    print("NB de comparaisons significatives (welch + X param)", len(final))
+    print_comp_list(sorted(final, key=lambda x: x[0]+x[1]))
+
+    # Exhaustive method with non-parametric
+    matrix = [[1 for j in adom] for i in adom]
     for i in range(len(adom)):
         for j in range(i  + 1):
             left = adom[i]
             right = adom[j]
             res = permutation_test(buckets[left], buckets[right])
+            matrix[i][j] = res[1]
+            matrix[j][i] = res[1]
             if res[3].startswith("Reject"):
                 if res[1] > 0:
                     comparisons.append((left, right))
                 else:
                     comparisons.append((right, left))
 
-    print(comparisons)
-    from pwlistorder import agg_preferences, eval_ordering, minconflict, pagerank
+    print("NB de comparaisons significatives (exhaustif)", len(comparisons))
+    print_comp_list(sorted(comparisons,key=lambda x : x[0]+x[1]))
 
-    # creating the dictionary of aggregated preferences
-    dct_prefs = agg_preferences(comparisons)
-
-    starting_order = copy(adom)
-    random.shuffle(starting_order)
-
-    # running min-conflict, requires a starting point
-    ordering_minconflict = minconflict(dct_prefs, starting_order)
-
-    print("min conflict local search", ordering_minconflict)
-
-    h = generateHypothesisTest_from_sample(conn, meas, measBase, table, sel, congress)
 
