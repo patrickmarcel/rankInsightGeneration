@@ -44,6 +44,12 @@ def createMV(conn, attInGB, selAtt, meas, table, percentOfLattice):
         #print(query)
         execute_query(conn, query)
 
+#returns the group by set of a query (having a single group by)
+def returnGroupby(query):
+    tab=query.split("GROUP BY")
+    return tab[1].split(';')[0]
+
+
 def connect_to_db(dbname, user, password, host='localhost', port='5432'):
     """
     Establishes a connection to the PostgreSQL database.

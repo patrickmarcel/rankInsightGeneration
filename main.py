@@ -227,7 +227,7 @@ def generateHypothesisTest(conn, meas, measBase, table, sel, sampleSize, method)
 #This function estimates the number of violations in all the cube of R
 #by randomly drawing tuples from the materialized cuboids (R included)
 #It uses Hoeffding concentration inequality for bounding the number of draws according to a confidence interval
-def estimateViolations(conn, measBase, table, sel, cuboids, ranking, epsilon = 0.1, alpha = 0.1):
+def estimateViolations(conn, meas, measBase, table, sel, cuboids, ranking, epsilon = 0.1, alpha = 0.1):
     #n is number of draws
     n = math.log(2 / alpha, 10) / (2 * epsilon * epsilon)
     n = math.ceil(n)
@@ -235,20 +235,20 @@ def estimateViolations(conn, measBase, table, sel, cuboids, ranking, epsilon = 0
     estimates=0
 
     for i in range(n):
-        nCuboid = random.randint(1, len(cuboids)+1) #+1 is for R itself
+        nCuboid = random.randint(1, len(cuboids)) #+1 is for R itself
         print("nCuboid: ",nCuboid)
-        if nCuboid == len(cuboids)+1:
-            #draw in R
-            #TODO draw tuples where only diff is on sel attribute! no gb on fact table !
-            tuples=getSample(conn, measBase, table, sel, 2)
-        else:
-            #draw in cuboid nCuboid
-            view=cuboids[nCuboid][0]
-            tuples=getSample(conn, "avg", view, sel, 2)
+        #if nCuboid == len(cuboids):
+        #    #draw in R
+        #    #TODO draw tuples where only diff is on sel attribute!
+        #    tuples=getSample(conn, measBase, table, sel, 5)
+        #else:
+        #draw in cuboid nCuboid
+        view=cuboids[nCuboid][0]
+        tuples=getSample(conn, "avg", view, sel, 5)
         if checkViolation(tuples, ranking) == True:
             estimates=estimates+1
 
-    return estimates
+    return n, estimates
 
 # returns the rank of value in ranking
 # returns 0 if value not found
@@ -447,9 +447,9 @@ if __name__ == "__main__":
             dbStuff.dropAllMVs(conn)
             dbStuff.createMV(conn, groupbyAtt, sel, meas, table, 0.5)
             tabView=dbStuff.getMVnames(conn)
-            n, nbV=estimateViolations(conn, meas, table, sel, tabView, hypothesis)
+            n, nbV=estimateViolations(conn, meas, measBase, table, sel, tabView, hypothesis)
 
-            print("on " + n + " draws, there are " + nbV + " violations")
+            print("on " + str(n) + " draws, there are " + str(nbV) + " violations")
             print("violation rate is: ", nbV/n)
             '''
             
