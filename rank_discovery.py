@@ -224,5 +224,5 @@ if __name__ == "__main__":
     print("NB de comparaisons significatives (exhaustif)", len(comparisons))
     print_comp_list(sorted(comparisons,key=lambda x : x[0]+x[1]))
 
-    print(jaccard_similarity(strip_comp_list(comparisons), strip_comp_list(w_comparisons)))
-    print(jaccard_similarity(strip_comp_list(comparisons), strip_comp_list(final)))
+    print("Only welch", jaccard_similarity(strip_comp_list(comparisons), strip_comp_list(w_comparisons)))
+    print("Welch + param", jaccard_similarity(strip_comp_list(comparisons), strip_comp_list(final)))
