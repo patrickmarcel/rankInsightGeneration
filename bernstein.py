@@ -17,12 +17,15 @@ def bernsteinBound(delta, sigma, t):
 def bersteinError(delta, sigma):
     return math.sqrt(math.ln(2/delta)*sigma/2) + (math.ln(2/delta)*(1+math.sqrt(2)))/math.sqrt(2)*6
 
+# so far name of table in from is name of cuboid (convention: attribute sorted + sel attribute last)
+# todo search for materialized cuboids that is the closest to the one drawn (using substring should be enough)
 # pwrset is the powerset of categorical attributes that include the target attribute
 def getSample(delta, t, pwrset, sel, meas, function, table, valsToSelect, hypothesis):
     pset=pwrset
     n=int(sizeOfSampleHoeffding(delta, t))
     tabQuery=[]
     tabCount=[]
+    tabCuboid=[]
     hyp = ""
     for i in range(len(hypothesis)):
         hyp = hyp + str(hypothesis[i])
@@ -74,7 +77,8 @@ def getSample(delta, t, pwrset, sel, meas, function, table, valsToSelect, hypoth
         """
         tabQuery.append(queryCountExcept)
         tabCount.append(queryCountCuboid)
-    return tabQuery,tabCount
+        tabCuboid.append(strgb)
+    return tabQuery,tabCount,tabCuboid
 
 
 def runSampleQueries(tabQuery):

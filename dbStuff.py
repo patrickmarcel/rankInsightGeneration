@@ -193,7 +193,7 @@ def emptyGB(conn, nb_of_adom_vals, table, sel, meas):
     queryEmptyGbAll = ("SELECT " + sel + ","
                        + " rank () over (  order by " + meas + " desc ) as rank" +
                        " FROM " + table + " group by " + sel + ";")
-    print(queryEmptyGbAll)
+    #print(queryEmptyGbAll)
     resultEmptyGbAll = execute_query(conn, queryEmptyGbAll)
 
     return resultEmptyGbAll[:nb_of_adom_vals], resultEmptyGbAll

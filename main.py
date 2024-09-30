@@ -196,9 +196,12 @@ def generateHypothesisTest(conn, meas, measBase, table, sel, sampleSize, method)
     nbOfComparisons = len(Sels) * math.log(len(Sels), 2)
     #print("Number of comparisons to make: " + str(nbOfComparisons))
 
-    #pairwiseComparison=generateAllComparisons(Sels, S, nbOfComparisons)
+    pairwiseComparison=generateAllComparisons(Sels, S, nbOfComparisons)
 
-    pairwiseComparison = generateComparisonsWithMergeSort(Sels, S)
+    #for p in pairwiseComparison:
+    #    print("p: ", p)
+
+    #pairwiseComparison = generateComparisonsWithMergeSort(Sels, S)
 
     # ranking
     #ranks = balanced_rank_estimation(pairwiseComparison)
@@ -452,8 +455,8 @@ if __name__ == "__main__":
             limitedHyp.append(h)
             valsToSelect.append(h[0])
             j = j + 1
-    print("Hypothesis limited: ", limitedHyp)
-    print("vals: ",valsToSelect)
+    print("Hypothesis limited to choosen values: ", limitedHyp)
+    #print("vals: ",valsToSelect)
 
     emptyGBresult, emptyGBresultAll = emptyGB(conn, nbAdomVals, table, sel, meas)
     print("Empty GB says:", emptyGBresult)
@@ -462,20 +465,20 @@ if __name__ == "__main__":
     error=0.3
     # without replacement!
     sizeofsample=int(bernstein.sizeOfSampleHoeffding(proba ,error))+1
-    print(sizeofsample)
+    print('size of sample:', sizeofsample)
     pwrset=dbStuff.getCuboidsOfAtt(groupbyAtt,sel)
-    print(str(tuple(valsToSelect)))
-    queryCountviolations,queryCountCuboid=bernstein.getSample(proba, error, pwrset, sel, measBase, function, table, tuple(valsToSelect), limitedHyp)
+    #print(str(tuple(valsToSelect)))
+    queryCountviolations,queryCountCuboid,cuboid=bernstein.getSample(proba, error, pwrset, sel, measBase, function, table, tuple(valsToSelect), limitedHyp)
     #queryCountviolations,queryCountCuboid=bernstein.getSample(proba, error, pwrset, sel, measBase, function, table, tuple(valsToSelect), emptyGBresult)
 
     for i in range(len(queryCountviolations)):
-        print(queryCountviolations[i])
-        print(queryCountCuboid[i])
+        #print(queryCountviolations[i])
+        #print(queryCountCuboid[i])
         v=dbStuff.execute_query(conn, queryCountviolations[i])[0][0]
         c=dbStuff.execute_query(conn, queryCountCuboid[i])[0][0]
-        print(v)
-        print(c)
-        print(v/c)
+        #print(v)
+        #print(c)
+        print(v/c, " violation rate in cuboid ", cuboid[i])
 
 
 
