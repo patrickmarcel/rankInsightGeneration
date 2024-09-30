@@ -11,7 +11,7 @@ def dropAllMVs(conn):
     mvnames=getMVnames(conn)
     for n in mvnames:
         ns=[str(i) for i in n]
-        execute_query(conn, "drop materialized view "+ns[0]+";")
+        execute_query(conn, "drop materialized view \""+ns[0]+"\";")
 
 def getDefOfMV(conn, MVname):
     return execute_query(conn, "select definition from pg_catalog.pg_matviews where matviewname='" + MVname +";")
@@ -19,14 +19,19 @@ def getDefOfMV(conn, MVname):
 def getJSONPlannerForQuery(conn, query):
     return execute_query(conn, "explain (format json) " + query)
 
-# percentOfLattice is a float in ]0,1]
-def createMV(conn, attInGB, selAtt, meas, table, percentOfLattice):
+# generate all cuboids (group bys) including selAtt
+def getCuboidsOfAtt(attInGB, selAtt):
     pwset = powerset(attInGB)
-    pwset2=[]
+    pwset2 = []
     for p in pwset:
-        l=list(p)
+        l = list(p)
         l.append(selAtt)
         pwset2.append(tuple(l))
+    return pwset2
+
+# percentOfLattice is a float in ]0,1]
+def createMV(conn, attInGB, selAtt, meas, function, table, percentOfLattice):
+    pwset2=getCuboidsOfAtt(attInGB, selAtt)
 
     nbOfMV=len(pwset2)*percentOfLattice
     #print(pwset2)
@@ -40,7 +45,8 @@ def createMV(conn, attInGB, selAtt, meas, table, percentOfLattice):
         for s in gb:
             gbs = gbs + s + ','
         gbs=gbs[:-1]
-        query="create materialized view MV" + str(i) + " as select " + gbs + "," + meas + " from " + table + " group by " + gbs +  ";"
+        #query="create materialized view MV" + str(i) + " as select " + gbs + "," + meas + " from " + table + " group by " + gbs +  ";"
+        query="create materialized view \"" + gbs + "\" as select " + gbs + ", " + function + "(" + meas + ") as " + meas + " " + " from " + table + " group by " + gbs +  ";"
         #print(query)
         execute_query(conn, query)
 
@@ -187,6 +193,7 @@ def emptyGB(conn, nb_of_adom_vals, table, sel, meas):
     queryEmptyGbAll = ("SELECT " + sel + ","
                        + " rank () over (  order by " + meas + " desc ) as rank" +
                        " FROM " + table + " group by " + sel + ";")
+    print(queryEmptyGbAll)
     resultEmptyGbAll = execute_query(conn, queryEmptyGbAll)
 
     return resultEmptyGbAll[:nb_of_adom_vals], resultEmptyGbAll

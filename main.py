@@ -16,6 +16,8 @@ from rankingFromPairwise import computeRanksForAll, merge_sort
 import configparser
 import json
 
+import bernstein
+
 
 # ------  Debug ?  ------------
 DEBUG_FLAG = True
@@ -389,7 +391,7 @@ if __name__ == "__main__":
     # The DB wee want
     config.read('configs/flights.ini')
     # The system this is running on
-    USER = "AC"
+    USER = "PM"
 
     # Database connection parameters
     dbname = config[USER]['dbname']
@@ -405,6 +407,8 @@ if __name__ == "__main__":
     sel = config["Common"]['sel']
     meas = config["Common"]['meas']
     measBase = config["Common"]['measBase']
+    function = config["Common"]['function']
+
 
     # number of values of adom to consider - top ones after hypothesis is generated
     nbAdomVals = 5
@@ -430,6 +434,52 @@ if __name__ == "__main__":
     # Connect to the database
     conn = connect_to_db(dbname, user, password, host, port)
 
+    # to always have the same order in group bys, with sel attribute last
+    groupbyAtt.sort()
+
+    #create all MVs
+    #dbStuff.dropAllMVs(conn)
+    #dbStuff.createMV(conn, groupbyAtt, sel, measBase, function, table, 1)
+
+    #generate hypothesis
+    hypothesis = generateHypothesisTest(conn, meas, measBase, table, sel, sampleSize, samplingMethod)
+    print("Hypothesis as predicted: ", hypothesis)
+    limitedHyp = []
+    valsToSelect = []
+    j = 0
+    for h in hypothesis:
+        if (h[1] <= nbAdomVals and j < nbAdomVals):
+            limitedHyp.append(h)
+            valsToSelect.append(h[0])
+            j = j + 1
+    print("Hypothesis limited: ", limitedHyp)
+    print("vals: ",valsToSelect)
+
+    emptyGBresult, emptyGBresultAll = emptyGB(conn, nbAdomVals, table, sel, meas)
+    print("Empty GB says:", emptyGBresult)
+
+    proba=0.1
+    error=0.3
+    # without replacement!
+    sizeofsample=int(bernstein.sizeOfSampleHoeffding(proba ,error))+1
+    print(sizeofsample)
+    pwrset=dbStuff.getCuboidsOfAtt(groupbyAtt,sel)
+    print(str(tuple(valsToSelect)))
+    queryCountviolations,queryCountCuboid=bernstein.getSample(proba, error, pwrset, sel, measBase, function, table, tuple(valsToSelect), limitedHyp)
+    #queryCountviolations,queryCountCuboid=bernstein.getSample(proba, error, pwrset, sel, measBase, function, table, tuple(valsToSelect), emptyGBresult)
+
+    for i in range(len(queryCountviolations)):
+        print(queryCountviolations[i])
+        print(queryCountCuboid[i])
+        v=dbStuff.execute_query(conn, queryCountviolations[i])[0][0]
+        c=dbStuff.execute_query(conn, queryCountCuboid[i])[0][0]
+        print(v)
+        print(c)
+        print(v/c)
+
+
+
+    ''' 
     if conn:
 
         tabHypo = []
@@ -451,7 +501,7 @@ if __name__ == "__main__":
 
             print("on " + str(n) + " draws, there are " + str(nbV) + " violations")
             print("violation rate is: ", nbV/n)
-            '''
+            
             
             
             # limit hypothesis to top nbAdomVals
@@ -511,7 +561,7 @@ if __name__ == "__main__":
         print(tabHypo)
         # compute hamming dist in tabhypo or jaccard
 
-        '''
+        
 
 
         if not DEBUG_FLAG:
@@ -519,5 +569,8 @@ if __name__ == "__main__":
             title = 'Sample size=' + str(sampleSize)
             plot_curves(resultRuns, names, 'time', 'expected', title)
 
+      
         # Close the connection
         close_connection(conn)
+    '''
+

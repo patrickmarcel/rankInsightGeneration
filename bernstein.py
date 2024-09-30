@@ -18,10 +18,11 @@ def bersteinError(delta, sigma):
     return math.sqrt(math.ln(2/delta)*sigma/2) + (math.ln(2/delta)*(1+math.sqrt(2)))/math.sqrt(2)*6
 
 # pwrset is the powerset of categorical attributes that include the target attribute
-def getSample(delta, t, pwrset, sel, meas, table, valsToSelect, hypothesis):
+def getSample(delta, t, pwrset, sel, meas, function, table, valsToSelect, hypothesis):
     pset=pwrset
-    n=sizeOfSampleHoeffding(delta, t)
+    n=int(sizeOfSampleHoeffding(delta, t))
     tabQuery=[]
+    tabCount=[]
     hyp = ""
     for i in range(len(hypothesis)):
         hyp = hyp + str(hypothesis[i])
@@ -30,23 +31,50 @@ def getSample(delta, t, pwrset, sel, meas, table, valsToSelect, hypothesis):
     for i in range(n):
         nb = random.randint(0, len(pwrset) - 1)
         gb = pset[nb]
-        pset.remove(nb)
+        # without replacement: gb is removed from the list so as not to be drawn twice
+        pset.remove(gb)
         strgb = ""
+        gbwithoutsel=""
         for i in range(len(gb)):
             strgb = strgb + str(gb[i])
             if i != len(gb) - 1:
                 strgb = strgb + ","
+        for i in range(len(gb)-1):
+            gbwithoutsel = gbwithoutsel + str(gb[i])
+            if i != len(gb) - 2:
+                gbwithoutsel = gbwithoutsel + ","
+        if strgb == sel:
+            q = ("SELECT " + strgb + ", " + function + '(' + meas + "), "
+                 + " rank () over ( " + gbwithoutsel + " order by " + function + '(' + meas + ") desc ) as rank" +
+                 # " FROM " + table +
+                 " FROM \"" + strgb + "\"" +
+                 " WHERE " + sel + " in " + str(valsToSelect) + " group by " + strgb + " ")
+        else:
+            q = ("SELECT " + strgb + ", " + function + '(' + meas + "), "
+                 + " rank () over ( partition by " + gbwithoutsel + " order by " + function + '(' + meas + ") desc ) as rank" +
+                 #" FROM " + table +
+             " FROM \"" + strgb + "\"" +
+                " WHERE " + sel + " in " + str(valsToSelect) + " group by " + strgb + " ")
+        queryHyp = (
+                "select " + sel + ",rank  from (values " + hyp + ") as t2 (" + sel + ",rank)")
+        queryExcept = ("select * from  (" + q + " ) t3 , (" + queryHyp + ") t4 where t3." + sel + "=t4." + sel + " and t3.rank!=t4.rank")
+        queryCountCuboid= ("select count(*) from (" + q + ") t5;")
+        queryCountExcept = ("select count(*) from (" + queryExcept + ") t6;")
+
+        """
         q = ("SELECT " + strgb + "," + sel + "," + meas + ", "
                  + " rank () over ( partition by " + strgb + " order by " + meas + " desc ) as rank" +
-                 " FROM " + table + " WHERE " + sel + " in " + str(
-                    valsToSelect) + " group by " + strgb + "," + sel + " ")
+                 #" FROM " + table +
+             " FROM \"" + strgb + "\"" +
+                " WHERE " + sel + " in " + str(valsToSelect) + " group by " + strgb + "," + sel + " ")
         queryHyp = (
                 "select * from (select  " + strgb + " from  " + table + ") t1  cross join (values " + hyp + ") as t2 ")
         queryExcept = ("select " + strgb + "," + sel + ", rank from  (" + q + " ) t3 except all " + queryHyp + " ")
         queryCountExcept = ("select count(*) from (" + queryExcept + ") t5;")
-
-        tabQuery.append((q,queryHyp,queryExcept,queryCountExcept))
-    return tabQuery
+        """
+        tabQuery.append(queryCountExcept)
+        tabCount.append(queryCountCuboid)
+    return tabQuery,tabCount
 
 
 def runSampleQueries(tabQuery):
