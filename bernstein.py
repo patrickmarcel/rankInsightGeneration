@@ -19,7 +19,7 @@ def bersteinError(delta, sigma):
 
 #delta the probability of making an error
 # n sample size
-def bersteinErrorOnAvg(delta, sigma, n):
+def bennetErrorOnAvg(delta, sigma, n):
     return math.sqrt( math.log(1/delta)*sigma/2 ) + ( math.log(1/delta) ) /(3 * n)
 
 # checks if gb in some view names
@@ -99,6 +99,61 @@ def getSample(delta, t, pwrset, sel, meas, function, table, valsToSelect, hypo, 
         queryExcept = ("select " + strgb + "," + sel + ", rank from  (" + q + " ) t3 except all " + queryHyp + " ")
         queryCountExcept = ("select count(*) from (" + queryExcept + ") t5;")
         """
+        tabQuery.append(queryCountExcept)
+        tabCount.append(queryCountCuboid)
+        tabCuboid.append(strgb)
+    return tabQuery,tabCount,tabCuboid
+
+
+
+
+def generateAllqueries(pwrset, sel, meas, function, table, valsToSelect, hypo, mvnames):
+    pset=pwrset
+    n=len(pwrset)
+    tabQuery=[]
+    tabCount=[]
+    tabCuboid=[]
+    hyp = ""
+    for i in range(len(hypo)):
+        hyp = hyp + str(hypo[i])
+        if i != len(hypo) - 1:
+            hyp = hyp + ","
+    for i in range(n):
+        nb = random.randint(0, len(pwrset) - 1)
+        gb = pset[nb]
+        # without replacement: gb is removed from the list so as not to be drawn twice
+        pset.remove(gb)
+        strgb = ""
+        gbwithoutsel=""
+        for i in range(len(gb)):
+            strgb = strgb + str(gb[i])
+            if i != len(gb) - 1:
+                strgb = strgb + ","
+        for i in range(len(gb)-1):
+            gbwithoutsel = gbwithoutsel + str(gb[i])
+            if i != len(gb) - 2:
+                gbwithoutsel = gbwithoutsel + ","
+        materialized = findMV(mvnames, strgb, table)
+        #print(materialized)
+        if strgb == sel:
+            q = ("SELECT " + strgb + ", " + function + '(' + meas + "), "
+                 + " rank () over ( " + gbwithoutsel + " order by " + function + '(' + meas + ") desc ) as rank" +
+                 # " FROM " + table +
+                 " FROM \"" + str(materialized) + "\"" +
+                 " WHERE " + sel + " in " + str(valsToSelect) + " group by " + strgb + " ")
+        else:
+            q = ("SELECT " + strgb + ", " + function + '(' + meas + "), "
+                 + " rank () over ( partition by " + gbwithoutsel + " order by " + function + '(' + meas + ") desc ) as rank" +
+                 #" FROM " + table +
+             " FROM \"" + str(materialized) + "\"" +
+                " WHERE " + sel + " in " + str(valsToSelect) + " group by " + strgb + " ")
+        queryHyp = (
+                "select " + sel + ",rank  from (values " + hyp + ") as t2 (" + sel + ",rank)")
+        queryExcept = ("select * from  (" + q + " ) t3 , (" + queryHyp + ") t4 where t3." + sel + "=t4." + sel + " and t3.rank!=t4.rank")
+        queryCountCuboid= ("select count(*) from (" + q + ") t5;")
+        queryCountExcept = ("select count(*) from (" + queryExcept + ") t6;")
+
+
         tabQuery.append(queryCountExcept)
         tabCount.append(queryCountCuboid)
         tabCuboid.append(strgb)

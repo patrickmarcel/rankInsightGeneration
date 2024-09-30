@@ -30,6 +30,7 @@ def getCuboidsOfAtt(attInGB, selAtt):
     return pwset2
 
 # percentOfLattice is a float in ]0,1]
+# returns nb of created views
 def createMV(conn, attInGB, selAtt, meas, function, table, percentOfLattice):
     pwset2=getCuboidsOfAtt(attInGB, selAtt)
 
@@ -49,6 +50,7 @@ def createMV(conn, attInGB, selAtt, meas, function, table, percentOfLattice):
         query="create materialized view \"" + gbs + "\" as select " + gbs + ", " + function + "(" + meas + ") as " + meas + " " + " from " + table + " group by " + gbs +  ";"
         #print(query)
         execute_query(conn, query)
+    return nbOfMV
 
 #returns the group by set of a query (having a single group by)
 def returnGroupby(query):

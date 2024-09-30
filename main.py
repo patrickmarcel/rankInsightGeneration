@@ -583,16 +583,57 @@ if __name__ == "__main__":
         else:
             tabRandomVar.append(0)
 
-    print('nb of views ok: ', nbViewOK, 'out of ', sizeofsample, 'views, i.e., rate of:',nbViewOK/sizeofsample)
-    variance=np.var(tabRandomVar)
-    print('variance: ', variance)
+    variance = np.var(tabRandomVar)
+    #print('variance: ', variance)
+    prediction=nbViewOK/sizeofsample
+    predictionNbOk=prediction*len(pwrset)
+    print('nb of views ok: ', nbViewOK, 'out of ', sizeofsample, 'views, i.e., rate of:', nbViewOK/sizeofsample)
+    print('predicting number of views ok:', predictionNbOk)
+
     nbErrors=2
     print('probability of making ', nbErrors,' errors: ', bernstein.bernsteinBound(variance, nbErrors))
     print('the error (according to Bernstein) for confidence interval of size', proba,' is: ', bernstein.bersteinError(proba, variance))
+    print('the error (according to Bernstein) for avg and confidence interval of size', proba, ' is: ',
+          bernstein.bennetErrorOnAvg(proba, variance, sizeofsample))
+
+
+    # comparison with ground truth
+    dbStuff.dropAllMVs(conn)
+    nbMVs=dbStuff.createMV(conn, groupbyAtt, sel, measBase, function, table, 1)
+
+    queryCountviolations,queryCountCuboid,cuboid=bernstein.generateAllqueries(pwrset, sel, measBase, function, table, tuple(valsToSelect), limitedHyp, mvnames)
+
+    tabRandomVar = []
+    nbViewOK = 0
+    for i in range(len(queryCountviolations)):
+        # print(queryCountviolations[i])
+        # print(queryCountCuboid[i])
+        v = dbStuff.execute_query(conn, queryCountviolations[i])[0][0]
+        c = dbStuff.execute_query(conn, queryCountCuboid[i])[0][0]
+        # print(v)
+        # print(c)
+        print(v / c, " violation rate in cuboid ", cuboid[i], " of size: ", c, ". Number of violations: ", v)
+        if v / c < ratioViolations:
+            tabRandomVar.append(1)
+            nbViewOK = nbViewOK + 1
+        else:
+            tabRandomVar.append(0)
+
+    variance = np.var(tabRandomVar)
+    # print('variance: ', variance)
+    print('*** comparison to ground truth ***')
+    print('nb of views ok: ', nbViewOK, 'out of ', nbMVs, 'views, i.e., rate of:', nbViewOK / nbMVs)
+
+    print('Error on avg is: ', abs(prediction - (nbViewOK / nbMVs)))
+
+    print('Error on sum is: ', abs(nbViewOK - predictionNbOk))
 
     print('the error (according to Bernstein) for avg and confidence interval of size', proba, ' is: ',
-          bernstein.bersteinErrorOnAvg(proba, variance, sizeofsample))
-    #bernstein.findMV(conn, 'date,airline', table)
+          bernstein.bennetErrorOnAvg(proba, variance, sizeofsample))
+    print('the error (according to Bernstein) for confidence interval of size', proba, ' is: ',
+          bernstein.bersteinError(proba, variance))
+
+
 
     ''' 
     if conn:
