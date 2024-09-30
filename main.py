@@ -551,15 +551,21 @@ if __name__ == "__main__":
 
     ratioViolations=0.4
 
-    proba=0.1
-    error=0.3 # rate
-    # without replacement!
+    proba=0.2
+    error=0.4 # rate
+
+
+    # get all materialized cuboids
+    dbStuff.dropAllMVs(conn)
+    dbStuff.createMV(conn,groupbyAtt,sel,measBase,function,table,0.5)
+    mvnames = dbStuff.getMVnames(conn)
+
     sizeofsample=int(bernstein.sizeOfSampleHoeffding(proba ,error))+1
     print('size of sample according to Hoeffding:', sizeofsample)
     pwrset=dbStuff.getCuboidsOfAtt(groupbyAtt,sel)
     print(str(tuple(valsToSelect)))
-    queryCountviolations,queryCountCuboid,cuboid=bernstein.getSample(proba, error, pwrset, sel, measBase, function, table, tuple(valsToSelect), limitedHyp)
-    #queryCountviolations, queryCountCuboid, cuboid=bernstein.getSample(proba, error, pwrset, sel, measBase, function, table, tuple(valsEmptyGB), emptyGBresult)
+    queryCountviolations,queryCountCuboid,cuboid=bernstein.getSample(proba, error, pwrset, sel, measBase, function, table, tuple(valsToSelect), limitedHyp, mvnames)
+    #queryCountviolations, queryCountCuboid, cuboid=bernstein.getSample(proba, error, pwrset, sel, measBase, function, table, tuple(valsEmptyGB), emptyGBresult, mvnames)
 
     tabRandomVar=[]
     nbViewOK=0
@@ -577,14 +583,16 @@ if __name__ == "__main__":
         else:
             tabRandomVar.append(0)
 
-    print('nb of views ok: ', nbViewOK, 'out of ', sizeofsample, 'views')
+    print('nb of views ok: ', nbViewOK, 'out of ', sizeofsample, 'views, i.e., rate of:',nbViewOK/sizeofsample)
     variance=np.var(tabRandomVar)
     print('variance: ', variance)
     nbErrors=2
     print('probability of making ', nbErrors,' errors: ', bernstein.bernsteinBound(variance, nbErrors))
     print('the error (according to Bernstein) for confidence interval of size', proba,' is: ', bernstein.bersteinError(proba, variance))
 
-    bernstein.findMV(conn, 'date,airline', table)
+    print('the error (according to Bernstein) for avg and confidence interval of size', proba, ' is: ',
+          bernstein.bersteinErrorOnAvg(proba, variance, sizeofsample))
+    #bernstein.findMV(conn, 'date,airline', table)
 
     ''' 
     if conn:

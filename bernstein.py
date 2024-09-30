@@ -7,7 +7,7 @@ def sizeOfSample(delta, sigma, t):
     return (math.log(2/delta) * (2* math.pow(sigma,2) + (2*t)/3)) / math.pow(t,2)
 
 def sizeOfSampleHoeffding(delta, t):
-    return math.log(2 / delta, 10) / (2* math.pow(t,2))
+    return math.log(2 / delta) / (2* math.pow(t,2))
 
 # probability of making a mistake for error t
 def bernsteinBound(sigma, t):
@@ -17,30 +17,32 @@ def bernsteinBound(sigma, t):
 def bersteinError(delta, sigma):
     return math.sqrt( math.log(2/delta)*sigma/2 ) + ( math.log(2/delta) * (1+math.sqrt(2)) ) /(math.sqrt(2)*6)
 
+#delta the probability of making an error
+# n sample size
+def bersteinErrorOnAvg(delta, sigma, n):
+    return math.sqrt( math.log(1/delta)*sigma/2 ) + ( math.log(1/delta) ) /(3 * n)
+
 # checks if gb in some view names
 # returns the closest one or table if not found
-def findMV(conn, gb, table):
-    mvnames = dbStuff.getMVnames(conn)
+def findMV(mvnames, gb, table):
+    #mvnames = dbStuff.getMVnames(conn)
     min=10000
     result=table
     tabgb = gb.split(",")
     for n in mvnames:
         ok = True
         for t in tabgb:
-            print(n[0])
-            print(len(n[0]))
-            print(t)
             if t not in n[0]:
                 ok=False
         if ok and len(n[0])<min:
             result=n[0]
             min=len(n[0])
-    print(result)
+    return(result)
 
 # so far name of table in from is name of cuboid (convention: attribute sorted + sel attribute last)
 # todo adapt query using findMV
 # pwrset is the powerset of categorical attributes that include the target attribute
-def getSample(delta, t, pwrset, sel, meas, function, table, valsToSelect, hypo):
+def getSample(delta, t, pwrset, sel, meas, function, table, valsToSelect, hypo, mvnames):
     pset=pwrset
     n=int(sizeOfSampleHoeffding(delta, t))
     tabQuery=[]
@@ -55,7 +57,7 @@ def getSample(delta, t, pwrset, sel, meas, function, table, valsToSelect, hypo):
         nb = random.randint(0, len(pwrset) - 1)
         gb = pset[nb]
         # without replacement: gb is removed from the list so as not to be drawn twice
-        pset.remove(gb)
+        #pset.remove(gb)
         strgb = ""
         gbwithoutsel=""
         for i in range(len(gb)):
@@ -66,17 +68,19 @@ def getSample(delta, t, pwrset, sel, meas, function, table, valsToSelect, hypo):
             gbwithoutsel = gbwithoutsel + str(gb[i])
             if i != len(gb) - 2:
                 gbwithoutsel = gbwithoutsel + ","
+        materialized = findMV(mvnames, strgb, table)
+        #print(materialized)
         if strgb == sel:
             q = ("SELECT " + strgb + ", " + function + '(' + meas + "), "
                  + " rank () over ( " + gbwithoutsel + " order by " + function + '(' + meas + ") desc ) as rank" +
                  # " FROM " + table +
-                 " FROM \"" + strgb + "\"" +
+                 " FROM \"" + str(materialized) + "\"" +
                  " WHERE " + sel + " in " + str(valsToSelect) + " group by " + strgb + " ")
         else:
             q = ("SELECT " + strgb + ", " + function + '(' + meas + "), "
                  + " rank () over ( partition by " + gbwithoutsel + " order by " + function + '(' + meas + ") desc ) as rank" +
                  #" FROM " + table +
-             " FROM \"" + strgb + "\"" +
+             " FROM \"" + str(materialized) + "\"" +
                 " WHERE " + sel + " in " + str(valsToSelect) + " group by " + strgb + " ")
         queryHyp = (
                 "select " + sel + ",rank  from (values " + hyp + ") as t2 (" + sel + ",rank)")
