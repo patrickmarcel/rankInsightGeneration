@@ -401,7 +401,7 @@ if __name__ == "__main__":
     # The DB wee want
     config.read('configs/flights.ini')
     # The system this is running on
-    USER = "AC"
+    USER = "PM"
 
     # Database connection parameters
     dbname = config[USER]['dbname']
@@ -525,6 +525,11 @@ if __name__ == "__main__":
     # borda hypothesis
     patrick_format = [(a, b, 1, None, None) for (a, b, c) in final]
     hypothesis = computeRanksForAll(patrick_format, adom).items()
+    hypothesis = [(a,b+1) for (a, b) in hypothesis]
+    hypothesis=sorted(
+        hypothesis,
+        key=lambda x: x[1]
+    )
 
     print("Hypothesis as predicted: ", hypothesis)
     limitedHyp = []
@@ -536,10 +541,13 @@ if __name__ == "__main__":
             valsToSelect.append(h[0])
             j = j + 1
     print("Hypothesis limited to choosen values: ", limitedHyp)
+
     #print("vals: ",valsToSelect)
 
     emptyGBresult, emptyGBresultAll = emptyGB(conn, nbAdomVals, table, sel, meas)
     print("Empty GB says:", emptyGBresult)
+    valsEmptyGB=[a for (a, b) in emptyGBresult]
+    #print(valsEmptyGB)
 
     proba=0.1
     error=0.3
@@ -547,9 +555,9 @@ if __name__ == "__main__":
     sizeofsample=int(bernstein.sizeOfSampleHoeffding(proba ,error))+1
     print('size of sample:', sizeofsample)
     pwrset=dbStuff.getCuboidsOfAtt(groupbyAtt,sel)
-    #print(str(tuple(valsToSelect)))
+    print(str(tuple(valsToSelect)))
     queryCountviolations,queryCountCuboid,cuboid=bernstein.getSample(proba, error, pwrset, sel, measBase, function, table, tuple(valsToSelect), limitedHyp)
-    #queryCountviolations,queryCountCuboid=bernstein.getSample(proba, error, pwrset, sel, measBase, function, table, tuple(valsToSelect), emptyGBresult)
+    #queryCountviolations, queryCountCuboid, cuboid=bernstein.getSample(proba, error, pwrset, sel, measBase, function, table, tuple(valsEmptyGB), emptyGBresult)
 
     for i in range(len(queryCountviolations)):
         #print(queryCountviolations[i])
@@ -558,7 +566,7 @@ if __name__ == "__main__":
         c=dbStuff.execute_query(conn, queryCountCuboid[i])[0][0]
         #print(v)
         #print(c)
-        print(v/c, " violation rate in cuboid ", cuboid[i])
+        print(v/c, " violation rate in cuboid ", cuboid[i], " of size: ", c, ". Number of violations: ", v)
 
 
 

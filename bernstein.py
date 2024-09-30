@@ -20,16 +20,16 @@ def bersteinError(delta, sigma):
 # so far name of table in from is name of cuboid (convention: attribute sorted + sel attribute last)
 # todo search for materialized cuboids that is the closest to the one drawn (using substring should be enough)
 # pwrset is the powerset of categorical attributes that include the target attribute
-def getSample(delta, t, pwrset, sel, meas, function, table, valsToSelect, hypothesis):
+def getSample(delta, t, pwrset, sel, meas, function, table, valsToSelect, hypo):
     pset=pwrset
     n=int(sizeOfSampleHoeffding(delta, t))
     tabQuery=[]
     tabCount=[]
     tabCuboid=[]
     hyp = ""
-    for i in range(len(hypothesis)):
-        hyp = hyp + str(hypothesis[i])
-        if i != len(hypothesis) - 1:
+    for i in range(len(hypo)):
+        hyp = hyp + str(hypo[i])
+        if i != len(hypo) - 1:
             hyp = hyp + ","
     for i in range(n):
         nb = random.randint(0, len(pwrset) - 1)
