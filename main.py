@@ -23,6 +23,13 @@ import bernstein
 DEBUG_FLAG = True
 
 
+def get_state_sample(conn, measBase, table, sel, sampleSize, state):
+
+    querySample = "SELECT "+sel+", "+measBase+" FROM "+table+" where "+sel+" = '"+state+"' limit "+str(sampleSize)+";"
+    #print(querySample)
+    resultVals = execute_query(conn, querySample)
+    return resultVals
+
 def generateRandomQuery(pwsert, valsToSelect, hypothesis):
     nb = random.randint(0, len(pwsert) - 1)
     gb = pwsert[nb]
@@ -391,7 +398,7 @@ if __name__ == "__main__":
     # The DB wee want
     config.read('configs/flights.ini')
     # The system this is running on
-    USER = "PM"
+    USER = "AC"
 
     # Database connection parameters
     dbname = config[USER]['dbname']
@@ -423,7 +430,7 @@ if __name__ == "__main__":
     n = math.ceil(n)
 
     # for DB sampling
-    sampleSize = 3000
+    sampleSize = 0.2
     samplingMethod = 'SYSTEM_ROWS'  # or SYSTEM
 
     if DEBUG_FLAG:
@@ -437,12 +444,85 @@ if __name__ == "__main__":
     # to always have the same order in group bys, with sel attribute last
     groupbyAtt.sort()
 
-    #create all MVs
-    #dbStuff.dropAllMVs(conn)
-    #dbStuff.createMV(conn, groupbyAtt, sel, measBase, function, table, 1)
+    # fetch the congressional sample
+    adom = [x[0] for x in execute_query(conn, "select distinct  "+sel+" from "+table+";")]
+    table_size = execute_query(conn, "select count(1) from " + table + ";")[0][0]
 
-    #generate hypothesis
-    hypothesis = generateHypothesisTest(conn, meas, measBase, table, sel, sampleSize, samplingMethod)
+    sample_size = int(table_size * sampleSize)
+    alpha = 0.25
+    house_size = sample_size * alpha
+    senate_size = sample_size * (1 - alpha)
+
+    house = getSample(conn, measBase, table, sel, house_size, method="SYSTEM_ROWS", repeatable=False)
+
+    senate = []
+    state_sample_size = int(senate_size / len(adom))
+    for state in adom:
+        senate.extend(get_state_sample(conn, measBase, table, sel, state_sample_size, state))
+
+    congress = house + senate
+    # END - fetch the congressional sample
+
+    buckets = {s: [] for s in adom}
+    skews = dict()
+    for item in congress:
+        buckets[item[0]].append(item[1])
+        skews[item[0]] = compute_skewness(item[1])
+
+    # do all welch tests
+    param_budget = 20
+    param_budget = int(param_budget / 2)
+
+    from scipy.stats import ttest_ind
+
+    welch_matrix = [[1 for j in adom] for i in adom]
+    w_comparisons = []
+    w_comparisons_rej = []
+
+    for i in range(len(adom)):
+        for j in range(i + 1):
+            left = adom[i]
+            right = adom[j]
+            res = ttest_ind(buckets[left], buckets[right], equal_var=False)
+            welch_matrix[i][j] = res.pvalue
+            welch_matrix[j][i] = res.pvalue
+            stat_c = claireStat(skews[left], skews[right], len(left), len(right))
+            if res.pvalue < 0.05:
+                if res.statistic < 0:
+                    w_comparisons.append((left, right, stat_c))
+                else:
+                    w_comparisons.append((right, left, stat_c))
+            else:
+                if res.statistic < 0:
+                    w_comparisons_rej.append((left, right, stat_c))
+                else:
+                    w_comparisons_rej.append((right, left, stat_c))
+
+    print("NB de comparaisons significatives (welch)", len(w_comparisons))
+    #print_comp_list(sorted(w_comparisons, key=lambda x: x[0] + x[1]))
+    by_prox_to_threshold = sorted(w_comparisons, key=lambda x: abs(0.05 - x[2]), reverse=True)
+    # print(by_prox_to_threshold)
+
+    final = by_prox_to_threshold[param_budget:]
+    to_redo = by_prox_to_threshold[:param_budget]
+
+    to_redo.extend(sorted(w_comparisons_rej, key=lambda x: abs(0.05 - x[2]), reverse=True)[:param_budget])
+
+    for left, right, _ in to_redo:
+        res = permutation_test(buckets[left], buckets[right])
+        if res[3].startswith("Reject"):
+            if res[1] > 0:
+                final.append((left, right, -1))
+            else:
+                final.append((right, left, -1))
+
+    print("NB de comparaisons significatives (welch + X param)", len(final))
+     #print_comp_list(sorted(final, key=lambda x: x[0] + x[1]))
+
+    # borda hypothesis
+    patrick_format = [(a, b, 1, None, None) for (a, b, c) in final]
+    hypothesis = computeRanksForAll(patrick_format, adom).items()
+
     print("Hypothesis as predicted: ", hypothesis)
     limitedHyp = []
     valsToSelect = []
