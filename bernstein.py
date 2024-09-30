@@ -17,8 +17,28 @@ def bernsteinBound(sigma, t):
 def bersteinError(delta, sigma):
     return math.sqrt( math.log(2/delta)*sigma/2 ) + ( math.log(2/delta) * (1+math.sqrt(2)) ) /(math.sqrt(2)*6)
 
+# checks if gb in some view names
+# returns the closest one or table if not found
+def findMV(conn, gb, table):
+    mvnames = dbStuff.getMVnames(conn)
+    min=10000
+    result=table
+    tabgb = gb.split(",")
+    for n in mvnames:
+        ok = True
+        for t in tabgb:
+            print(n[0])
+            print(len(n[0]))
+            print(t)
+            if t not in n[0]:
+                ok=False
+        if ok and len(n[0])<min:
+            result=n[0]
+            min=len(n[0])
+    print(result)
+
 # so far name of table in from is name of cuboid (convention: attribute sorted + sel attribute last)
-# todo search for materialized cuboids that is the closest to the one drawn (using substring should be enough)
+# todo adapt query using findMV
 # pwrset is the powerset of categorical attributes that include the target attribute
 def getSample(delta, t, pwrset, sel, meas, function, table, valsToSelect, hypo):
     pset=pwrset

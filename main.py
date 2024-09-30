@@ -584,6 +584,7 @@ if __name__ == "__main__":
     print('probability of making ', nbErrors,' errors: ', bernstein.bernsteinBound(variance, nbErrors))
     print('the error (according to Bernstein) for confidence interval of size', proba,' is: ', bernstein.bersteinError(proba, variance))
 
+    bernstein.findMV(conn, 'date,airline', table)
 
     ''' 
     if conn:

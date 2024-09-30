@@ -56,6 +56,8 @@ def returnGroupby(query):
     return tab[1].split(';')[0]
 
 
+
+
 def connect_to_db(dbname, user, password, host='localhost', port='5432'):
     """
     Establishes a connection to the PostgreSQL database.
