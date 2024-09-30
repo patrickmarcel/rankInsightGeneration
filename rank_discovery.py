@@ -148,13 +148,13 @@ if __name__ == "__main__":
         senate.extend(get_state_sample(conn, measBase, table, sel, state_sample_size, state))
 
     congress = house + senate
-
-    # get actual ranking for the sample
-    comparisons = [] # (a , b) means a greater than b
+    # END - fetch the congressional sample
 
     buckets = {s: [] for s in adom}
+    skews = dict()
     for item in congress:
         buckets[item[0]].append(item[1])
+        skews[item[0]] = compute_skewness(item[1])
 
 
     # do all welch tests
@@ -174,16 +174,17 @@ if __name__ == "__main__":
             res = ttest_ind(buckets[left], buckets[right], equal_var=False)
             welch_matrix[i][j] = res.pvalue
             welch_matrix[j][i] = res.pvalue
+            stat_c = claireStat(skews[left], skews[right], len(left), len(right))
             if res.pvalue < 0.05:
                 if res.statistic < 0:
-                    w_comparisons.append((left, right, res.pvalue))
+                    w_comparisons.append((left, right, stat_c ))
                 else:
-                    w_comparisons.append((right, left, res.pvalue))
+                    w_comparisons.append((right, left, stat_c ))
             else:
                 if res.statistic < 0:
-                    w_comparisons_rej.append((left, right, res.pvalue))
+                    w_comparisons_rej.append((left, right, stat_c ))
                 else:
-                    w_comparisons_rej.append((right, left, res.pvalue))
+                    w_comparisons_rej.append((right, left, stat_c ))
 
     print("NB de comparaisons significatives (welch)", len(w_comparisons))
     print_comp_list(sorted(w_comparisons,key=lambda x : x[0]+x[1]))
@@ -205,7 +206,9 @@ if __name__ == "__main__":
 
     print("NB de comparaisons significatives (welch + X param)", len(final))
     print_comp_list(sorted(final, key=lambda x: x[0]+x[1]))
-
+    """
+    # get actual ranking for the sample
+    comparisons = [] # (a , b) means a greater than b
     # Exhaustive method with non-parametric
     matrix = [[1 for j in adom] for i in adom]
     for i in range(len(adom)):
@@ -226,3 +229,7 @@ if __name__ == "__main__":
 
     print("Only welch", jaccard_similarity(strip_comp_list(comparisons), strip_comp_list(w_comparisons)))
     print("Welch + param", jaccard_similarity(strip_comp_list(comparisons), strip_comp_list(final)))
+    """
+    #borda hypothesis
+    patrick_format = [(a,b, 1, None, None) for (a, b, c) in final]
+    other_patrick_format = computeRanksForAll(patrick_format, adom).items()
