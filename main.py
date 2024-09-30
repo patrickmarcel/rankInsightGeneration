@@ -549,16 +549,20 @@ if __name__ == "__main__":
     valsEmptyGB=[a for (a, b) in emptyGBresult]
     #print(valsEmptyGB)
 
+    ratioViolations=0.4
+
     proba=0.1
-    error=0.3
+    error=0.3 # rate
     # without replacement!
     sizeofsample=int(bernstein.sizeOfSampleHoeffding(proba ,error))+1
-    print('size of sample:', sizeofsample)
+    print('size of sample according to Hoeffding:', sizeofsample)
     pwrset=dbStuff.getCuboidsOfAtt(groupbyAtt,sel)
     print(str(tuple(valsToSelect)))
     queryCountviolations,queryCountCuboid,cuboid=bernstein.getSample(proba, error, pwrset, sel, measBase, function, table, tuple(valsToSelect), limitedHyp)
     #queryCountviolations, queryCountCuboid, cuboid=bernstein.getSample(proba, error, pwrset, sel, measBase, function, table, tuple(valsEmptyGB), emptyGBresult)
 
+    tabRandomVar=[]
+    nbViewOK=0
     for i in range(len(queryCountviolations)):
         #print(queryCountviolations[i])
         #print(queryCountCuboid[i])
@@ -567,7 +571,18 @@ if __name__ == "__main__":
         #print(v)
         #print(c)
         print(v/c, " violation rate in cuboid ", cuboid[i], " of size: ", c, ". Number of violations: ", v)
+        if v/c < ratioViolations:
+            tabRandomVar.append(1)
+            nbViewOK=nbViewOK+1
+        else:
+            tabRandomVar.append(0)
 
+    print('nb of views ok: ', nbViewOK, 'out of ', sizeofsample, 'views')
+    variance=np.var(tabRandomVar)
+    print('variance: ', variance)
+    nbErrors=2
+    print('probability of making ', nbErrors,' errors: ', bernstein.bernsteinBound(variance, nbErrors))
+    print('the error (according to Bernstein) for confidence interval of size', proba,' is: ', bernstein.bersteinError(proba, variance))
 
 
     ''' 

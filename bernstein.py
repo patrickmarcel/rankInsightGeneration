@@ -10,12 +10,12 @@ def sizeOfSampleHoeffding(delta, t):
     return math.log(2 / delta, 10) / (2* math.pow(t,2))
 
 # probability of making a mistake for error t
-def bernsteinBound(delta, sigma, t):
-    return 2* math.exp(-(math.pow(t,2) /2)/(math.pow(sigma,2) +t/3))
+def bernsteinBound(sigma, t):
+    return 2* math.exp(- (math.pow(t,2) /2) / (sigma +t/3) )
 
 #delta the probability of making an error
 def bersteinError(delta, sigma):
-    return math.sqrt(math.ln(2/delta)*sigma/2) + (math.ln(2/delta)*(1+math.sqrt(2)))/math.sqrt(2)*6
+    return math.sqrt( math.log(2/delta)*sigma/2 ) + ( math.log(2/delta) * (1+math.sqrt(2)) ) /(math.sqrt(2)*6)
 
 # so far name of table in from is name of cuboid (convention: attribute sorted + sel attribute last)
 # todo search for materialized cuboids that is the closest to the one drawn (using substring should be enough)
