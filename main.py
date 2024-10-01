@@ -386,7 +386,7 @@ def azuma(conn, n, threshold, ranking):
         return tabView
 
 
-def getHypothesisCongressionalSampling(conn):
+def fetchCongressionalSample(conn,sel,table,measBase,sampleSize):
     # fetch the congressional sample
     adom = [x[0] for x in execute_query(conn, "select distinct  " + sel + " from " + table + ";")]
     table_size = execute_query(conn, "select count(1) from " + table + ";")[0][0]
@@ -405,6 +405,10 @@ def getHypothesisCongressionalSampling(conn):
 
     congress = house + senate
     # END - fetch the congressional sample
+    return adom, congress,
+
+
+def getHypothesisCongressionalSampling(adom,congress):
 
     buckets = {s: [] for s in adom}
     skews = dict()
@@ -473,9 +477,20 @@ def getHypothesisCongressionalSampling(conn):
     return hypothesis
 
 
-def test(conn, nbAdomVals, ratioViolations, proba, error, percentOfLattice, groupbyAtt, sel, measBase, function,table):
+def test(conn, nbAdomVals, ratioViolations, proba, error, percentOfLattice, groupbyAtt, sel, measBase, function,table,sampleSize):
+    #sampling
+    start_time = time.time()
+    adom, congress=fetchCongressionalSample(conn,sel,table,measBase,sampleSize)
+    end_time = time.time()
+    samplingTime = end_time - start_time
+    print('sampling time:',samplingTime)
+
     # compute hypothesis
-    hypothesis = getHypothesisCongressionalSampling(conn)
+    start_time = time.time()
+    hypothesis = getHypothesisCongressionalSampling(adom,congress)
+    end_time = time.time()
+    hypothesisGenerationTime = end_time - start_time
+    print('hypothesis generation time:', hypothesisGenerationTime)
 
     print("Hypothesis as predicted: ", hypothesis)
     limitedHyp = []
@@ -502,6 +517,10 @@ def test(conn, nbAdomVals, ratioViolations, proba, error, percentOfLattice, grou
     dbStuff.createMV(conn, groupbyAtt, sel, measBase, function, table, percentOfLattice)
     mvnames = dbStuff.getMVnames(conn)
 
+
+    #validation of hypothesis
+    start_time = time.time()
+
     sizeofsample = int(bernstein.sizeOfSampleHoeffding(proba, error)) + 1
     print('size of sample according to Hoeffding:', sizeofsample)
 
@@ -526,12 +545,16 @@ def test(conn, nbAdomVals, ratioViolations, proba, error, percentOfLattice, grou
         c = dbStuff.execute_query(conn, queryCountCuboid[i])[0][0]
         # print(v)
         # print(c)
-        # print(v/c, " violation rate in cuboid ", cuboid[i], " of size: ", c, ". Number of violations: ", v)
+        print(v/c, " violation rate in cuboid ", cuboid[i], " of size: ", c, ". Number of violations: ", v)
         if v / c < ratioViolations:
             tabRandomVar.append(1)
             nbViewOK = nbViewOK + 1
         else:
             tabRandomVar.append(0)
+
+    end_time = time.time()
+    validationTime = end_time - start_time
+    print('validation time:', validationTime)
 
     variance = np.var(tabRandomVar)
     # print('variance: ', variance)
@@ -544,6 +567,7 @@ def test(conn, nbAdomVals, ratioViolations, proba, error, percentOfLattice, grou
     print('probability of making ', nbErrors, ' errors: ', bernstein.bernsteinBound(variance, nbErrors))
     print('the error (according to Bernstein) for sum and confidence interval of size', proba, ' is: ',
           bernstein.bersteinError(proba, variance))
+    bennetError=bernstein.bennetErrorOnAvg(proba, variance, sizeofsample)
     print('the error (according to Bennet) for avg and confidence interval of size', proba, ' is: ',
           bernstein.bennetErrorOnAvg(proba, variance, sizeofsample))
     print('the error (empirical bennet) for avg and confidence interval of size', proba, ' is: ',
@@ -568,7 +592,7 @@ def test(conn, nbAdomVals, ratioViolations, proba, error, percentOfLattice, grou
         c = dbStuff.execute_query(conn, queryCountCuboid[i])[0][0]
         # print(v)
         # print(c)
-        # print(v / c, " violation rate in cuboid ", cuboid[i], " of size: ", c, ". Number of violations: ", v)
+        print(v / c, " violation rate in cuboid ", cuboid[i], " of size: ", c, ". Number of violations: ", v)
         if v / c < ratioViolations:
             tabRandomVar.append(1)
             nbViewOK = nbViewOK + 1
@@ -580,6 +604,7 @@ def test(conn, nbAdomVals, ratioViolations, proba, error, percentOfLattice, grou
     print('*** comparison to ground truth ***')
     print('nb of views ok: ', nbViewOK, 'out of ', nbMVs, 'views, i.e., rate of:', nbViewOK / nbMVs)
 
+    realError=abs(prediction - (nbViewOK / nbMVs))
     print('Error on avg is: ', abs(prediction - (nbViewOK / nbMVs)))
 
     print('Error on sum is: ', abs(nbViewOK - predictionNbOk))
@@ -588,6 +613,8 @@ def test(conn, nbAdomVals, ratioViolations, proba, error, percentOfLattice, grou
           bernstein.bennetErrorOnAvg(proba, variance, sizeofsample))
     print('the error (according to Bernstein) for confidence interval of size', proba, ' is: ',
           bernstein.bersteinError(proba, variance))
+
+    return prediction,bennetError,realError
 
 
 # TODO
@@ -655,8 +682,17 @@ if __name__ == "__main__":
 
     percentOfLattice=0.3
 
-    test(conn, nbAdomVals, ratioViolations, proba, error, percentOfLattice,groupbyAtt, sel, measBase, function,table)
+    resultRuns=[]
+    for percentOfLattice in (0.1, 0.25, 0.5, 0.75, 0.9):
+        prediction,bennetError,realError=test(conn, nbAdomVals, ratioViolations, proba, error, percentOfLattice, groupbyAtt, sel, measBase, function,table,sampleSize)
+        resultRuns.append((percentOfLattice,prediction,bennetError,realError))
 
+    names = ['prediction', 'bennet', 'error']
+    title = 'top-' + str(nbAdomVals)
+    plot_curves(resultRuns, names, 'percentoflattice', 'error', title)
+
+    # Close the connection
+    close_connection(conn)
 
     ''' 
     if conn:
