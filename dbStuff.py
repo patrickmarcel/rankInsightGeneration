@@ -31,6 +31,7 @@ def getCuboidsOfAtt(attInGB, selAtt):
 
 # percentOfLattice is a float in ]0,1]
 # returns nb of created views
+# todo for avg, should materialize sum and count
 def createMV(conn, attInGB, selAtt, meas, function, table, percentOfLattice):
     pwset2=getCuboidsOfAtt(attInGB, selAtt)
 
@@ -47,7 +48,7 @@ def createMV(conn, attInGB, selAtt, meas, function, table, percentOfLattice):
             gbs = gbs + s + ','
         gbs=gbs[:-1]
         #query="create materialized view MV" + str(i) + " as select " + gbs + "," + meas + " from " + table + " group by " + gbs +  ";"
-        query="create materialized view \"" + gbs + "\" as select " + gbs + ", " + function + "(" + meas + ") as " + meas + " " + " from " + table + " group by " + gbs +  ";"
+        query="create materialized view \"" + gbs + "\" as select " + gbs + ", " + function + "(" + meas + ") as " + meas + ", count(*) as count  from " + table + " group by " + gbs +  ";"
         #print(query)
         execute_query(conn, query)
     return nbOfMV

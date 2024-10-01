@@ -557,7 +557,7 @@ if __name__ == "__main__":
 
     # get all materialized cuboids
     dbStuff.dropAllMVs(conn)
-    dbStuff.createMV(conn,groupbyAtt,sel,measBase,function,table,0.5)
+    dbStuff.createMV(conn,groupbyAtt,sel,measBase,function,table,0.3)
     mvnames = dbStuff.getMVnames(conn)
 
     sizeofsample=int(bernstein.sizeOfSampleHoeffding(proba ,error))+1
@@ -593,7 +593,7 @@ if __name__ == "__main__":
     nbErrors=2
     print('probability of making ', nbErrors,' errors: ', bernstein.bernsteinBound(variance, nbErrors))
     print('the error (according to Bernstein) for confidence interval of size', proba,' is: ', bernstein.bersteinError(proba, variance))
-    print('the error (according to Bernstein) for avg and confidence interval of size', proba, ' is: ',
+    print('the error (according to Bennet) for avg and confidence interval of size', proba, ' is: ',
           bernstein.bennetErrorOnAvg(proba, variance, sizeofsample))
 
 
@@ -628,7 +628,7 @@ if __name__ == "__main__":
 
     print('Error on sum is: ', abs(nbViewOK - predictionNbOk))
 
-    print('the error (according to Bernstein) for avg and confidence interval of size', proba, ' is: ',
+    print('the error (according to Bennet) for avg and confidence interval of size', proba, ' is: ',
           bernstein.bennetErrorOnAvg(proba, variance, sizeofsample))
     print('the error (according to Bernstein) for confidence interval of size', proba, ' is: ',
           bernstein.bersteinError(proba, variance))
