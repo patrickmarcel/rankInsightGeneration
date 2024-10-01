@@ -472,6 +472,124 @@ def getHypothesisCongressionalSampling(conn):
     )
     return hypothesis
 
+
+def test(conn, nbAdomVals, ratioViolations, proba, error, percentOfLattice, groupbyAtt, sel, measBase, function,table):
+    # compute hypothesis
+    hypothesis = getHypothesisCongressionalSampling(conn)
+
+    print("Hypothesis as predicted: ", hypothesis)
+    limitedHyp = []
+    valsToSelect = []
+    j = 0
+    for h in hypothesis:
+        if (h[1] <= nbAdomVals and j < nbAdomVals):
+            limitedHyp.append(h)
+            valsToSelect.append(h[0])
+            j = j + 1
+    print("Hypothesis limited to choosen values: ", limitedHyp)
+
+    # print("vals: ",valsToSelect)
+
+    # just for checking on groupBy sel
+    # emptyGBresult, emptyGBresultAll = emptyGB(conn, nbAdomVals, table, sel, meas)
+    # print("Empty GB says:", emptyGBresult)
+    # valsEmptyGB=[a for (a, b) in emptyGBresult]
+    # print(valsEmptyGB)
+
+
+    # get all materialized cuboids
+    dbStuff.dropAllMVs(conn)
+    dbStuff.createMV(conn, groupbyAtt, sel, measBase, function, table, percentOfLattice)
+    mvnames = dbStuff.getMVnames(conn)
+
+    sizeofsample = int(bernstein.sizeOfSampleHoeffding(proba, error)) + 1
+    print('size of sample according to Hoeffding:', sizeofsample)
+
+    # total number of cuboids
+    N = len(utilities.powerset(groupbyAtt))
+    print('size of sample according to Bardenet:',
+          int(bernstein.sizeOfSampleHoeffdingSerflingFromBardenet(proba, error, N)) + 1)
+
+    pwrset = dbStuff.getCuboidsOfAtt(groupbyAtt, sel)
+    print(str(tuple(valsToSelect)))
+    queryCountviolations, queryCountCuboid, cuboid = bernstein.getSample(proba, error, pwrset, sel, measBase, function,
+                                                                         table, tuple(valsToSelect), limitedHyp,
+                                                                         mvnames)
+    # queryCountviolations, queryCountCuboid, cuboid=bernstein.getSample(proba, error, pwrset, sel, measBase, function, table, tuple(valsEmptyGB), emptyGBresult, mvnames)
+
+    tabRandomVar = []
+    nbViewOK = 0
+    for i in range(len(queryCountviolations)):
+        # print(queryCountviolations[i])
+        # print(queryCountCuboid[i])
+        v = dbStuff.execute_query(conn, queryCountviolations[i])[0][0]
+        c = dbStuff.execute_query(conn, queryCountCuboid[i])[0][0]
+        # print(v)
+        # print(c)
+        # print(v/c, " violation rate in cuboid ", cuboid[i], " of size: ", c, ". Number of violations: ", v)
+        if v / c < ratioViolations:
+            tabRandomVar.append(1)
+            nbViewOK = nbViewOK + 1
+        else:
+            tabRandomVar.append(0)
+
+    variance = np.var(tabRandomVar)
+    # print('variance: ', variance)
+    prediction = nbViewOK / sizeofsample
+    predictionNbOk = prediction * len(pwrset)
+    print('nb of views ok: ', nbViewOK, 'out of ', sizeofsample, 'views, i.e., rate of:', nbViewOK / sizeofsample)
+    print('predicting number of views ok:', predictionNbOk)
+
+    nbErrors = 2
+    print('probability of making ', nbErrors, ' errors: ', bernstein.bernsteinBound(variance, nbErrors))
+    print('the error (according to Bernstein) for sum and confidence interval of size', proba, ' is: ',
+          bernstein.bersteinError(proba, variance))
+    print('the error (according to Bennet) for avg and confidence interval of size', proba, ' is: ',
+          bernstein.bennetErrorOnAvg(proba, variance, sizeofsample))
+    print('the error (empirical bennet) for avg and confidence interval of size', proba, ' is: ',
+          bernstein.empiricalBennetFromMaurer(proba, variance, sizeofsample))
+    print('the error (according to bardenet) for avg and confidence interval of size', proba, ' is: ',
+          bernstein.empiricalBernsteinFromBardenet(proba, variance, sizeofsample, N))
+
+    # comparison with ground truth
+    dbStuff.dropAllMVs(conn)
+    nbMVs = dbStuff.createMV(conn, groupbyAtt, sel, measBase, function, table, 1)
+
+    queryCountviolations, queryCountCuboid, cuboid = bernstein.generateAllqueries(pwrset, sel, measBase, function,
+                                                                                  table, tuple(valsToSelect),
+                                                                                  limitedHyp, mvnames)
+
+    tabRandomVar = []
+    nbViewOK = 0
+    for i in range(len(queryCountviolations)):
+        # print(queryCountviolations[i])
+        # print(queryCountCuboid[i])
+        v = dbStuff.execute_query(conn, queryCountviolations[i])[0][0]
+        c = dbStuff.execute_query(conn, queryCountCuboid[i])[0][0]
+        # print(v)
+        # print(c)
+        # print(v / c, " violation rate in cuboid ", cuboid[i], " of size: ", c, ". Number of violations: ", v)
+        if v / c < ratioViolations:
+            tabRandomVar.append(1)
+            nbViewOK = nbViewOK + 1
+        else:
+            tabRandomVar.append(0)
+
+    variance = np.var(tabRandomVar)
+    # print('variance: ', variance)
+    print('*** comparison to ground truth ***')
+    print('nb of views ok: ', nbViewOK, 'out of ', nbMVs, 'views, i.e., rate of:', nbViewOK / nbMVs)
+
+    print('Error on avg is: ', abs(prediction - (nbViewOK / nbMVs)))
+
+    print('Error on sum is: ', abs(nbViewOK - predictionNbOk))
+
+    print('the error (according to Bennet) for avg and confidence interval of size', proba, ' is: ',
+          bernstein.bennetErrorOnAvg(proba, variance, sizeofsample))
+    print('the error (according to Bernstein) for confidence interval of size', proba, ' is: ',
+          bernstein.bersteinError(proba, variance))
+
+
 # TODO
 #
 #  change sel and measures
@@ -530,120 +648,14 @@ if __name__ == "__main__":
     # to always have the same order in group bys, with sel attribute last
     groupbyAtt.sort()
 
-    #compute hypothesis
-    hypothesis=getHypothesisCongressionalSampling(conn)
+    ratioViolations = 0.4
 
-    print("Hypothesis as predicted: ", hypothesis)
-    limitedHyp = []
-    valsToSelect = []
-    j = 0
-    for h in hypothesis:
-        if (h[1] <= nbAdomVals and j < nbAdomVals):
-            limitedHyp.append(h)
-            valsToSelect.append(h[0])
-            j = j + 1
-    print("Hypothesis limited to choosen values: ", limitedHyp)
+    proba = 0.2
+    error = 0.4  # rate
 
-    #print("vals: ",valsToSelect)
+    percentOfLattice=0.3
 
-    emptyGBresult, emptyGBresultAll = emptyGB(conn, nbAdomVals, table, sel, meas)
-    print("Empty GB says:", emptyGBresult)
-    valsEmptyGB=[a for (a, b) in emptyGBresult]
-    #print(valsEmptyGB)
-
-    ratioViolations=0.4
-
-    proba=0.2
-    error=0.4 # rate
-
-
-    # get all materialized cuboids
-    dbStuff.dropAllMVs(conn)
-    dbStuff.createMV(conn,groupbyAtt,sel,measBase,function,table,0.3)
-    mvnames = dbStuff.getMVnames(conn)
-
-    sizeofsample=int(bernstein.sizeOfSampleHoeffding(proba ,error))+1
-    print('size of sample according to Hoeffding:', sizeofsample)
-
-    # total number of cuboids
-    N=len(utilities.powerset(groupbyAtt))
-    print('size of sample according to Bardenet:', int(bernstein.sizeOfSampleHoeffdingSerflingFromBardenet(proba ,error,N))+1)
-
-
-    pwrset=dbStuff.getCuboidsOfAtt(groupbyAtt,sel)
-    print(str(tuple(valsToSelect)))
-    queryCountviolations,queryCountCuboid,cuboid=bernstein.getSample(proba, error, pwrset, sel, measBase, function, table, tuple(valsToSelect), limitedHyp, mvnames)
-    #queryCountviolations, queryCountCuboid, cuboid=bernstein.getSample(proba, error, pwrset, sel, measBase, function, table, tuple(valsEmptyGB), emptyGBresult, mvnames)
-
-    tabRandomVar=[]
-    nbViewOK=0
-    for i in range(len(queryCountviolations)):
-        #print(queryCountviolations[i])
-        #print(queryCountCuboid[i])
-        v=dbStuff.execute_query(conn, queryCountviolations[i])[0][0]
-        c=dbStuff.execute_query(conn, queryCountCuboid[i])[0][0]
-        #print(v)
-        #print(c)
-        print(v/c, " violation rate in cuboid ", cuboid[i], " of size: ", c, ". Number of violations: ", v)
-        if v/c < ratioViolations:
-            tabRandomVar.append(1)
-            nbViewOK=nbViewOK+1
-        else:
-            tabRandomVar.append(0)
-
-    variance = np.var(tabRandomVar)
-    #print('variance: ', variance)
-    prediction=nbViewOK/sizeofsample
-    predictionNbOk=prediction*len(pwrset)
-    print('nb of views ok: ', nbViewOK, 'out of ', sizeofsample, 'views, i.e., rate of:', nbViewOK/sizeofsample)
-    print('predicting number of views ok:', predictionNbOk)
-
-    nbErrors=2
-    print('probability of making ', nbErrors,' errors: ', bernstein.bernsteinBound(variance, nbErrors))
-    print('the error (according to Bernstein) for sum and confidence interval of size', proba,' is: ', bernstein.bersteinError(proba, variance))
-    print('the error (according to Bennet) for avg and confidence interval of size', proba, ' is: ',
-          bernstein.bennetErrorOnAvg(proba, variance, sizeofsample))
-    print('the error (empirical bennet) for avg and confidence interval of size', proba, ' is: ',
-          bernstein.empiricalBennetFromMaurer(proba, variance, sizeofsample))
-    print('the error (according to bardenet) for avg and confidence interval of size', proba, ' is: ',
-          bernstein.empiricalBernsteinFromBardenet(proba, variance, sizeofsample,N))
-
-    # comparison with ground truth
-    dbStuff.dropAllMVs(conn)
-    nbMVs=dbStuff.createMV(conn, groupbyAtt, sel, measBase, function, table, 1)
-
-    queryCountviolations,queryCountCuboid,cuboid=bernstein.generateAllqueries(pwrset, sel, measBase, function, table, tuple(valsToSelect), limitedHyp, mvnames)
-
-    tabRandomVar = []
-    nbViewOK = 0
-    for i in range(len(queryCountviolations)):
-        # print(queryCountviolations[i])
-        # print(queryCountCuboid[i])
-        v = dbStuff.execute_query(conn, queryCountviolations[i])[0][0]
-        c = dbStuff.execute_query(conn, queryCountCuboid[i])[0][0]
-        # print(v)
-        # print(c)
-        print(v / c, " violation rate in cuboid ", cuboid[i], " of size: ", c, ". Number of violations: ", v)
-        if v / c < ratioViolations:
-            tabRandomVar.append(1)
-            nbViewOK = nbViewOK + 1
-        else:
-            tabRandomVar.append(0)
-
-    variance = np.var(tabRandomVar)
-    # print('variance: ', variance)
-    print('*** comparison to ground truth ***')
-    print('nb of views ok: ', nbViewOK, 'out of ', nbMVs, 'views, i.e., rate of:', nbViewOK / nbMVs)
-
-    print('Error on avg is: ', abs(prediction - (nbViewOK / nbMVs)))
-
-    print('Error on sum is: ', abs(nbViewOK - predictionNbOk))
-
-    print('the error (according to Bennet) for avg and confidence interval of size', proba, ' is: ',
-          bernstein.bennetErrorOnAvg(proba, variance, sizeofsample))
-    print('the error (according to Bernstein) for confidence interval of size', proba, ' is: ',
-          bernstein.bersteinError(proba, variance))
-
+    test(conn, nbAdomVals, ratioViolations, proba, error, percentOfLattice,groupbyAtt, sel, measBase, function,table)
 
 
     ''' 
