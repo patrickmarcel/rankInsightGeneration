@@ -9,6 +9,13 @@ def sizeOfSample(delta, sigma, t):
 def sizeOfSampleHoeffding(delta, t):
     return math.log(2 / delta) / (2* math.pow(t,2))
 
+# for n<=N/2
+def sizeOfSampleHoeffdingSerflingFromBardenet(delta, t, N):
+    X=(2*N*math.log(1/delta))/(math.pow(t,2))
+    return (X*N - 1) / (1+X)
+
+
+
 # probability of making a mistake for error t
 def bernsteinBound(sigma, t):
     return 2* math.exp(- (math.pow(t,2) /2) / (sigma +t/3) )
@@ -20,7 +27,21 @@ def bersteinError(delta, sigma):
 #delta the probability of making an error
 # n sample size
 def bennetErrorOnAvg(delta, sigma, n):
-    return math.sqrt( math.log(1/delta)*sigma/2 ) + ( math.log(1/delta) ) /(3 * n)
+    return math.sqrt( math.log(1/delta)*sigma*2/n ) + ( math.log(1/delta) ) /(3 * n)
+
+
+def empiricalBennetFromMaurer(delta, sigma, n):
+    return math.sqrt(math.log(2 / delta) * sigma * 2 / n) + (math.log(2 / delta)*7) / (3 * (n-1))
+
+#N is size of population
+def empiricalBernsteinFromBardenet(delta, sigma, n, N):
+    if(n<=N/2):
+        return   math.sqrt(sigma *  math.log(1 / delta) *  2 * (1-((n-1)/N)) / n) + ( math.log(1 / delta) * (7/3 + 3/math.sqrt(2))) / n
+
+    else:
+        return  math.sqrt(sigma *  math.log(1 / delta) *  2 * ((1-(n/N))*(1+(1/n)) )  / n) + ( math.log(1 / delta) * (7/3 + 3/math.sqrt(2))) / n
+
+
 
 # checks if gb in some view names
 # returns the closest one or table if not found
