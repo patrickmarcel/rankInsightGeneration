@@ -42,7 +42,7 @@ def findMV(mvnames, gb, table):
 # so far name of table in from is name of cuboid (convention: attribute sorted + sel attribute last)
 # todo adapt query using findMV
 # pwrset is the powerset of categorical attributes that include the target attribute
-def getSample(delta, t, pwrset, sel, meas, function, table, valsToSelect, hypo, mvnames):
+def getSample(delta, t, pwrset, sel, meas, function, table, valsToSelect, hypo, mvnames, withReplacement=False):
     pset=pwrset
     n=int(sizeOfSampleHoeffding(delta, t))
     tabQuery=[]
@@ -56,8 +56,9 @@ def getSample(delta, t, pwrset, sel, meas, function, table, valsToSelect, hypo, 
     for i in range(n):
         nb = random.randint(0, len(pwrset) - 1)
         gb = pset[nb]
-        # without replacement: gb is removed from the list so as not to be drawn twice
-        #pset.remove(gb)
+        if withReplacement:
+            # without replacement: gb is removed from the list so as not to be drawn twice
+            pset.remove(gb)
         strgb = ""
         gbwithoutsel=""
         for i in range(len(gb)):
