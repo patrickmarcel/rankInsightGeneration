@@ -586,7 +586,7 @@ def test(conn, nbAdomVals, ratioViolations, proba, error, percentOfLattice, grou
     tabRandomVar = []
     nbViewOK = 0
     for i in range(len(queryCountviolations)):
-        # print(queryCountviolations[i])
+        #print(queryCountviolations[i])
         # print(queryCountCuboid[i])
         v = dbStuff.execute_query(conn, queryCountviolations[i])[0][0]
         c = dbStuff.execute_query(conn, queryCountCuboid[i])[0][0]
@@ -603,6 +603,7 @@ def test(conn, nbAdomVals, ratioViolations, proba, error, percentOfLattice, grou
     # print('variance: ', variance)
     print('*** comparison to ground truth ***')
     print('nb of views ok: ', nbViewOK, 'out of ', nbMVs, 'views, i.e., rate of:', nbViewOK / nbMVs)
+    gtratio= nbViewOK / nbMVs
 
     realError=abs(prediction - (nbViewOK / nbMVs))
     print('Error on avg is: ', abs(prediction - (nbViewOK / nbMVs)))
@@ -614,7 +615,7 @@ def test(conn, nbAdomVals, ratioViolations, proba, error, percentOfLattice, grou
     print('the error (according to Bernstein) for confidence interval of size', proba, ' is: ',
           bernstein.bersteinError(proba, variance))
 
-    return prediction,bennetError,realError
+    return prediction,bennetError,realError,gtratio
 
 
 # TODO
@@ -676,17 +677,25 @@ if __name__ == "__main__":
     groupbyAtt.sort()
 
     ratioViolations = 0.4
+    ratioCuboidOK = 0.8
 
     proba = 0.2
     error = 0.4  # rate
 
     percentOfLattice=0.3
 
+    nbWrongRanking=0
     resultRuns=[]
-    for percentOfLattice in (0.1, 0.25, 0.5, 0.75, 0.9):
-        prediction,bennetError,realError=test(conn, nbAdomVals, ratioViolations, proba, error, percentOfLattice, groupbyAtt, sel, measBase, function,table,sampleSize)
-        resultRuns.append((percentOfLattice,prediction,bennetError,realError))
+    for percentOfLattice in (0.1, 0.25, 0.5, 0.75, 1):
+    #for sampleSize in (0.1, 0.25, 0.5, 0.75, 1):
+    #for nbAdomVals in range(2,10):
 
+        prediction,bennetError,realError,gtratio=test(conn, nbAdomVals, ratioViolations, proba, error, percentOfLattice, groupbyAtt, sel, measBase, function,table, sampleSize)
+        resultRuns.append((percentOfLattice,prediction,bennetError,realError))
+        if gtratio <ratioCuboidOK:
+            nbWrongRanking=nbWrongRanking+1
+
+    print('Number of incorrect hypothesis:', nbWrongRanking)
     names = ['prediction', 'bennet', 'error']
     title = 'top-' + str(nbAdomVals)
     plot_curves(resultRuns, names, 'percentoflattice', 'error', title)
