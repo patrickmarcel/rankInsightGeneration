@@ -63,8 +63,23 @@ def findMV(mvnames, gb, table):
 # so far name of table in from is name of cuboid (convention: attribute sorted + sel attribute last)
 # todo adapt query using findMV
 # pwrset is the powerset of categorical attributes that include the target attribute
-def getSample(delta, t, pwrset, sel, meas, function, table, valsToSelect, hypo, mvnames, withReplacement=False):
+def getSample(delta, t, pwrset, sel, meas, function, table, valsToSelect, hypo, mvnames, withReplacement=False, withBias=False):
     pset=pwrset
+    if withBias:
+        tabNb=[]
+        tabWeights=[]
+        sumLength=0
+        for p in pwrset:
+            sumLength=sumLength+len(p)
+        maxlength=len(pwrset[-1])+1
+        i=0
+        for p in pwrset:
+            w=(maxlength-len(p))/sumLength
+            tabWeights.append(w)
+            tabNb.append(i)
+            i=i+1
+        print(tabWeights)
+    #print(math.fsum(tabWeights))
     n=int(sizeOfSampleHoeffding(delta, t))
     tabQuery=[]
     tabCount=[]
@@ -75,7 +90,10 @@ def getSample(delta, t, pwrset, sel, meas, function, table, valsToSelect, hypo, 
         if i != len(hypo) - 1:
             hyp = hyp + ","
     for i in range(n):
-        nb = random.randint(0, len(pwrset) - 1)
+        if withBias:
+            nb=max(random.choices(tabNb,tabWeights))
+        else:
+            nb = random.randint(0, len(pwrset) - 1)
         gb = pset[nb]
         if withReplacement:
             # without replacement: gb is removed from the list so as not to be drawn twice

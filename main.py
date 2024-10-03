@@ -533,7 +533,7 @@ def test(conn, nbAdomVals, ratioViolations, proba, error, percentOfLattice, grou
     print(str(tuple(valsToSelect)))
     queryCountviolations, queryCountCuboid, cuboid = bernstein.getSample(proba, error, pwrset, sel, measBase, function,
                                                                          table, tuple(valsToSelect), limitedHyp,
-                                                                         mvnames)
+                                                                         mvnames,False,True)
     # queryCountviolations, queryCountCuboid, cuboid=bernstein.getSample(proba, error, pwrset, sel, measBase, function, table, tuple(valsEmptyGB), emptyGBresult, mvnames)
 
     tabRandomVar = []
