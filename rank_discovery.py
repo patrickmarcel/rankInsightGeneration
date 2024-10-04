@@ -16,6 +16,9 @@ from rankingFromPairwise import computeRanksForAll
 
 from main import generateComparisonsWithMergeSort
 
+from statsmodels.stats.multitest import fdrcorrection
+
+
 
 import configparser
 import json
@@ -163,28 +166,28 @@ if __name__ == "__main__":
 
     from scipy.stats import ttest_ind
 
-    welch_matrix = [[1 for j in adom] for i in adom]
-    w_comparisons = []
-    w_comparisons_rej = []
+    raw_comparisons = []
 
     for i in range(len(adom)):
-        for j in range(i  + 1):
+        for j in range(i + 1, len(adom)):
             left = adom[i]
             right = adom[j]
             res = ttest_ind(buckets[left], buckets[right], equal_var=False)
-            welch_matrix[i][j] = res.pvalue
-            welch_matrix[j][i] = res.pvalue
             stat_c = claireStat(skews[left], skews[right], len(left), len(right))
-            if res.pvalue < 0.05:
-                if res.statistic < 0:
-                    w_comparisons.append((left, right, stat_c ))
-                else:
-                    w_comparisons.append((right, left, stat_c ))
+            if res.statistic < 0:
+                raw_comparisons.append((left, right, stat_c, res.pvalue ))
             else:
-                if res.statistic < 0:
-                    w_comparisons_rej.append((left, right, stat_c ))
-                else:
-                    w_comparisons_rej.append((right, left, stat_c ))
+                raw_comparisons.append((right, left, stat_c, res.pvalue ))
+
+    w_comparisons = []
+    w_comparisons_rej = []
+    print(raw_comparisons)
+    rejected, corrected = fdrcorrection([x[3] for x in raw_comparisons], alpha=0.05)
+    for i in range(len(raw_comparisons)):
+        if rejected[i]:
+            w_comparisons_rej.append((raw_comparisons[i][0], raw_comparisons[i][1], raw_comparisons[i][2]))
+        else:
+            w_comparisons.append((raw_comparisons[i][0], raw_comparisons[i][1], raw_comparisons[i][2]))
 
     print("NB de comparaisons significatives (welch)", len(w_comparisons))
     print_comp_list(sorted(w_comparisons,key=lambda x : x[0]+x[1]))

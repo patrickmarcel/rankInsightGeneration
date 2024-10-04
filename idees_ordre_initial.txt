@@ -43,3 +43,100 @@
       # increase proba of drawing a > _ pairs
       # if we have already drawn pairs c > b increase proba of all pairs a > c
       # decrease proba of transitive pairs
+
+
+
+     '''
+    if conn:
+
+        tabHypo = []
+        resultRuns = []
+        for i in range(nbruns):
+            rankingFromPairwise.pairwiseComparison = []
+
+            start_time = time.time()
+            #generate hypothesis: ordering of members such that mean is greater (statistically significant on sample)
+            hypothesis = generateHypothesisTest(conn, meas, measBase, table, sel, sampleSize, samplingMethod)
+
+            # below some testing stuff
+            print("Hypothesis as predicted: ", hypothesis)
+
+            dbStuff.dropAllMVs(conn)
+            dbStuff.createMV(conn, groupbyAtt, sel, meas, table, 0.5)
+            tabView=dbStuff.getMVnames(conn)
+            n, nbV=estimateViolations(conn, meas, measBase, table, sel, tabView, hypothesis)
+
+            print("on " + str(n) + " draws, there are " + str(nbV) + " violations")
+            print("violation rate is: ", nbV/n)
+
+
+
+            # limit hypothesis to top nbAdomVals
+            limitedHyp = []
+            valsToSelect = []
+            j = 0
+            for h in hypothesis:
+                if (h[1] <= nbAdomVals and j < nbAdomVals):
+                    limitedHyp.append(h)
+                    valsToSelect.append(h[0])
+                    j = j + 1
+            #print("Hypothesis limited: ", limitedHyp)
+            #print("vals: ",valsToSelect)
+
+            # should only be done once
+            emptyGBresult, emptyGBresultAll = emptyGB(conn, nbAdomVals, table, sel, meas)
+            print("Empty GB says:", emptyGBresult)
+
+            # compute kendall tau between hypothesis and emptyGB
+            limitedHyp.sort(key=lambda x: x[0])
+            emptyGBresult.sort(key=lambda x: x[0])
+            hypothesis.sort(key=lambda x: x[0])
+            emptyGBresultAll.sort(key=lambda x: x[0])
+
+            # record all hypotheses
+            tabHypo.append(limitedHyp)
+
+            # should also compute tau between hypothesis of different runs
+
+            #print(hypothesis)
+            #print(emptyGB)
+
+            rankings_with_ties1 = [x[1] for x in hypothesis]
+            rankings_with_ties2 = [x[1] for x in emptyGBresultAll]
+
+            #print(rankings_with_ties1)
+            #print(rankings_with_ties2)
+
+            tau, p_value = compute_kendall_tau(rankings_with_ties1, rankings_with_ties2)
+            print("Tau-c between hypothesis and emptyGBAll: ", tau, "p-value: ", p_value)
+
+            #todo should also compute for limitedHyp and emptyGB
+
+            #vals=tuple([x[0] for x in limitedHyp])
+            #print("********** vals nnd vals2sel ")
+            #print(vals)
+            #print(tuple(valsToSelect))
+
+            expected = hoeffdingForRank(groupbyAtt, n, tuple(valsToSelect), limitedHyp)
+
+            end_time = time.time()
+            elapsed_time = end_time - start_time
+
+            resultRuns.append((i, float(tau), expected, elapsed_time))
+
+        print(resultRuns)
+        print(tabHypo)
+        # compute hamming dist in tabhypo or jaccard
+
+
+
+
+        if not DEBUG_FLAG:
+            names = ['tau', 'expected', 'time']
+            title = 'Sample size=' + str(sampleSize)
+            plot_curves(resultRuns, names, 'time', 'expected', title)
+
+
+        # Close the connection
+        close_connection(conn)
+    '''

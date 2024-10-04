@@ -13,6 +13,9 @@ from statStuff import welch_ttest, permutation_test, compute_skewness, compute_k
 import time
 from rankingFromPairwise import computeRanksForAll, merge_sort
 
+from statsmodels.stats.multitest import fdrcorrection
+
+
 import configparser
 import json
 
@@ -422,28 +425,28 @@ def getHypothesisCongressionalSampling(adom,congress):
 
     from scipy.stats import ttest_ind
 
-    welch_matrix = [[1 for j in adom] for i in adom]
-    w_comparisons = []
-    w_comparisons_rej = []
+    raw_comparisons = []
 
     for i in range(len(adom)):
-        for j in range(i + 1):
+        for j in range(i + 1, len(adom)):
             left = adom[i]
             right = adom[j]
             res = ttest_ind(buckets[left], buckets[right], equal_var=False)
-            welch_matrix[i][j] = res.pvalue
-            welch_matrix[j][i] = res.pvalue
             stat_c = claireStat(skews[left], skews[right], len(left), len(right))
-            if res.pvalue < 0.05:
-                if res.statistic < 0:
-                    w_comparisons.append((left, right, stat_c))
-                else:
-                    w_comparisons.append((right, left, stat_c))
+            if res.statistic < 0:
+                raw_comparisons.append((left, right, stat_c, res.pvalue ))
             else:
-                if res.statistic < 0:
-                    w_comparisons_rej.append((left, right, stat_c))
-                else:
-                    w_comparisons_rej.append((right, left, stat_c))
+                raw_comparisons.append((right, left, stat_c, res.pvalue ))
+
+    w_comparisons = []
+    w_comparisons_rej = []
+    print(raw_comparisons)
+    rejected, corrected = fdrcorrection([x[3] for x in raw_comparisons], alpha=0.05)
+    for i in range(len(raw_comparisons)):
+        if rejected[i]:
+            w_comparisons_rej.append((raw_comparisons[i][0], raw_comparisons[i][1], raw_comparisons[i][2]))
+        else:
+            w_comparisons.append((raw_comparisons[i][0], raw_comparisons[i][1], raw_comparisons[i][2]))
 
     print("NB de comparaisons significatives (welch)", len(w_comparisons))
     # print_comp_list(sorted(w_comparisons, key=lambda x: x[0] + x[1]))
@@ -627,10 +630,11 @@ def test(conn, nbAdomVals, ratioViolations, proba, error, percentOfLattice, grou
 if __name__ == "__main__":
 
     config = configparser.ConfigParser()
+
     # The DB wee want
     config.read('configs/flights.ini')
     # The system this is running on
-    USER = "PM"
+    USER = "AC"
 
     # Database connection parameters
     dbname = config[USER]['dbname']
@@ -640,13 +644,13 @@ if __name__ == "__main__":
     port = int(config[USER]['port'])
 
     # Cube info
-    table = config["ssb"]['table']
-    measures = json.loads(config.get("ssb", "measures"))
-    groupbyAtt = json.loads(config.get("ssb", "groupbyAtt"))
-    sel = config["ssb"]['sel']
-    meas = config["ssb"]['meas']
-    measBase = config["ssb"]['measBase']
-    function = config["ssb"]['function']
+    table = config["Common"]['table']
+    measures = json.loads(config.get("Common", "measures"))
+    groupbyAtt = json.loads(config.get("Common", "groupbyAtt"))
+    sel = config["Common"]['sel']
+    meas = config["Common"]['meas']
+    measBase = config["Common"]['measBase']
+    function = config["Common"]['function']
 
 
     # number of values of adom to consider - top ones after hypothesis is generated
@@ -703,98 +707,5 @@ if __name__ == "__main__":
     # Close the connection
     close_connection(conn)
 
-    ''' 
-    if conn:
 
-        tabHypo = []
-        resultRuns = []
-        for i in range(nbruns):
-            rankingFromPairwise.pairwiseComparison = []
-
-            start_time = time.time()
-            #generate hypothesis: ordering of members such that mean is greater (statistically significant on sample)
-            hypothesis = generateHypothesisTest(conn, meas, measBase, table, sel, sampleSize, samplingMethod)
-
-            # below some testing stuff
-            print("Hypothesis as predicted: ", hypothesis)
-
-            dbStuff.dropAllMVs(conn)
-            dbStuff.createMV(conn, groupbyAtt, sel, meas, table, 0.5)
-            tabView=dbStuff.getMVnames(conn)
-            n, nbV=estimateViolations(conn, meas, measBase, table, sel, tabView, hypothesis)
-
-            print("on " + str(n) + " draws, there are " + str(nbV) + " violations")
-            print("violation rate is: ", nbV/n)
-            
-            
-            
-            # limit hypothesis to top nbAdomVals
-            limitedHyp = []
-            valsToSelect = []
-            j = 0
-            for h in hypothesis:
-                if (h[1] <= nbAdomVals and j < nbAdomVals):
-                    limitedHyp.append(h)
-                    valsToSelect.append(h[0])
-                    j = j + 1
-            #print("Hypothesis limited: ", limitedHyp)
-            #print("vals: ",valsToSelect)
-
-            # should only be done once
-            emptyGBresult, emptyGBresultAll = emptyGB(conn, nbAdomVals, table, sel, meas)
-            print("Empty GB says:", emptyGBresult)
-
-            # compute kendall tau between hypothesis and emptyGB
-            limitedHyp.sort(key=lambda x: x[0])
-            emptyGBresult.sort(key=lambda x: x[0])
-            hypothesis.sort(key=lambda x: x[0])
-            emptyGBresultAll.sort(key=lambda x: x[0])
-
-            # record all hypotheses
-            tabHypo.append(limitedHyp)
-
-            # should also compute tau between hypothesis of different runs
-
-            #print(hypothesis)
-            #print(emptyGB)
-
-            rankings_with_ties1 = [x[1] for x in hypothesis]
-            rankings_with_ties2 = [x[1] for x in emptyGBresultAll]
-
-            #print(rankings_with_ties1)
-            #print(rankings_with_ties2)
-
-            tau, p_value = compute_kendall_tau(rankings_with_ties1, rankings_with_ties2)
-            print("Tau-c between hypothesis and emptyGBAll: ", tau, "p-value: ", p_value)
-
-            #todo should also compute for limitedHyp and emptyGB
-
-            #vals=tuple([x[0] for x in limitedHyp])
-            #print("********** vals nnd vals2sel ")
-            #print(vals)
-            #print(tuple(valsToSelect))
-
-            expected = hoeffdingForRank(groupbyAtt, n, tuple(valsToSelect), limitedHyp)
-
-            end_time = time.time()
-            elapsed_time = end_time - start_time
-
-            resultRuns.append((i, float(tau), expected, elapsed_time))
-
-        print(resultRuns)
-        print(tabHypo)
-        # compute hamming dist in tabhypo or jaccard
-
-        
-
-
-        if not DEBUG_FLAG:
-            names = ['tau', 'expected', 'time']
-            title = 'Sample size=' + str(sampleSize)
-            plot_curves(resultRuns, names, 'time', 'expected', title)
-
-      
-        # Close the connection
-        close_connection(conn)
-    '''
 
