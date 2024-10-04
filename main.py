@@ -389,13 +389,16 @@ def azuma(conn, n, threshold, ranking):
         return tabView
 
 
-def fetchCongressionalSample(conn,sel,table,measBase,sampleSize):
+def fetchCongressionalSample(conn,sel,table,measBase,sampleSize, adom_restr=None):
     # fetch the congressional sample
-    adom = [x[0] for x in execute_query(conn, "select distinct  " + sel + " from " + table + ";")]
+    if adom_restr:
+        adom = adom_restr
+    else:
+        adom = [x[0] for x in execute_query(conn, "select distinct  " + sel + " from " + table + ";")]
     table_size = execute_query(conn, "select count(1) from " + table + ";")[0][0]
 
     sample_size = int(table_size * sampleSize)
-    alpha = 0.25
+    alpha = 0.10
     house_size = sample_size * alpha
     senate_size = sample_size * (1 - alpha)
 
@@ -406,6 +409,8 @@ def fetchCongressionalSample(conn,sel,table,measBase,sampleSize):
     for state in adom:
         senate.extend(get_state_sample(conn, measBase, table, sel, state_sample_size, state))
 
+    if adom_restr:
+        house = list(filter(lambda x: x[0] in adom_restr, house))
     congress = house + senate
     # END - fetch the congressional sample
     return adom, congress,
@@ -433,7 +438,7 @@ def getHypothesisCongressionalSampling(adom,congress):
             left = adom[i]
             right = adom[j]
             res = ttest_ind(buckets[left], buckets[right], equal_var=False)
-            stat_c = claireStat(skews[left], skews[right], len(left), len(right))
+            stat_c = claireStat(skews[left], skews[right], len(buckets[left]), len(buckets[right]))
             if res.statistic < 0:
                 raw_comparisons.append((left, right, stat_c, res.pvalue ))
             else:
@@ -484,7 +489,7 @@ def getHypothesisCongressionalSampling(adom,congress):
 def test(conn, nbAdomVals, ratioViolations, proba, error, percentOfLattice, groupbyAtt, sel, measBase, function,table,sampleSize,comparison=False,generateIndex=False):
     #sampling
     start_time = time.time()
-    adom, congress=fetchCongressionalSample(conn,sel,table,measBase,sampleSize)
+    adom, congress=fetchCongressionalSample(conn,sel,table,measBase,sampleSize, adom_restr=prefs)
     end_time = time.time()
     samplingTime = end_time - start_time
     print('sampling time:',samplingTime)
@@ -660,6 +665,9 @@ if __name__ == "__main__":
     meas = config["Common"]['meas']
     measBase = config["Common"]['measBase']
     function = config["Common"]['function']
+    prefs = json.loads(config.get("Common", "preferred"))
+    if len(prefs) == 0:
+        prefs = None
 
 
     # number of values of adom to consider - top ones after hypothesis is generated
