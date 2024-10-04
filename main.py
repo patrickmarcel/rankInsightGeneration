@@ -417,7 +417,8 @@ def getHypothesisCongressionalSampling(adom,congress):
     skews = dict()
     for item in congress:
         buckets[item[0]].append(item[1])
-        skews[item[0]] = compute_skewness(item[1])
+    for k in buckets.keys():
+        skews[k] = compute_skewness(buckets[k])
 
     # do all welch tests
     param_budget = 20
