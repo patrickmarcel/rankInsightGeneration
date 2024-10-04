@@ -481,7 +481,7 @@ def getHypothesisCongressionalSampling(adom,congress):
     return hypothesis
 
 
-def test(conn, nbAdomVals, ratioViolations, proba, error, percentOfLattice, groupbyAtt, sel, measBase, function,table,sampleSize,comparison=False):
+def test(conn, nbAdomVals, ratioViolations, proba, error, percentOfLattice, groupbyAtt, sel, measBase, function,table,sampleSize,comparison=False,generateIndex=False):
     #sampling
     start_time = time.time()
     adom, congress=fetchCongressionalSample(conn,sel,table,measBase,sampleSize)
@@ -516,11 +516,14 @@ def test(conn, nbAdomVals, ratioViolations, proba, error, percentOfLattice, grou
     # print(valsEmptyGB)
 
 
-    # get all materialized cuboids
+    # generate and get all materialized cuboids
     dbStuff.dropAllMVs(conn)
     dbStuff.createMV(conn, groupbyAtt, sel, measBase, function, table, percentOfLattice)
     mvnames = dbStuff.getMVnames(conn)
 
+    # generate hash index on sel attribute
+    if generateIndex==True:
+        dbStuff.generateHashIndex(conn,table,sel)
 
     #validation of hypothesis
     start_time = time.time()
@@ -715,13 +718,13 @@ if __name__ == "__main__":
         title = 'top-' + str(nbAdomVals)
         plot_curves(resultRuns, names, 'percentoflattice', 'error', title)
     else:
-        for percentOfLattice in (0.1, 0.25):
+        for percentOfLattice in (0.1, 0.2, 0.3, 0.4, 0.5):
         # for sampleSize in (0.1, 0.25, 0.5, 0.75, 1):
         # for nbAdomVals in range(2,10):
 
             prediction, bennetError, hypothesisTime, validationTime = test(conn, nbAdomVals, ratioViolations, proba, error,
                                                                percentOfLattice, groupbyAtt, sel, measBase, function,
-                                                               table, sampleSize, comparison)
+                                                               table, sampleSize, comparison, generateIndex=True)
             resultRuns.append((percentOfLattice, bennetError, hypothesisTime, validationTime))
 
 

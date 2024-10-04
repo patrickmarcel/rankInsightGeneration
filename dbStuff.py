@@ -4,6 +4,16 @@ import random
 
 from psycopg2 import sql
 
+def generateHashIndex(conn, table,sel):
+    indexname=table+'_'+sel
+    query = "create index \"" + indexname + "\" on " + table + " using hash(" + sel + ");"
+    execute_query(conn,query)
+
+def generateIndex(conn, table, sel):
+        indexname = table + '_' + sel
+        query = "create index \"" + indexname + "\" on " + table + "(" + sel + ");"
+        execute_query(conn, query)
+
 def getMVnames(conn):
     return execute_query(conn, "select matviewname from pg_catalog.pg_matviews;")
 
