@@ -481,7 +481,7 @@ def getHypothesisCongressionalSampling(adom,congress):
     return hypothesis
 
 
-def test(conn, nbAdomVals, ratioViolations, proba, error, percentOfLattice, groupbyAtt, sel, measBase, function,table,sampleSize):
+def test(conn, nbAdomVals, ratioViolations, proba, error, percentOfLattice, groupbyAtt, sel, measBase, function,table,sampleSize,comparison=False):
     #sampling
     start_time = time.time()
     adom, congress=fetchCongressionalSample(conn,sel,table,measBase,sampleSize)
@@ -579,47 +579,52 @@ def test(conn, nbAdomVals, ratioViolations, proba, error, percentOfLattice, grou
     print('the error (according to bardenet) for avg and confidence interval of size', proba, ' is: ',
           bernstein.empiricalBernsteinFromBardenet(proba, variance, sizeofsample, N))
 
-    # comparison with ground truth
-    dbStuff.dropAllMVs(conn)
-    nbMVs = dbStuff.createMV(conn, groupbyAtt, sel, measBase, function, table, 1)
 
-    queryCountviolations, queryCountCuboid, cuboid = bernstein.generateAllqueries(pwrset, sel, measBase, function,
-                                                                                  table, tuple(valsToSelect),
-                                                                                  limitedHyp, mvnames)
 
-    tabRandomVar = []
-    nbViewOK = 0
-    for i in range(len(queryCountviolations)):
-        #print(queryCountviolations[i])
-        # print(queryCountCuboid[i])
-        v = dbStuff.execute_query(conn, queryCountviolations[i])[0][0]
-        c = dbStuff.execute_query(conn, queryCountCuboid[i])[0][0]
-        # print(v)
-        # print(c)
-        print(v / c, " violation rate in cuboid ", cuboid[i], " of size: ", c, ". Number of violations: ", v)
-        if v / c < ratioViolations:
-            tabRandomVar.append(1)
-            nbViewOK = nbViewOK + 1
-        else:
-            tabRandomVar.append(0)
+    if comparison==True:
+        # comparison with ground truth
+        dbStuff.dropAllMVs(conn)
+        nbMVs = dbStuff.createMV(conn, groupbyAtt, sel, measBase, function, table, 1)
 
-    variance = np.var(tabRandomVar)
-    # print('variance: ', variance)
-    print('*** comparison to ground truth ***')
-    print('nb of views ok: ', nbViewOK, 'out of ', nbMVs, 'views, i.e., rate of:', nbViewOK / nbMVs)
-    gtratio= nbViewOK / nbMVs
+        queryCountviolations, queryCountCuboid, cuboid = bernstein.generateAllqueries(pwrset, sel, measBase, function,
+                                                                                      table, tuple(valsToSelect),
+                                                                                      limitedHyp, mvnames)
 
-    realError=abs(prediction - (nbViewOK / nbMVs))
-    print('Error on avg is: ', abs(prediction - (nbViewOK / nbMVs)))
+        tabRandomVar = []
+        nbViewOK = 0
+        for i in range(len(queryCountviolations)):
+            #print(queryCountviolations[i])
+            # print(queryCountCuboid[i])
+            v = dbStuff.execute_query(conn, queryCountviolations[i])[0][0]
+            c = dbStuff.execute_query(conn, queryCountCuboid[i])[0][0]
+            # print(v)
+            # print(c)
+            print(v / c, " violation rate in cuboid ", cuboid[i], " of size: ", c, ". Number of violations: ", v)
+            if v / c < ratioViolations:
+                tabRandomVar.append(1)
+                nbViewOK = nbViewOK + 1
+            else:
+                tabRandomVar.append(0)
 
-    print('Error on sum is: ', abs(nbViewOK - predictionNbOk))
+        variance = np.var(tabRandomVar)
+        # print('variance: ', variance)
+        print('*** comparison to ground truth ***')
+        print('nb of views ok: ', nbViewOK, 'out of ', nbMVs, 'views, i.e., rate of:', nbViewOK / nbMVs)
+        gtratio= nbViewOK / nbMVs
 
-    print('the error (according to Bennet) for avg and confidence interval of size', proba, ' is: ',
-          bernstein.bennetErrorOnAvg(proba, variance, sizeofsample))
-    print('the error (according to Bernstein) for confidence interval of size', proba, ' is: ',
-          bernstein.bersteinError(proba, variance))
+        realError=abs(prediction - (nbViewOK / nbMVs))
+        print('Error on avg is: ', abs(prediction - (nbViewOK / nbMVs)))
 
-    return prediction,bennetError,realError,gtratio
+        print('Error on sum is: ', abs(nbViewOK - predictionNbOk))
+
+        print('the error (according to Bennet) for avg and confidence interval of size', proba, ' is: ',
+              bernstein.bennetErrorOnAvg(proba, variance, sizeofsample))
+        print('the error (according to Bernstein) for confidence interval of size', proba, ' is: ',
+              bernstein.bersteinError(proba, variance))
+
+        return prediction,bennetError,realError,gtratio
+    else:
+        return prediction, bennetError, hypothesisGenerationTime, validationTime
 
 
 # TODO
@@ -633,9 +638,9 @@ if __name__ == "__main__":
     config = configparser.ConfigParser()
 
     # The DB wee want
-    config.read('configs/flights.ini')
+    config.read('configs/ssb.ini')
     # The system this is running on
-    USER = "AC"
+    USER = "PM"
 
     # Database connection parameters
     dbname = config[USER]['dbname']
@@ -691,19 +696,38 @@ if __name__ == "__main__":
 
     nbWrongRanking=0
     resultRuns=[]
-    for percentOfLattice in (0.1, 0.25, 0.5, 0.75, 1):
-    #for sampleSize in (0.1, 0.25, 0.5, 0.75, 1):
-    #for nbAdomVals in range(2,10):
 
-        prediction,bennetError,realError,gtratio=test(conn, nbAdomVals, ratioViolations, proba, error, percentOfLattice, groupbyAtt, sel, measBase, function,table, sampleSize)
-        resultRuns.append((percentOfLattice,prediction,bennetError,realError))
-        if gtratio <ratioCuboidOK:
-            nbWrongRanking=nbWrongRanking+1
+    # do we compare to ground truth?
+    comparison = False
 
-    print('Number of incorrect hypothesis:', nbWrongRanking)
-    names = ['prediction', 'bennet', 'error']
-    title = 'top-' + str(nbAdomVals)
-    plot_curves(resultRuns, names, 'percentoflattice', 'error', title)
+    if comparison==True:
+        for percentOfLattice in (0.1, 0.25):
+        #for sampleSize in (0.1, 0.25, 0.5, 0.75, 1):
+        #for nbAdomVals in range(2,10):
+
+            prediction,bennetError,realError,gtratio=test(conn, nbAdomVals, ratioViolations, proba, error, percentOfLattice, groupbyAtt, sel, measBase, function,table, sampleSize, comparison)
+            resultRuns.append((percentOfLattice,prediction,bennetError,realError))
+            if gtratio <ratioCuboidOK:
+                nbWrongRanking=nbWrongRanking+1
+
+        print('Number of incorrect hypothesis:', nbWrongRanking)
+        names = ['prediction', 'bennet', 'error']
+        title = 'top-' + str(nbAdomVals)
+        plot_curves(resultRuns, names, 'percentoflattice', 'error', title)
+    else:
+        for percentOfLattice in (0.1, 0.25):
+        # for sampleSize in (0.1, 0.25, 0.5, 0.75, 1):
+        # for nbAdomVals in range(2,10):
+
+            prediction, bennetError, hypothesisTime, validationTime = test(conn, nbAdomVals, ratioViolations, proba, error,
+                                                               percentOfLattice, groupbyAtt, sel, measBase, function,
+                                                               table, sampleSize, comparison)
+            resultRuns.append((percentOfLattice, bennetError, hypothesisTime, validationTime))
+
+
+        names = ['error', 'hypothesis', 'validation']
+        title = 'top-' + str(nbAdomVals)
+        plot_curves(resultRuns, names, 'percentoflattice', 'time', title)
 
     # Close the connection
     close_connection(conn)
