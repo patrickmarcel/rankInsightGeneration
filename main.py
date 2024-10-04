@@ -25,7 +25,7 @@ DEBUG_FLAG = True
 
 def get_state_sample(conn, measBase, table, sel, sampleSize, state):
 
-    querySample = "SELECT "+sel+", "+measBase+" FROM "+table+" where "+sel+" = '"+state+"' limit "+str(sampleSize)+";"
+    querySample = "SELECT "+sel+", "+measBase+" FROM "+table+" where "+sel+" = '"+str(state)+"' limit "+str(sampleSize)+";"
     #print(querySample)
     resultVals = execute_query(conn, querySample)
     return resultVals
@@ -640,13 +640,13 @@ if __name__ == "__main__":
     port = int(config[USER]['port'])
 
     # Cube info
-    table = config["Common"]['table']
-    measures = json.loads(config.get("Common", "measures"))
-    groupbyAtt = json.loads(config.get("Common", "groupbyAtt"))
-    sel = config["Common"]['sel']
-    meas = config["Common"]['meas']
-    measBase = config["Common"]['measBase']
-    function = config["Common"]['function']
+    table = config["ssb"]['table']
+    measures = json.loads(config.get("ssb", "measures"))
+    groupbyAtt = json.loads(config.get("ssb", "groupbyAtt"))
+    sel = config["ssb"]['sel']
+    meas = config["ssb"]['meas']
+    measBase = config["ssb"]['measBase']
+    function = config["ssb"]['function']
 
 
     # number of values of adom to consider - top ones after hypothesis is generated
@@ -662,7 +662,7 @@ if __name__ == "__main__":
     n = math.ceil(n)
 
     # for DB sampling
-    sampleSize = 0.2
+    sampleSize = 0.02
     samplingMethod = 'SYSTEM_ROWS'  # or SYSTEM
 
     if DEBUG_FLAG:
