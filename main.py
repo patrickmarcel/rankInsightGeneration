@@ -551,7 +551,7 @@ def test(conn, nbAdomVals, ratioViolations, proba, error, percentOfLattice, grou
     tabRandomVar = []
     nbViewOK = 0
     for i in range(len(queryCountviolations)):
-        # print(queryCountviolations[i])
+        #print(queryCountviolations[i])
         # print(queryCountCuboid[i])
         v = dbStuff.execute_query(conn, queryCountviolations[i])[0][0]
         c = dbStuff.execute_query(conn, queryCountCuboid[i])[0][0]
@@ -732,7 +732,7 @@ if __name__ == "__main__":
 
             prediction, bennetError, hypothesisTime, validationTime = test(conn, nbAdomVals, ratioViolations, proba, error,
                                                                percentOfLattice, groupbyAtt, sel, measBase, function,
-                                                               table, sampleSize, comparison, generateIndex=True)
+                                                               table, sampleSize, comparison)
             resultRuns.append((percentOfLattice, bennetError, hypothesisTime, validationTime))
 
 
