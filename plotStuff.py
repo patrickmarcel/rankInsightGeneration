@@ -1,6 +1,4 @@
-import numpy as np
 import matplotlib.pyplot as plt
-
 
 def plot_curves_with_error_bars(data, x_label, y_label, title):
     """

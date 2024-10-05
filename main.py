@@ -358,7 +358,7 @@ if __name__ == "__main__":
     # do we compare to ground truth?
     comparison = True
 
-    nbOfRuns=5
+    nbOfRuns=10
 
     data=[]
 
