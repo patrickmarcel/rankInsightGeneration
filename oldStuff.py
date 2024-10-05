@@ -357,3 +357,15 @@ def getRank(value, ranking):
             rank=r[1]
     return rank
 
+
+"""
+q = ("SELECT " + strgb + "," + sel + "," + meas + ", "
+         + " rank () over ( partition by " + strgb + " order by " + meas + " desc ) as rank" +
+         #" FROM " + table +
+     " FROM \"" + strgb + "\"" +
+        " WHERE " + sel + " in " + str(valsToSelect) + " group by " + strgb + "," + sel + " ")
+queryHyp = (
+        "select * from (select  " + strgb + " from  " + table + ") t1  cross join (values " + hyp + ") as t2 ")
+queryExcept = ("select " + strgb + "," + sel + ", rank from  (" + q + " ) t3 except all " + queryHyp + " ")
+queryCountExcept = ("select count(*) from (" + queryExcept + ") t5;")
+"""

@@ -44,6 +44,8 @@ def getCuboidsOfAtt(attInGB, selAtt):
 # todo for avg, should materialize sum and count
 def createMV(conn, attInGB, selAtt, meas, function, table, percentOfLattice):
     pwset2=getCuboidsOfAtt(attInGB, selAtt)
+    # remove last
+    del pwset2[-1]
 
     nbOfMV=len(pwset2)*percentOfLattice
     #print(pwset2)

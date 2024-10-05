@@ -93,7 +93,7 @@ def getHypothesisCongressionalSampling(adom,congress):
 
     w_comparisons = []
     w_comparisons_rej = []
-    print(raw_comparisons)
+    #print(raw_comparisons)
     rejected, corrected = fdrcorrection([x[3] for x in raw_comparisons], alpha=0.05)
     for i in range(len(raw_comparisons)):
         if rejected[i]:
@@ -293,7 +293,8 @@ if __name__ == "__main__":
     config = configparser.ConfigParser()
 
     # The DB wee want
-    config.read('configs/ssb.ini')
+    config.read('configs/flights.ini')
+    #config.read('configs/ssb.ini')
     # The system this is running on
     USER = "PM"
 
@@ -330,7 +331,7 @@ if __name__ == "__main__":
     n = math.ceil(n)
 
     # for DB sampling
-    sampleSize = 0.1
+    sampleSize = 1
     samplingMethod = 'SYSTEM_ROWS'  # or SYSTEM
 
     if DEBUG_FLAG:
@@ -356,7 +357,7 @@ if __name__ == "__main__":
     resultRuns=[]
 
     # do we compare to ground truth?
-    comparison = False
+    comparison = True
 
     nbOfRuns=10
 
@@ -374,7 +375,7 @@ if __name__ == "__main__":
         devBennet=[]
 
         paramTested = 'Percent of lattice'
-        tabTest=(0.1, 0.25, 0.5, 0.75)
+        tabTest=(0.1, 0.25, 0.5, 0.75, 1)
 
         for percentOfLattice in tabTest:
         #for sampleSize in (0.1, 0.25, 0.5, 0.75, 1):

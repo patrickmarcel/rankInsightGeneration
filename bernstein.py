@@ -64,6 +64,8 @@ def findMV(mvnames, gb, table):
 # todo adapt query using findMV
 # pwrset is the powerset of categorical attributes that include the target attribute
 def getSample(delta, t, pwrset, sel, meas, function, table, valsToSelect, hypo, mvnames, withReplacement=False, withBias=False):
+    # remove fact table from power set
+    # pwrset=pwrset[:-1] / del pwset[-1]
     pset=pwrset
     if withBias:
         tabNb=[]
@@ -110,6 +112,7 @@ def getSample(delta, t, pwrset, sel, meas, function, table, valsToSelect, hypo, 
                 gbwithoutsel = gbwithoutsel + ","
         materialized = findMV(mvnames, strgb, table)
         #print(materialized)
+        # if materialized = table then reject query???
         if strgb == sel:
             q = ("SELECT " + strgb + ", " + function + '(' + meas + "), "
                  + " rank () over ( " + gbwithoutsel + " order by " + function + '(' + meas + ") desc ) as rank" +
@@ -128,17 +131,6 @@ def getSample(delta, t, pwrset, sel, meas, function, table, valsToSelect, hypo, 
         queryCountCuboid= ("select count(*) from (" + q + ") t5;")
         queryCountExcept = ("select count(*) from (" + queryExcept + ") t6;")
 
-        """
-        q = ("SELECT " + strgb + "," + sel + "," + meas + ", "
-                 + " rank () over ( partition by " + strgb + " order by " + meas + " desc ) as rank" +
-                 #" FROM " + table +
-             " FROM \"" + strgb + "\"" +
-                " WHERE " + sel + " in " + str(valsToSelect) + " group by " + strgb + "," + sel + " ")
-        queryHyp = (
-                "select * from (select  " + strgb + " from  " + table + ") t1  cross join (values " + hyp + ") as t2 ")
-        queryExcept = ("select " + strgb + "," + sel + ", rank from  (" + q + " ) t3 except all " + queryHyp + " ")
-        queryCountExcept = ("select count(*) from (" + queryExcept + ") t5;")
-        """
         tabQuery.append(queryCountExcept)
         tabCount.append(queryCountCuboid)
         tabCuboid.append(strgb)
