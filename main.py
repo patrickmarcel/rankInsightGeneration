@@ -60,7 +60,7 @@ def fetchCongressionalSample(conn,sel,table,measBase,sampleSize, adom_restr=None
         house = list(filter(lambda x: x[0] in adom_restr, house))
     congress = house + senate
     # END - fetch the congressional sample
-    return adom, congress,
+    return adom, congress
 
 
 def getHypothesisCongressionalSampling(adom,congress):
@@ -279,7 +279,7 @@ def test(conn, nbAdomVals, ratioViolations, proba, error, percentOfLattice, grou
 
         return prediction,bennetError,realError,gtratio
     else:
-        return prediction, bennetError, hypothesisGenerationTime, validationTime
+        return bennetError, samplingTime, hypothesisGenerationTime, validationTime
 
 
 # TODO
@@ -293,7 +293,7 @@ if __name__ == "__main__":
     config = configparser.ConfigParser()
 
     # The DB wee want
-    config.read('configs/flights.ini')
+    config.read('configs/ssb.ini')
     # The system this is running on
     USER = "PM"
 
@@ -356,7 +356,7 @@ if __name__ == "__main__":
     resultRuns=[]
 
     # do we compare to ground truth?
-    comparison = True
+    comparison = False
 
     nbOfRuns=10
 
@@ -387,7 +387,7 @@ if __name__ == "__main__":
             for i in range(nbOfRuns):
 
                 prediction,bennetError,realError,gtratio=test(conn, nbAdomVals, ratioViolations, proba, error, percentOfLattice, groupbyAtt, sel, measBase, function,table, sampleSize, comparison)
-                resultRuns.append((percentOfLattice,prediction,bennetError,realError))
+                #resultRuns.append((percentOfLattice,prediction,bennetError,realError))
 
                 predictionTab.append(prediction)
                 bennetTab.append(bennetError)
@@ -426,25 +426,73 @@ if __name__ == "__main__":
         ]
 
         plot_curves_with_error_bars(data, x_label='percent of lattice', y_label='Error',
-                                    title='prediction and erros')
+                                    title='prediction and errors')
         #print('Number of incorrect hypothesis:', nbWrongRanking)
         #names = ['prediction', 'bennet', 'error']
         #title = 'top-' + str(nbAdomVals)
         #plot_curves(resultRuns, names, 'percentoflattice', 'error', title)
     else:
-        for percentOfLattice in (0.1, 0.2, 0.3, 0.4, 0.5):
-        # for sampleSize in (0.1, 0.25, 0.5, 0.75, 1):
+
+        listBennet = []
+        devBennet = []
+        listSampling=[]
+        devSampling=[]
+        listHypo=[]
+        devHypo=[]
+        listValid=[]
+        devValid=[]
+
+        tabTest=(0.001, 0.01, 0.1)
+
+        #for percentOfLattice in tabTest:
+        for sampleSize in tabTest:
         # for nbAdomVals in range(2,10):
 
-            prediction, bennetError, hypothesisTime, validationTime = test(conn, nbAdomVals, ratioViolations, proba, error,
+            benTab=[]
+            samplingTab=[]
+            hypoTab=[]
+            validTab = []
+
+            for i in range(nbOfRuns):
+                bennetError, samplingTime, hypothesisTime, validationTime = test(conn, nbAdomVals, ratioViolations, proba, error,
                                                                percentOfLattice, groupbyAtt, sel, measBase, function,
                                                                table, sampleSize, comparison)
-            resultRuns.append((percentOfLattice, bennetError, hypothesisTime, validationTime))
+                benTab.append(bennetError)
+                samplingTab.append(samplingTime)
+                hypoTab.append(hypothesisTime)
+                validTab.append(validationTime)
 
+            #resultRuns.append((percentOfLattice, bennetError, hypothesisTime, validationTime))
+            meanBen = statistics.mean(benTab)
+            stdevBen = statistics.stdev(benTab)
+            meanSamp = statistics.mean(samplingTab)
+            stdevSamp = statistics.stdev(samplingTab)
+            meanHypo = statistics.mean(hypoTab)
+            stdevHypo = statistics.stdev(hypoTab)
+            meanValid = statistics.mean(validTab)
+            stdevValid = statistics.stdev(validTab)
 
-        names = ['error', 'hypothesis', 'validation']
-        title = 'top-' + str(nbAdomVals)
-        plot_curves(resultRuns, names, 'percentoflattice', 'time', title)
+            listBennet.append(meanBen)
+            devBennet.append(stdevBen)
+            listSampling.append(meanSamp)
+            devSampling.append(stdevSamp)
+            listHypo.append(meanHypo)
+            devHypo.append(stdevHypo)
+            listValid.append(meanValid)
+            devValid.append(stdevValid)
+
+        data = [
+            {'x': tabTest, 'y': listBennet, 'yerr': devBennet, 'label': 'Bennet error'},
+            {'x': tabTest, 'y': listSampling, 'yerr': devSampling, 'label': 'Sampling time'},
+            {'x': tabTest, 'y': listHypo, 'yerr': devHypo, 'label': 'wrong prediction'},
+            {'x': tabTest, 'y': listValid, 'yerr': devValid, 'label': 'Bennet error'}
+        ]
+
+        plot_curves_with_error_bars(data, x_label='sample size', y_label='Time (s)',
+                                    title='Times')
+        #names = ['error', 'hypothesis', 'validation']
+        #title = 'top-' + str(nbAdomVals)
+        #plot_curves(resultRuns, names, 'percentoflattice', 'time', title)
 
 
 
