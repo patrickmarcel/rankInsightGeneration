@@ -373,6 +373,7 @@ if __name__ == "__main__":
         listBennet=[]
         devBennet=[]
 
+        paramTested = 'Percent of lattice'
         tabTest=(0.1, 0.25, 0.5, 0.75)
 
         for percentOfLattice in tabTest:
@@ -425,7 +426,7 @@ if __name__ == "__main__":
             {'x': tabTest, 'y': listBennet, 'yerr': devBennet, 'label': 'Bennet error'}
         ]
 
-        plot_curves_with_error_bars(data, x_label='percent of lattice', y_label='Error',
+        plot_curves_with_error_bars(data, x_label=paramTested, y_label='Error',
                                     title='prediction and errors')
         #print('Number of incorrect hypothesis:', nbWrongRanking)
         #names = ['prediction', 'bennet', 'error']
@@ -442,10 +443,12 @@ if __name__ == "__main__":
         listValid=[]
         devValid=[]
 
-        tabTest=(0.001, 0.01, 0.1)
+        tabTest=(0.1, 0.2, 0.3, 0.4, 0.5)
+        paramTested='Percent of Lattice'
+        #paramTested='Sample size'
 
-        #for percentOfLattice in tabTest:
-        for sampleSize in tabTest:
+        for percentOfLattice in tabTest:
+        #for sampleSize in tabTest:
         # for nbAdomVals in range(2,10):
 
             benTab=[]
@@ -484,11 +487,11 @@ if __name__ == "__main__":
         data = [
             {'x': tabTest, 'y': listBennet, 'yerr': devBennet, 'label': 'Bennet error'},
             {'x': tabTest, 'y': listSampling, 'yerr': devSampling, 'label': 'Sampling time'},
-            {'x': tabTest, 'y': listHypo, 'yerr': devHypo, 'label': 'wrong prediction'},
-            {'x': tabTest, 'y': listValid, 'yerr': devValid, 'label': 'Bennet error'}
+            {'x': tabTest, 'y': listHypo, 'yerr': devHypo, 'label': 'Hypothesis time'},
+            {'x': tabTest, 'y': listValid, 'yerr': devValid, 'label': 'Generation time'}
         ]
 
-        plot_curves_with_error_bars(data, x_label='sample size', y_label='Time (s)',
+        plot_curves_with_error_bars(data, x_label=paramTested, y_label='Time (s)',
                                     title='Times')
         #names = ['error', 'hypothesis', 'validation']
         #title = 'top-' + str(nbAdomVals)
