@@ -1,4 +1,39 @@
+import numpy as np
 import matplotlib.pyplot as plt
+
+
+def plot_curves_with_error_bars(data, x_label, y_label, title):
+    """
+    Plot multiple curves with error bars.
+
+    Parameters:
+    data (list of dicts): A list where each element is a dictionary containing:
+                          'x': The x values (array-like),
+                          'y': The y values (array-like),
+                          'yerr': The error on the y values (array-like),
+                          'label': The label for the curve (str).
+    x_label (str): Label for the x-axis.
+    y_label (str): Label for the y-axis.
+    title (str): Title of the plot.
+    """
+    # Create a figure and axis object
+    fig, ax = plt.subplots()
+
+    # Loop through each dataset and plot it with error bars
+    for dataset in data:
+        ax.errorbar(dataset['x'], dataset['y'], yerr=dataset['yerr'], label=dataset['label'], fmt='-o', capsize=5)
+
+    # Adding labels and title
+    ax.set_xlabel(x_label)
+    ax.set_ylabel(y_label)
+    ax.set_title(title)
+
+    # Adding a legend
+    ax.legend()
+
+    # Show the plot
+    plt.show()
+
 
 
 def plot_curves(data, curve_names, xlabel, ylabel, title):

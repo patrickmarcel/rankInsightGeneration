@@ -1,12 +1,14 @@
 import random
 import math
+import statistics
+
 import numpy as np
 
 import dbStuff
 import rankingFromPairwise
 import utilities
 from utilities import powerset
-from plotStuff import plot_curves
+from plotStuff import plot_curves, plot_curves_with_error_bars
 from dbStuff import execute_query, connect_to_db, close_connection, getSample, emptyGB
 from statStuff import welch_ttest, permutation_test, compute_skewness, compute_kendall_tau, benjamini_hochberg, \
     benjamini_hochberg_statmod, claireStat
@@ -646,7 +648,7 @@ if __name__ == "__main__":
     config = configparser.ConfigParser()
 
     # The DB wee want
-    config.read('configs/ssb.ini')
+    config.read('configs/flights.ini')
     # The system this is running on
     USER = "PM"
 
@@ -683,7 +685,7 @@ if __name__ == "__main__":
     n = math.ceil(n)
 
     # for DB sampling
-    sampleSize = 0.02
+    sampleSize = 0.1
     samplingMethod = 'SYSTEM_ROWS'  # or SYSTEM
 
     if DEBUG_FLAG:
@@ -709,22 +711,81 @@ if __name__ == "__main__":
     resultRuns=[]
 
     # do we compare to ground truth?
-    comparison = False
+    comparison = True
+
+    nbOfRuns=5
+
+    data=[]
 
     if comparison==True:
-        for percentOfLattice in (0.1, 0.25):
+
+        listPred=[]
+        devPred=[]
+        listError=[]
+        devError=[]
+        listWR=[]
+        devWR=[]
+        listBennet=[]
+        devBennet=[]
+
+        tabTest=(0.1, 0.25, 0.5, 0.75)
+
+        for percentOfLattice in tabTest:
         #for sampleSize in (0.1, 0.25, 0.5, 0.75, 1):
         #for nbAdomVals in range(2,10):
 
-            prediction,bennetError,realError,gtratio=test(conn, nbAdomVals, ratioViolations, proba, error, percentOfLattice, groupbyAtt, sel, measBase, function,table, sampleSize, comparison)
-            resultRuns.append((percentOfLattice,prediction,bennetError,realError))
-            if gtratio <ratioCuboidOK:
-                nbWrongRanking=nbWrongRanking+1
+            predictionTab=[]
+            realErrorTab=[]
+            nbWrongRankingTab=[]
+            bennetTab = []
 
-        print('Number of incorrect hypothesis:', nbWrongRanking)
-        names = ['prediction', 'bennet', 'error']
-        title = 'top-' + str(nbAdomVals)
-        plot_curves(resultRuns, names, 'percentoflattice', 'error', title)
+            for i in range(nbOfRuns):
+
+                prediction,bennetError,realError,gtratio=test(conn, nbAdomVals, ratioViolations, proba, error, percentOfLattice, groupbyAtt, sel, measBase, function,table, sampleSize, comparison)
+                resultRuns.append((percentOfLattice,prediction,bennetError,realError))
+
+                predictionTab.append(prediction)
+                bennetTab.append(bennetError)
+                realErrorTab.append(realError)
+                if gtratio <ratioCuboidOK:
+                    nbWrongRanking=1
+                else:
+                    nbWrongRanking = 0
+                nbWrongRankingTab.append(nbWrongRanking)
+
+            meanPred=statistics.mean(predictionTab)
+            stdevPred = statistics.stdev(predictionTab)
+            meanBen= statistics.mean(bennetTab)
+            stdevBen = statistics.stdev(bennetTab)
+            meanError=statistics.mean(realErrorTab)
+            stdevError = statistics.stdev(realErrorTab)
+            meanWRTab = statistics.mean(nbWrongRankingTab)
+            stdevWRTab = statistics.stdev(nbWrongRankingTab)
+
+
+            listPred.append(meanPred)
+            devPred.append(stdevPred)
+            listBennet.append(meanBen)
+            devBennet.append(stdevBen)
+            listError.append(meanError)
+            devError.append(stdevError)
+            listWR.append(meanWRTab)
+            devWR.append(stdevWRTab)
+
+        # Example usage:
+        data = [
+            {'x': tabTest, 'y':listPred,  'yerr': devPred, 'label': 'prediction'},
+            {'x': tabTest, 'y': listError, 'yerr': devError, 'label': 'error'},
+            {'x': tabTest, 'y': listWR, 'yerr': devWR, 'label': 'wrong prediction'},
+            {'x': tabTest, 'y': listBennet, 'yerr': devBennet, 'label': 'Bennet error'}
+        ]
+
+        plot_curves_with_error_bars(data, x_label='percent of lattice', y_label='Error',
+                                    title='prediction and erros')
+        #print('Number of incorrect hypothesis:', nbWrongRanking)
+        #names = ['prediction', 'bennet', 'error']
+        #title = 'top-' + str(nbAdomVals)
+        #plot_curves(resultRuns, names, 'percentoflattice', 'error', title)
     else:
         for percentOfLattice in (0.1, 0.2, 0.3, 0.4, 0.5):
         # for sampleSize in (0.1, 0.25, 0.5, 0.75, 1):
@@ -739,6 +800,8 @@ if __name__ == "__main__":
         names = ['error', 'hypothesis', 'validation']
         title = 'top-' + str(nbAdomVals)
         plot_curves(resultRuns, names, 'percentoflattice', 'time', title)
+
+
 
     # Close the connection
     close_connection(conn)
