@@ -124,13 +124,33 @@ def getHypothesisCongressionalSampling(adom,congress):
 
     # borda hypothesis
     patrick_format = [(a, b, 1, None, None) for (a, b, c) in final]
+    print(patrick_format)
     hypothesis = computeRanksForAll(patrick_format, adom).items()
-    hypothesis = [(a, b + 1) for (a, b) in hypothesis]
+    print(hypothesis)
     hypothesis = sorted(
         hypothesis,
-        key=lambda x: x[1]
+        key=lambda x: x[1],
+        reverse=True
     )
-    return hypothesis
+    print(hypothesis)
+    #hypothesis = [(a, b + 1) for (a, b) in hypothesis]
+    correctHyp=[]
+    i=1
+    prevb=-1
+    for (a,b) in hypothesis:
+        if prevb==-1:
+            currentRank = 1
+            correctHyp.append((a,currentRank))
+            prevb=b
+        else:
+            if b==prevb:
+                correctHyp.append((a, currentRank))
+            else:
+                currentRank=currentRank+1
+                correctHyp.append((a, currentRank))
+                prevb=b
+    print(correctHyp)
+    return correctHyp
 
 
 def test(conn, nbAdomVals, ratioViolations, proba, error, percentOfLattice, groupbyAtt, sel, measBase, function,table,sampleSize,comparison=False,generateIndex=False):
@@ -157,7 +177,7 @@ def test(conn, nbAdomVals, ratioViolations, proba, error, percentOfLattice, grou
             limitedHyp.append(h)
             valsToSelect.append(h[0])
             j = j + 1
-    print("Hypothesis limited to choosen values: ", limitedHyp)
+    #print("Hypothesis limited to choosen values: ", limitedHyp)
 
     # print("vals: ",valsToSelect)
 
@@ -198,7 +218,7 @@ def test(conn, nbAdomVals, ratioViolations, proba, error, percentOfLattice, grou
     tabRandomVar = []
     nbViewOK = 0
     for i in range(len(queryCountviolations)):
-        #print(queryCountviolations[i])
+        print(queryCountviolations[i])
         # print(queryCountCuboid[i])
         v = dbStuff.execute_query(conn, queryCountviolations[i])[0][0]
         c = dbStuff.execute_query(conn, queryCountCuboid[i])[0][0]

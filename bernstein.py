@@ -64,8 +64,8 @@ def findMV(mvnames, gb, table):
 # todo adapt query using findMV
 # pwrset is the powerset of categorical attributes that include the target attribute
 def getSample(delta, t, pwrset, sel, meas, function, table, valsToSelect, hypo, mvnames, withReplacement=False, withBias=False):
-    # remove fact table from power set
-    # pwrset=pwrset[:-1] / del pwset[-1]
+    # remove fact table cuboid from power set
+    del pwrset[-1]
     pset=pwrset
     if withBias:
         tabNb=[]
