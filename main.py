@@ -3,6 +3,7 @@ import math
 import statistics
 import numpy as np
 import dbStuff
+import statStuff
 import utilities
 from plotStuff import plot_curves_with_error_bars
 from dbStuff import execute_query, connect_to_db, close_connection, getSample
@@ -22,6 +23,22 @@ import bernstein
 # ------  Debug ?  ------------
 DEBUG_FLAG = True
 
+
+def countViolations(conn,query,hypothesis):
+    #print(query)
+    hyp=[a for (a,b) in hypothesis]
+    #print('hyp:',hyp)
+    v=0
+    res=dbStuff.execute_query(conn,query)
+    for r in res:
+        #print(r)
+        #print('this is s', r[1])
+        s=r[1].split(",")
+        #print('this is s', s)
+        tau=statStuff.compute_kendall_tau(s,hyp)[0]
+        #print('tau:',tau)
+        v=v+( (1-tau) *((len(hyp)*(len(hyp)+1))/2) )
+    return v
 
 def get_state_sample(conn, measBase, table, sel, sampleSize, state):
 
@@ -147,7 +164,7 @@ def getHypothesisCongressionalSampling(adom,congress):
 
     print('Alex hypothesis:',correctHyp)
     # checking all comparisons
-    valsToSelect=('OO','HA','NK')
+    valsToSelect=('HA','00','NK')
     correctHyp=generateHypothesisTest(conn, meas, measBase, table, sel, 9307,'SYSTEM_ROWS',valsToSelect)
     print('all comp. hypothesis:',correctHyp)
     return correctHyp
@@ -210,7 +227,7 @@ def test(conn, nbAdomVals, ratioViolations, proba, error, percentOfLattice, grou
 
     pwrset = dbStuff.getCuboidsOfAtt(groupbyAtt, sel)
     print(str(tuple(valsToSelect)))
-    queryCountviolations, queryCountCuboid, cuboid = bernstein.getSample(proba, error, pwrset, sel, measBase, function,
+    ranks, queryCountviolations, queryCountCuboid, cuboid = bernstein.getSample(proba, error, pwrset, sel, measBase, function,
                                                                          table, tuple(valsToSelect), limitedHyp,
                                                                          mvnames,False,True)
     # queryCountviolations, queryCountCuboid, cuboid=bernstein.getSample(proba, error, pwrset, sel, measBase, function, table, tuple(valsEmptyGB), emptyGBresult, mvnames)
@@ -219,11 +236,13 @@ def test(conn, nbAdomVals, ratioViolations, proba, error, percentOfLattice, grou
     nbViewOK = 0
     for i in range(len(queryCountviolations)):
         #print(queryCountviolations[i])
-        # print(queryCountCuboid[i])
-        v = dbStuff.execute_query(conn, queryCountviolations[i])[0][0]
+        #print(queryCountCuboid[i])
+        #print(ranks[i])
+        v=countViolations(conn,ranks[i],hypothesis)
+        #v = dbStuff.execute_query(conn, queryCountviolations[i])[0][0]
         c = dbStuff.execute_query(conn, queryCountCuboid[i])[0][0]
         # print(v)
-        # print(c)
+        print(c)
         if c!=0:
             print(v/c, " violation rate in cuboid ", cuboid[i], " of size: ", c, ". Number of violations: ", v)
             if v / c < ratioViolations:
@@ -232,7 +251,7 @@ def test(conn, nbAdomVals, ratioViolations, proba, error, percentOfLattice, grou
             else:
                 tabRandomVar.append(0)
         else:
-            print("inconclusive, not enough tuples in cuboid for select valudes")
+            print("inconclusive, not enough tuples in cuboid for select values")
 
 
     end_time = time.time()
@@ -265,16 +284,17 @@ def test(conn, nbAdomVals, ratioViolations, proba, error, percentOfLattice, grou
         dbStuff.dropAllMVs(conn)
         nbMVs = dbStuff.createMV(conn, groupbyAtt, sel, measBase, function, table, 1)
 
-        queryCountviolations, queryCountCuboid, cuboid = bernstein.generateAllqueries(pwrset, sel, measBase, function,
+        ranks, queryCountviolations, queryCountCuboid, cuboid = bernstein.generateAllqueries(pwrset, sel, measBase, function,
                                                                                       table, tuple(valsToSelect),
                                                                                       limitedHyp, mvnames)
 
         tabRandomVar = []
         nbViewOK = 0
         for i in range(len(queryCountviolations)):
-            #print(queryCountviolations[i])
-            # print(queryCountCuboid[i])
-            v = dbStuff.execute_query(conn, queryCountviolations[i])[0][0]
+            #print('gt violations:',queryCountviolations[i])
+            #print('gt count:',queryCountCuboid[i])
+            #v = dbStuff.execute_query(conn, queryCountviolations[i])[0][0]
+            v = countViolations(conn, ranks[i], hypothesis)
             c = dbStuff.execute_query(conn, queryCountCuboid[i])[0][0]
             # print(v)
             # print(c)
@@ -286,7 +306,7 @@ def test(conn, nbAdomVals, ratioViolations, proba, error, percentOfLattice, grou
                 else:
                     tabRandomVar.append(0)
             else:
-                print("inconclusive, not enough tuples in cuboid for select valudes")
+                print("inconclusive, not enough tuples in cuboid for select values")
 
         variance = np.var(tabRandomVar)
         # print('variance: ', variance)

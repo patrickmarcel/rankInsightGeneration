@@ -83,6 +83,7 @@ def getSample(delta, t, pwrset, sel, meas, function, table, valsToSelect, hypo, 
         print(tabWeights)
     #print(math.fsum(tabWeights))
     n=int(sizeOfSampleHoeffding(delta, t))
+    tabRanks=[]
     tabQuery=[]
     tabCount=[]
     tabCuboid=[]
@@ -124,16 +125,19 @@ def getSample(delta, t, pwrset, sel, meas, function, table, valsToSelect, hypo, 
             queryExcept = (
                         "select * from  (" + q + " ) t3 , (" + queryHyp + ") t4 where t3." + sel + "=t4." + sel + " and t3.rank!=t4.rank")
             queryCountCuboid = ("select count(*) from (" + q + ") t5;")
+            queryRank=("select 'all',string_agg(" + sel + ",',') from (" + q + "  order by rank);")
         else:
             queryValidGB = ("select " + gbwithoutsel + " from (SELECT " + strgb + " FROM \"" + str(
                 materialized) + "\"" + " WHERE " + sel + " in " + str(
-                valsToSelect) + " group by " + strgb + " ) t group by " + gbwithoutsel + " having count(*) >1")
+                valsToSelect) + " group by " + strgb + " order by rank) t group by " + gbwithoutsel + " having count(*) >1")
             q = ("SELECT " + strgb + ", " + function + '(' + meas + "), "
                  + " rank () over ( partition by " + gbwithoutsel + " order by " + function + '(' + meas + ") desc ) as rank" +
              " FROM \"" + str(materialized) + "\"" +
                 " WHERE " + sel + " in " + str(valsToSelect) + " group by " + strgb + " ")
             queryExcept = (
                         "select * from  (select * from  (" + q + " ) t7 where ("+ gbwithoutsel + ") in ("+ queryValidGB + ")) t3 , (" + queryHyp + ") t4 where t3." + sel + "=t4." + sel + " and t3.rank!=t4.rank")
+            queryRank = ("select " + gbwithoutsel + ",string_agg(" + sel + ",',') from (" + q + " ) t7 where ("+ gbwithoutsel + ") in ("+ queryValidGB + ") group by "+gbwithoutsel +";")
+
             #queryExcept = (
             #        "select * from  (" + q + " ) t3 , (" + queryHyp + ") t4 where t3." + sel + "=t4." + sel + " and t3.rank!=t4.rank")
             #print('queryExcept:',queryExcept)
@@ -142,10 +146,13 @@ def getSample(delta, t, pwrset, sel, meas, function, table, valsToSelect, hypo, 
         queryCountExcept = ("select count(*) from (" + queryExcept + ") t6;")
         #print('queryCountExcept:',queryCountExcept)
 
+        #print('query rank:', queryRank)
+
+        tabRanks.append(queryRank)
         tabQuery.append(queryCountExcept)
         tabCount.append(queryCountCuboid)
         tabCuboid.append(strgb)
-    return tabQuery,tabCount,tabCuboid
+    return tabRanks,tabQuery,tabCount,tabCuboid
 
 
 
@@ -153,6 +160,7 @@ def getSample(delta, t, pwrset, sel, meas, function, table, valsToSelect, hypo, 
 def generateAllqueries(pwrset, sel, meas, function, table, valsToSelect, hypo, mvnames):
     pset=pwrset
     n=len(pwrset)
+    tabRanks=[]
     tabQuery=[]
     tabCount=[]
     tabCuboid=[]
@@ -187,16 +195,20 @@ def generateAllqueries(pwrset, sel, meas, function, table, valsToSelect, hypo, m
             queryExcept = (
                     "select * from  (" + q + " ) t3 , (" + queryHyp + ") t4 where t3." + sel + "=t4." + sel + " and t3.rank!=t4.rank")
             queryCountCuboid = ("select count(*) from (" + q + ") t5;")
+            queryRank = ("select 'all',string_agg(" + sel + ",',') from (" + q + "  order by rank);")
         else:
             queryValidGB = ("select " + gbwithoutsel + " from (SELECT " + strgb + " FROM \"" + str(
                 materialized) + "\"" + " WHERE " + sel + " in " + str(
-                valsToSelect) + " group by " + strgb + " ) t group by " + gbwithoutsel + " having count(*) >1")
+                valsToSelect) + " group by " + strgb + " order by rank) t group by " + gbwithoutsel + " having count(*) >1")
             q = ("SELECT " + strgb + ", " + function + '(' + meas + "), "
                  + " rank () over ( partition by " + gbwithoutsel + " order by " + function + '(' + meas + ") desc ) as rank" +
                  " FROM \"" + str(materialized) + "\"" +
                  " WHERE " + sel + " in " + str(valsToSelect) + " group by " + strgb + " ")
             queryExcept = (
                     "select * from  (select * from  (" + q + " ) t7 where (" + gbwithoutsel + ") in (" + queryValidGB + ")) t3 , (" + queryHyp + ") t4 where t3." + sel + "=t4." + sel + " and t3.rank!=t4.rank")
+            queryRank = (
+                        "select " + gbwithoutsel + ",string_agg(" + sel + ",',') from (" + q + " ) t7 where (" + gbwithoutsel + ") in (" + queryValidGB + ") group by " + gbwithoutsel + ";")
+
             # queryExcept = (
             #        "select * from  (" + q + " ) t3 , (" + queryHyp + ") t4 where t3." + sel + "=t4." + sel + " and t3.rank!=t4.rank")
             # print('queryExcept:',queryExcept)
@@ -206,10 +218,13 @@ def generateAllqueries(pwrset, sel, meas, function, table, valsToSelect, hypo, m
         queryCountExcept = ("select count(*) from (" + queryExcept + ") t6;")
         # print('queryCountExcept:',queryCountExcept)
 
+        # print('query rank:', queryRank)
+
+        tabRanks.append(queryRank)
         tabQuery.append(queryCountExcept)
         tabCount.append(queryCountCuboid)
         tabCuboid.append(strgb)
-    return tabQuery, tabCount, tabCuboid
+    return tabRanks, tabQuery, tabCount, tabCuboid
 
 
 def runSampleQueries(tabQuery):
