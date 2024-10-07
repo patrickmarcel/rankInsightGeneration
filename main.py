@@ -1,19 +1,14 @@
 import random
 import math
 import statistics
-
 import numpy as np
-
 import dbStuff
-import rankingFromPairwise
 import utilities
-from utilities import powerset
-from plotStuff import plot_curves, plot_curves_with_error_bars
-from dbStuff import execute_query, connect_to_db, close_connection, getSample, emptyGB
-from statStuff import welch_ttest, permutation_test, compute_skewness, compute_kendall_tau, benjamini_hochberg, \
-    benjamini_hochberg_statmod, claireStat
+from plotStuff import plot_curves_with_error_bars
+from dbStuff import execute_query, connect_to_db, close_connection, getSample
+from statStuff import permutation_test, compute_skewness, claireStat
 import time
-from rankingFromPairwise import computeRanksForAll, merge_sort
+from rankingFromPairwise import computeRanksForAll, generateHypothesisTest
 
 from statsmodels.stats.multitest import fdrcorrection
 
@@ -31,7 +26,7 @@ DEBUG_FLAG = True
 def get_state_sample(conn, measBase, table, sel, sampleSize, state):
 
     querySample = "SELECT "+sel+", "+measBase+" FROM "+table+" where "+sel+" = '"+str(state)+"' limit "+str(sampleSize)+";"
-    #print(querySample)
+    #print('stat query:', querySample)
     resultVals = execute_query(conn, querySample)
     return resultVals
 
@@ -124,15 +119,15 @@ def getHypothesisCongressionalSampling(adom,congress):
 
     # borda hypothesis
     patrick_format = [(a, b, 1, None, None) for (a, b, c) in final]
-    print(patrick_format)
+    #print('alex pairwise:',patrick_format)
     hypothesis = computeRanksForAll(patrick_format, adom).items()
-    print(hypothesis)
+    #print(hypothesis)
     hypothesis = sorted(
         hypothesis,
         key=lambda x: x[1],
         reverse=True
     )
-    print(hypothesis)
+    #print(hypothesis)
     #hypothesis = [(a, b + 1) for (a, b) in hypothesis]
     correctHyp=[]
     i=1
@@ -149,7 +144,12 @@ def getHypothesisCongressionalSampling(adom,congress):
                 currentRank=currentRank+1
                 correctHyp.append((a, currentRank))
                 prevb=b
-    print(correctHyp)
+
+    print('Alex hypothesis:',correctHyp)
+    # checking all comparisons
+    valsToSelect=('OO','HA','NK')
+    correctHyp=generateHypothesisTest(conn, meas, measBase, table, sel, 9307,'SYSTEM_ROWS',valsToSelect)
+    print('all comp. hypothesis:',correctHyp)
     return correctHyp
 
 
@@ -218,18 +218,22 @@ def test(conn, nbAdomVals, ratioViolations, proba, error, percentOfLattice, grou
     tabRandomVar = []
     nbViewOK = 0
     for i in range(len(queryCountviolations)):
-        print(queryCountviolations[i])
+        #print(queryCountviolations[i])
         # print(queryCountCuboid[i])
         v = dbStuff.execute_query(conn, queryCountviolations[i])[0][0]
         c = dbStuff.execute_query(conn, queryCountCuboid[i])[0][0]
         # print(v)
         # print(c)
-        print(v/c, " violation rate in cuboid ", cuboid[i], " of size: ", c, ". Number of violations: ", v)
-        if v / c < ratioViolations:
-            tabRandomVar.append(1)
-            nbViewOK = nbViewOK + 1
+        if c!=0:
+            print(v/c, " violation rate in cuboid ", cuboid[i], " of size: ", c, ". Number of violations: ", v)
+            if v / c < ratioViolations:
+                tabRandomVar.append(1)
+                nbViewOK = nbViewOK + 1
+            else:
+                tabRandomVar.append(0)
         else:
-            tabRandomVar.append(0)
+            print("inconclusive, not enough tuples in cuboid for select valudes")
+
 
     end_time = time.time()
     validationTime = end_time - start_time
@@ -274,12 +278,15 @@ def test(conn, nbAdomVals, ratioViolations, proba, error, percentOfLattice, grou
             c = dbStuff.execute_query(conn, queryCountCuboid[i])[0][0]
             # print(v)
             # print(c)
-            print(v / c, " violation rate in cuboid ", cuboid[i], " of size: ", c, ". Number of violations: ", v)
-            if v / c < ratioViolations:
-                tabRandomVar.append(1)
-                nbViewOK = nbViewOK + 1
+            if c != 0:
+                print(v / c, " violation rate in cuboid ", cuboid[i], " of size: ", c, ". Number of violations: ", v)
+                if v / c < ratioViolations:
+                    tabRandomVar.append(1)
+                    nbViewOK = nbViewOK + 1
+                else:
+                    tabRandomVar.append(0)
             else:
-                tabRandomVar.append(0)
+                print("inconclusive, not enough tuples in cuboid for select valudes")
 
         variance = np.var(tabRandomVar)
         # print('variance: ', variance)

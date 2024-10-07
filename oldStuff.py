@@ -1,3 +1,30 @@
+import random
+import math
+import statistics
+
+import numpy as np
+
+import dbStuff
+import rankingFromPairwise
+import utilities
+from utilities import powerset
+from plotStuff import plot_curves, plot_curves_with_error_bars
+from dbStuff import execute_query, connect_to_db, close_connection, getSample, emptyGB
+from statStuff import welch_ttest, permutation_test, compute_skewness, compute_kendall_tau, benjamini_hochberg, \
+    benjamini_hochberg_statmod, claireStat
+import time
+from rankingFromPairwise import computeRanksForAll, merge_sort
+
+from statsmodels.stats.multitest import fdrcorrection
+
+
+import configparser
+import json
+
+import bernstein
+
+
+
 def generateRandomQuery(pwsert, valsToSelect, hypothesis):
     nb = random.randint(0, len(pwsert) - 1)
     gb = pwsert[nb]
@@ -49,66 +76,6 @@ def getValues(queryValues, vals, v, conn):
 
 
 
-def generateHypothesisTest(conn, meas, measBase, table, sel, sampleSize, method):
-    resultVals = getSample(conn, measBase, table, sel, sampleSize, method=method, repeatable=False)
-    #resultVals = getSample(conn, measBase, table, sel, sampleSize, method=method, repeatable=DEBUG_FLAG)
-
-    # get adom values
-    Sels = list(set([x[0] for x in resultVals]))
-
-    #analyse sample for each adom value: value, nb of measures, skewness, and tuples
-    S = []
-    for v in Sels:
-
-        data = []
-        for row in resultVals:
-            if row[0] == v:
-                data.append(float(row[1]))
-
-        nvalues = len(data)
-        data = np.array(data)
-        skewness = compute_skewness(data)
-        S.append((v, nvalues, skewness, data))
-
-    #print(S)
-
-    # nlog(n) comparisons enough for recovering the true ranking when commarisons are certain (not noisy)
-    # we should try less
-    nbOfComparisons = len(Sels) * math.log(len(Sels), 2)
-    #print("Number of comparisons to make: " + str(nbOfComparisons))
-
-    pairwiseComparison=generateAllComparisons(Sels, S, nbOfComparisons)
-
-    #for p in pairwiseComparison:
-    #    print("p: ", p)
-
-    #pairwiseComparison = generateComparisonsWithMergeSort(Sels, S)
-
-    # ranking
-    #ranks = balanced_rank_estimation(pairwiseComparison)
-    #print("Balanced Rank Estimation:", ranks)
-    ranks = computeRanksForAll(pairwiseComparison, Sels)
-
-    sorted_items = sorted(ranks.items(), key=lambda item: item[1], reverse=True)
-
-    # Construct a rank from the number of comparison won for each adom values
-    hypothesis = []
-    rank = 0
-    for s in sorted_items:
-        if rank == 0:
-            rank = 1
-            hypothesis.append((s[0], rank))
-            val = s[1]
-        else:
-            if s[1] == val:
-                hypothesis.append((s[0], rank))
-                val = s[1]
-            else:
-                rank = rank + 1
-                hypothesis.append((s[0], rank))
-                val = s[1]
-
-    return hypothesis
 
 #This function estimates the number of violations in all the cube of R
 #by randomly drawing tuples from the materialized cuboids (R included)
@@ -254,39 +221,7 @@ def azuma(conn, n, threshold, ranking):
 
 
 
-def computeBHcorrection(pairwiseComparison, alpha=0.05):
-    # rejected, corrected_p_values = benjamini_hochberg_gpt(tabPValues, alpha)
-    # print("Rejected hypotheses:", rejected)
-    # print("raw p-values:", tabPValues)
-    # print("Corrected p-values (gpt):", corrected_p_values)
-    tabPValues = []
-    for p in pairwiseComparison:
-        tabPValues.append(p[4])
 
-    corrected = benjamini_hochberg(tabPValues, alpha)
-    rejected, corrected2 = benjamini_hochberg_statmod(tabPValues, alpha)
-
-    print("nb of True in rejected: ", utilities.nbTrueInList(rejected))
-
-    pairwiseComp2 = []
-    i = 0
-    nbChanges = 0
-    for c in pairwiseComparison:
-        comp = 0  # not significant
-        if corrected[i] < 0.05 and c[3] < 0:
-            comp = -1
-        if corrected[i] < 0.05 and c[3] > 0:
-            comp = 1
-        if comp != c[2]:
-            nbChanges = nbChanges + 1
-        pairwiseComp2.append((c[0], c[1], comp, c[2], corrected[i]))
-        i = i + 1
-
-    print("Number of BH corrections: ", nbChanges)
-
-    print("nb non zeros after corrections: ", utilities.countNonZeros(pairwiseComp2))
-
-    return pairwiseComp2
 
 
 def generateComparisonsWithMergeSort(Sels, S):
@@ -305,48 +240,7 @@ def generateComparisonsWithMergeSort(Sels, S):
     return rankingFromPairwise.pairwiseComparison
 
 
-def generateAllComparisons(Sels, S, nbOfComparisons):
-    #tabPValues = []
-    pairwiseComparison = []
-    #tabStat = []
 
-    # compute Claire statistics for all pairs
-    claireTab = []
-    for i in range(1, len(S)):
-        for j in range(i, len(S)):
-            b = claireStat(S[i - 1][2], S[j][2], S[i - 1][1], S[j][1])
-            claireTab.append((S[i - 1][0], S[j][0], b, S[i - 1][3], S[j][3]))
-
-            if b:
-                # print("Welch test can be used")
-                t_stat, p_value, conclusion = welch_ttest(S[i - 1][3], S[j][3])
-                # print(t_stat, p_value, conclusion)
-                #tabStat.append(t_stat)
-                #tabPValues.append(float(p_value))
-                comp = 0  # not significant
-                if p_value < 0.05 and t_stat < 0:
-                    comp = -1
-                if p_value < 0.05 and t_stat > 0:
-                    comp = 1
-                pairwiseComparison.append((S[i - 1][0], S[j][0], comp, t_stat, float(p_value)))
-            else:
-                # print("Permutation test is used")
-                observed_t_stat, p_value, permuted_t_stats, conclusion = permutation_test(S[i - 1][3], S[j][3])
-                # print(f"Observed Welch's t-statistic: {observed_t_stat}")
-                # print(f"P-value: {p_value}")
-                # print(f"conclusion: {conclusion}")
-                # print(observed_t_stat, p_value, conclusion)
-                #tabStat.append(observed_t_stat)
-                #tabPValues.append(float(p_value))
-                comp = 0  # not significant
-                if p_value < 0.05 and observed_t_stat < 0:
-                    comp = -1
-                if p_value < 0.05 and observed_t_stat > 0:
-                    comp = 1
-                pairwiseComparison.append((S[i - 1][0], S[j][0], comp, observed_t_stat, float(p_value)))
-
-    pairwiseComparison = computeBHcorrection(pairwiseComparison, 0.05)
-    return pairwiseComparison
 
 
 # returns the rank of value in ranking
@@ -369,3 +263,56 @@ queryHyp = (
 queryExcept = ("select " + strgb + "," + sel + ", rank from  (" + q + " ) t3 except all " + queryHyp + " ")
 queryCountExcept = ("select count(*) from (" + queryExcept + ") t5;")
 """
+
+def generateAllqueries(pwrset, sel, meas, function, table, valsToSelect, hypo, mvnames):
+    pset=pwrset
+    n=len(pwrset)
+    tabQuery=[]
+    tabCount=[]
+    tabCuboid=[]
+    hyp = ""
+    for i in range(len(hypo)):
+        hyp = hyp + str(hypo[i])
+        if i != len(hypo) - 1:
+            hyp = hyp + ","
+    for i in range(n):
+        nb = random.randint(0, len(pwrset) - 1)
+        gb = pset[nb]
+        # without replacement: gb is removed from the list so as not to be drawn twice
+        pset.remove(gb)
+        strgb = ""
+        gbwithoutsel=""
+        for i in range(len(gb)):
+            strgb = strgb + str(gb[i])
+            if i != len(gb) - 1:
+                strgb = strgb + ","
+        for i in range(len(gb)-1):
+            gbwithoutsel = gbwithoutsel + str(gb[i])
+            if i != len(gb) - 2:
+                gbwithoutsel = gbwithoutsel + ","
+        materialized = findMV(mvnames, strgb, table)
+        #print(materialized)
+        if strgb == sel:
+            q = ("SELECT " + strgb + ", " + function + '(' + meas + "), "
+                 + " rank () over ( " + gbwithoutsel + " order by " + function + '(' + meas + ") desc ) as rank" +
+                 # " FROM " + table +
+                 " FROM \"" + str(materialized) + "\"" +
+                 " WHERE " + sel + " in " + str(valsToSelect) + " group by " + strgb + " ")
+        else:
+            q = ("SELECT " + strgb + ", " + function + '(' + meas + "), "
+                 + " rank () over ( partition by " + gbwithoutsel + " order by " + function + '(' + meas + ") desc ) as rank" +
+                 #" FROM " + table +
+             " FROM \"" + str(materialized) + "\"" +
+                " WHERE " + sel + " in " + str(valsToSelect) + " group by " + strgb + " ")
+        queryHyp = (
+                "select " + sel + ",rank  from (values " + hyp + ") as t2 (" + sel + ",rank)")
+        queryExcept = ("select * from  (" + q + " ) t3 , (" + queryHyp + ") t4 where t3." + sel + "=t4." + sel + " and t3.rank!=t4.rank")
+        queryCountCuboid= ("select count(*) from (" + q + ") t5;")
+        queryCountExcept = ("select count(*) from (" + queryExcept + ") t6;")
+
+
+        tabQuery.append(queryCountExcept)
+        tabCount.append(queryCountCuboid)
+        tabCuboid.append(strgb)
+    return tabQuery,tabCount,tabCuboid
+

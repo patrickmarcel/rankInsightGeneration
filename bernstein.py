@@ -113,23 +113,34 @@ def getSample(delta, t, pwrset, sel, meas, function, table, valsToSelect, hypo, 
         materialized = findMV(mvnames, strgb, table)
         #print(materialized)
         # if materialized = table then reject query???
+        queryValidGB=''
+        queryHyp = (
+                "select " + sel + ",rank  from (values " + hyp + ") as t2 (" + sel + ",rank)")
         if strgb == sel:
             q = ("SELECT " + strgb + ", " + function + '(' + meas + "), "
                  + " rank () over ( " + gbwithoutsel + " order by " + function + '(' + meas + ") desc ) as rank" +
-                 # " FROM " + table +
                  " FROM \"" + str(materialized) + "\"" +
                  " WHERE " + sel + " in " + str(valsToSelect) + " group by " + strgb + " ")
+            queryExcept = (
+                        "select * from  (" + q + " ) t3 , (" + queryHyp + ") t4 where t3." + sel + "=t4." + sel + " and t3.rank!=t4.rank")
+            queryCountCuboid = ("select count(*) from (" + q + ") t5;")
         else:
+            queryValidGB = ("select " + gbwithoutsel + " from (SELECT " + strgb + " FROM \"" + str(
+                materialized) + "\"" + " WHERE " + sel + " in " + str(
+                valsToSelect) + " group by " + strgb + " ) t group by " + gbwithoutsel + " having count(*) >1")
             q = ("SELECT " + strgb + ", " + function + '(' + meas + "), "
                  + " rank () over ( partition by " + gbwithoutsel + " order by " + function + '(' + meas + ") desc ) as rank" +
-                 #" FROM " + table +
              " FROM \"" + str(materialized) + "\"" +
                 " WHERE " + sel + " in " + str(valsToSelect) + " group by " + strgb + " ")
-        queryHyp = (
-                "select " + sel + ",rank  from (values " + hyp + ") as t2 (" + sel + ",rank)")
-        queryExcept = ("select * from  (" + q + " ) t3 , (" + queryHyp + ") t4 where t3." + sel + "=t4." + sel + " and t3.rank!=t4.rank")
-        queryCountCuboid= ("select count(*) from (" + q + ") t5;")
+            queryExcept = (
+                        "select * from  (select * from  (" + q + " ) t7 where ("+ gbwithoutsel + ") in ("+ queryValidGB + ")) t3 , (" + queryHyp + ") t4 where t3." + sel + "=t4." + sel + " and t3.rank!=t4.rank")
+            #queryExcept = (
+            #        "select * from  (" + q + " ) t3 , (" + queryHyp + ") t4 where t3." + sel + "=t4." + sel + " and t3.rank!=t4.rank")
+            #print('queryExcept:',queryExcept)
+            queryCountCuboid = ("select count(*) from (Select * from(" + q + ") t8 where ("+ gbwithoutsel + ") in ("+ queryValidGB + ")) t5;")
+        #print('queryCountCuboid:',queryCountCuboid)
         queryCountExcept = ("select count(*) from (" + queryExcept + ") t6;")
+        #print('queryCountExcept:',queryCountExcept)
 
         tabQuery.append(queryCountExcept)
         tabCount.append(queryCountCuboid)
@@ -166,30 +177,39 @@ def generateAllqueries(pwrset, sel, meas, function, table, valsToSelect, hypo, m
             if i != len(gb) - 2:
                 gbwithoutsel = gbwithoutsel + ","
         materialized = findMV(mvnames, strgb, table)
-        #print(materialized)
+        queryHyp = (
+                "select " + sel + ",rank  from (values " + hyp + ") as t2 (" + sel + ",rank)")
         if strgb == sel:
             q = ("SELECT " + strgb + ", " + function + '(' + meas + "), "
                  + " rank () over ( " + gbwithoutsel + " order by " + function + '(' + meas + ") desc ) as rank" +
-                 # " FROM " + table +
                  " FROM \"" + str(materialized) + "\"" +
                  " WHERE " + sel + " in " + str(valsToSelect) + " group by " + strgb + " ")
+            queryExcept = (
+                    "select * from  (" + q + " ) t3 , (" + queryHyp + ") t4 where t3." + sel + "=t4." + sel + " and t3.rank!=t4.rank")
+            queryCountCuboid = ("select count(*) from (" + q + ") t5;")
         else:
+            queryValidGB = ("select " + gbwithoutsel + " from (SELECT " + strgb + " FROM \"" + str(
+                materialized) + "\"" + " WHERE " + sel + " in " + str(
+                valsToSelect) + " group by " + strgb + " ) t group by " + gbwithoutsel + " having count(*) >1")
             q = ("SELECT " + strgb + ", " + function + '(' + meas + "), "
                  + " rank () over ( partition by " + gbwithoutsel + " order by " + function + '(' + meas + ") desc ) as rank" +
-                 #" FROM " + table +
-             " FROM \"" + str(materialized) + "\"" +
-                " WHERE " + sel + " in " + str(valsToSelect) + " group by " + strgb + " ")
-        queryHyp = (
-                "select " + sel + ",rank  from (values " + hyp + ") as t2 (" + sel + ",rank)")
-        queryExcept = ("select * from  (" + q + " ) t3 , (" + queryHyp + ") t4 where t3." + sel + "=t4." + sel + " and t3.rank!=t4.rank")
-        queryCountCuboid= ("select count(*) from (" + q + ") t5;")
+                 " FROM \"" + str(materialized) + "\"" +
+                 " WHERE " + sel + " in " + str(valsToSelect) + " group by " + strgb + " ")
+            queryExcept = (
+                    "select * from  (select * from  (" + q + " ) t7 where (" + gbwithoutsel + ") in (" + queryValidGB + ")) t3 , (" + queryHyp + ") t4 where t3." + sel + "=t4." + sel + " and t3.rank!=t4.rank")
+            # queryExcept = (
+            #        "select * from  (" + q + " ) t3 , (" + queryHyp + ") t4 where t3." + sel + "=t4." + sel + " and t3.rank!=t4.rank")
+            # print('queryExcept:',queryExcept)
+            queryCountCuboid = (
+                        "select count(*) from (Select * from(" + q + ") t8 where (" + gbwithoutsel + ") in (" + queryValidGB + ")) t5;")
+        # print('queryCountCuboid:',queryCountCuboid)
         queryCountExcept = ("select count(*) from (" + queryExcept + ") t6;")
-
+        # print('queryCountExcept:',queryCountExcept)
 
         tabQuery.append(queryCountExcept)
         tabCount.append(queryCountCuboid)
         tabCuboid.append(strgb)
-    return tabQuery,tabCount,tabCuboid
+    return tabQuery, tabCount, tabCuboid
 
 
 def runSampleQueries(tabQuery):
