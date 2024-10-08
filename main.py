@@ -25,7 +25,7 @@ DEBUG_FLAG = True
 
 
 def countViolations(conn,query,hypothesis):
-    #print(query)
+    print(query)
     hyp=[a for (a,b) in hypothesis]
     #print('hyp:',hyp)
     v=0
@@ -55,7 +55,19 @@ def countViolations(conn,query,hypothesis):
             # v=v+( (1-tau) *((len(hyp)*(len(hyp)+1))/2) )
             if tau != 1:
                 v = v + 1
-    return v
+    if len(res)!=0:
+        ratio=v/len(res)
+    else:
+        ratio=0
+    return v,ratio
+
+
+
+def getHypothesisAllComparisons(conn, meas, measBase, table, sel,valsToSelect, sampleSize, method='SYSTEM_ROWS'):
+    # checking all comparisons
+    correctHyp = generateHypothesisTest(conn, meas, measBase, table, sel, sampleSize, method, valsToSelect)
+    print('all comp. hypothesis:', correctHyp)
+    return correctHyp
 
 def get_state_sample(conn, measBase, table, sel, sampleSize, state):
 
@@ -180,27 +192,34 @@ def getHypothesisCongressionalSampling(adom,congress):
                 prevb=b
 
     print('Alex hypothesis:',correctHyp)
-    # checking all comparisons
-    valsToSelect=('HA','OO','NK')
-    correctHyp=generateHypothesisTest(conn, meas, measBase, table, sel, 9307,'SYSTEM_ROWS',valsToSelect)
-    print('all comp. hypothesis:',correctHyp)
     return correctHyp
 
 
-def test(conn, nbAdomVals, ratioViolations, proba, error, percentOfLattice, groupbyAtt, sel, measBase, function,table,sampleSize,comparison=False,generateIndex=False):
-    #sampling
-    start_time = time.time()
-    adom, congress=fetchCongressionalSample(conn,sel,table,measBase,sampleSize, adom_restr=prefs)
-    end_time = time.time()
-    samplingTime = end_time - start_time
-    print('sampling time:',samplingTime)
+def test(conn, nbAdomVals, ratioViolations, proba, error, percentOfLattice, groupbyAtt, sel, measBase, function,table,sampleSize,comparison=False,generateIndex=False,allComparison=True):
 
-    # compute hypothesis
-    start_time = time.time()
-    hypothesis = getHypothesisCongressionalSampling(adom,congress)
-    end_time = time.time()
-    hypothesisGenerationTime = end_time - start_time
-    print('hypothesis generation time:', hypothesisGenerationTime)
+    if allComparison==False:
+        #sampling
+        start_time = time.time()
+        adom, congress=fetchCongressionalSample(conn,sel,table,measBase,sampleSize, adom_restr=prefs)
+        end_time = time.time()
+        samplingTime = end_time - start_time
+        print('sampling time:',samplingTime)
+
+        # compute hypothesis
+        start_time = time.time()
+        hypothesis = getHypothesisCongressionalSampling(adom,congress)
+        end_time = time.time()
+        hypothesisGenerationTime = end_time - start_time
+        print('hypothesis generation time:', hypothesisGenerationTime)
+    else:
+        # sampling and hypothesis
+        start_time = time.time()
+        hypothesis=getHypothesisAllComparisons(conn, meas, measBase, table, sel, valsToSelect=('HA', 'OO', 'NK'), sampleSize=9307, method='SYSTEM_ROWS')
+        end_time = time.time()
+        samplingTime = end_time - start_time
+        hypothesisGenerationTime= samplingTime
+        #print('sampling time:', samplingTime)
+        #print('hypothesis generation time:', hypothesisGenerationTime)
 
     print("Hypothesis as predicted: ", hypothesis)
     limitedHyp = []
@@ -255,14 +274,15 @@ def test(conn, nbAdomVals, ratioViolations, proba, error, percentOfLattice, grou
         #print(queryCountviolations[i])
         #print(queryCountCuboid[i])
         #print(ranks[i])
-        v=countViolations(conn,ranks[i],hypothesis)
+        v,ratio=countViolations(conn,ranks[i],hypothesis)
         #v = dbStuff.execute_query(conn, queryCountviolations[i])[0][0]
         c = dbStuff.execute_query(conn, queryCountCuboid[i])[0][0]
         # print(v)
         print(c)
         if c!=0:
-            print(v/c, " violation rate in cuboid ", cuboid[i], " of size: ", c, ". Number of violations: ", v)
-            if v / c < ratioViolations:
+            #print(v/c, " violation rate in cuboid ", cuboid[i], " of size: ", c, ". Number of violations: ", v)
+            print(ratio, " violation rate in cuboid ", cuboid[i], " of size: ", c, ". Number of violations (slices): ", v)
+            if ratio < ratioViolations:
                 tabRandomVar.append(1)
                 nbViewOK = nbViewOK + 1
             else:
@@ -311,13 +331,14 @@ def test(conn, nbAdomVals, ratioViolations, proba, error, percentOfLattice, grou
             #print('gt violations:',queryCountviolations[i])
             #print('gt count:',queryCountCuboid[i])
             #v = dbStuff.execute_query(conn, queryCountviolations[i])[0][0]
-            v = countViolations(conn, ranks[i], hypothesis)
+            v,ratio = countViolations(conn, ranks[i], hypothesis)
             c = dbStuff.execute_query(conn, queryCountCuboid[i])[0][0]
             # print(v)
             # print(c)
             if c != 0:
-                print(v / c, " violation rate in cuboid ", cuboid[i], " of size: ", c, ". Number of violations: ", v)
-                if v / c < ratioViolations:
+                #print(v / c, " violation rate in cuboid ", cuboid[i], " of size: ", c, ". Number of violations: ", v)
+                print(ratio, " violation rate in cuboid ", cuboid[i], " of size: ", c, ". Number of violations (slices): ", v)
+                if ratio < ratioViolations:
                     tabRandomVar.append(1)
                     nbViewOK = nbViewOK + 1
                 else:
@@ -423,7 +444,7 @@ if __name__ == "__main__":
     # do we compare to ground truth?
     comparison = True
 
-    nbOfRuns=10
+    nbOfRuns=5
 
     data=[]
 
@@ -439,7 +460,8 @@ if __name__ == "__main__":
         devBennet=[]
 
         paramTested = 'Percent of lattice'
-        tabTest=(0.1, 0.25, 0.5, 0.75, 1)
+        #tabTest=(0.1, 0.25, 0.5, 0.75, 1)
+        tabTest=(0.1, 0.25, 0.5)
 
         for percentOfLattice in tabTest:
         #for sampleSize in (0.1, 0.25, 0.5, 0.75, 1):
@@ -452,7 +474,7 @@ if __name__ == "__main__":
 
             for i in range(nbOfRuns):
 
-                prediction,bennetError,realError,gtratio=test(conn, nbAdomVals, ratioViolations, proba, error, percentOfLattice, groupbyAtt, sel, measBase, function,table, sampleSize, comparison)
+                prediction,bennetError,realError,gtratio=test(conn, nbAdomVals, ratioViolations, proba, error, percentOfLattice, groupbyAtt, sel, measBase, function,table, sampleSize, comparison,False,True)
                 #resultRuns.append((percentOfLattice,prediction,bennetError,realError))
 
                 predictionTab.append(prediction)
@@ -524,7 +546,7 @@ if __name__ == "__main__":
             for i in range(nbOfRuns):
                 bennetError, samplingTime, hypothesisTime, validationTime = test(conn, nbAdomVals, ratioViolations, proba, error,
                                                                percentOfLattice, groupbyAtt, sel, measBase, function,
-                                                               table, sampleSize, comparison)
+                                                               table, sampleSize, comparison,False,True)
                 benTab.append(bennetError)
                 samplingTab.append(samplingTime)
                 hypoTab.append(hypothesisTime)
