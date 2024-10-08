@@ -30,17 +30,20 @@ def countViolations(conn,query,hypothesis):
     #print('hyp:',hyp)
     v=0
     res=dbStuff.execute_query(conn,query)
+    normalize=0
     for r in res:
         #print(r)
         #print('this is s', r[1])
         s=r[-1].split(",")
         #print('this is s', s)
+        normalize=normalize+(len(s) * ( len(s) -1 ))/2
         if len(s)==len(hyp):
-            tau=statStuff.compute_kendall_tau(s,hyp)[0]
+            #tau=statStuff.compute_kendall_tau(s,hyp)[0]
+            #if tau!=1:
+            #    v=v+1
+            tau=statStuff.normalised_kendall_tau_distance(s,hyp)
             #print('tau:',tau)
-            #v=v+( (1-tau) *((len(hyp)*(len(hyp)+1))/2) )
-            if tau!=1:
-                v=v+1
+            v=v+tau
         else:
             # s is smaller
             hyp2=hyp.copy()
@@ -50,13 +53,18 @@ def countViolations(conn,query,hypothesis):
                 if e not in s:
                     hyp2.remove(e)
             #print('hyp2:',hyp2)
-            tau = statStuff.compute_kendall_tau(s, hyp2)[0]
+            #tau = statStuff.compute_kendall_tau(s, hyp2)[0]
+            #if tau != 1:
+            #    v = v + 1
+            tau = statStuff.normalised_kendall_tau_distance(s, hyp2)
             # print('tau:',tau)
-            # v=v+( (1-tau) *((len(hyp)*(len(hyp)+1))/2) )
-            if tau != 1:
-                v = v + 1
-    if len(res)!=0:
-        ratio=v/len(res)
+            v = v + tau
+    #if len(res)!=0:
+    #    ratio=v/len(res)
+    #else:
+    #    ratio=0
+    if len(res) != 0:
+        ratio=v/normalize
     else:
         ratio=0
     return v,ratio
