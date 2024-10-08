@@ -25,7 +25,7 @@ DEBUG_FLAG = True
 
 
 def countViolations(conn,query,hypothesis):
-    print(query)
+    #print(query)
     hyp=[a for (a,b) in hypothesis]
     #print('hyp:',hyp)
     v=0
@@ -295,6 +295,7 @@ def test(conn, nbAdomVals, ratioViolations, proba, error, percentOfLattice, grou
                 nbViewOK = nbViewOK + 1
             else:
                 tabRandomVar.append(0)
+                sizeofsample=sizeofsample-1
         else:
             print("inconclusive, not enough tuples in cuboid for select values")
 
@@ -312,15 +313,15 @@ def test(conn, nbAdomVals, ratioViolations, proba, error, percentOfLattice, grou
 
     nbErrors = 2
     print('probability of making ', nbErrors, ' errors: ', bernstein.bernsteinBound(variance, nbErrors))
-    print('the error (according to Bernstein) for sum and confidence interval of size', proba, ' is: ',
-          bernstein.bersteinError(proba, variance))
+    #print('the error (according to Bernstein) for sum and confidence interval of size', proba, ' is: ',
+    #      bernstein.bersteinError(proba, variance))
     bennetError=bernstein.bennetErrorOnAvg(proba, variance, sizeofsample)
-    print('the error (according to Bennet) for avg and confidence interval of size', proba, ' is: ',
-          bernstein.bennetErrorOnAvg(proba, variance, sizeofsample))
-    print('the error (empirical bennet) for avg and confidence interval of size', proba, ' is: ',
-          bernstein.empiricalBennetFromMaurer(proba, variance, sizeofsample))
-    print('the error (according to bardenet) for avg and confidence interval of size', proba, ' is: ',
-          bernstein.empiricalBernsteinFromBardenet(proba, variance, sizeofsample, N))
+    #print('the error (according to Bennet) for avg and confidence interval of size', proba, ' is: ',
+    #      bernstein.bennetErrorOnAvg(proba, variance, sizeofsample))
+    #print('the error (empirical bennet) for avg and confidence interval of size', proba, ' is: ',
+    #      bernstein.empiricalBennetFromMaurer(proba, variance, sizeofsample))
+    #print('the error (according to bardenet) for avg and confidence interval of size', proba, ' is: ',
+    #      bernstein.empiricalBernsteinFromBardenet(proba, variance, sizeofsample, N))
 
 
 
@@ -353,6 +354,7 @@ def test(conn, nbAdomVals, ratioViolations, proba, error, percentOfLattice, grou
                     tabRandomVar.append(0)
             else:
                 print("inconclusive, not enough tuples in cuboid for select values")
+                nbMVs=nbMVs-1
 
         variance = np.var(tabRandomVar)
         # print('variance: ', variance)
@@ -363,12 +365,12 @@ def test(conn, nbAdomVals, ratioViolations, proba, error, percentOfLattice, grou
         realError=abs(prediction - (nbViewOK / nbMVs))
         print('Error on avg is: ', abs(prediction - (nbViewOK / nbMVs)))
 
-        print('Error on sum is: ', abs(nbViewOK - predictionNbOk))
+        #print('Error on sum is: ', abs(nbViewOK - predictionNbOk))
 
-        print('the error (according to Bennet) for avg and confidence interval of size', proba, ' is: ',
-              bernstein.bennetErrorOnAvg(proba, variance, sizeofsample))
-        print('the error (according to Bernstein) for confidence interval of size', proba, ' is: ',
-              bernstein.bersteinError(proba, variance))
+        #print('the error (according to Bennet) for avg and confidence interval of size', proba, ' is: ',
+              #bernstein.bennetErrorOnAvg(proba, variance, sizeofsample))
+        #print('the error (according to Bernstein) for confidence interval of size', proba, ' is: ',
+              #bernstein.bersteinError(proba, variance))
 
         return prediction,bennetError,realError,gtratio
     else:
@@ -482,7 +484,8 @@ if __name__ == "__main__":
 
             for i in range(nbOfRuns):
 
-                prediction,bennetError,realError,gtratio=test(conn, nbAdomVals, ratioViolations, proba, error, percentOfLattice, groupbyAtt, sel, measBase, function,table, sampleSize, comparison,False,True)
+                prediction,bennetError,realError,gtratio=test(conn, nbAdomVals, ratioViolations, proba, error, percentOfLattice, groupbyAtt,
+                                                              sel, measBase, function,table, sampleSize, comparison,False,True)
                 #resultRuns.append((percentOfLattice,prediction,bennetError,realError))
 
                 predictionTab.append(prediction)
@@ -554,7 +557,7 @@ if __name__ == "__main__":
             for i in range(nbOfRuns):
                 bennetError, samplingTime, hypothesisTime, validationTime = test(conn, nbAdomVals, ratioViolations, proba, error,
                                                                percentOfLattice, groupbyAtt, sel, measBase, function,
-                                                               table, sampleSize, comparison,False,True)
+                                                               table, sampleSize, comparison,False,False)
                 benTab.append(bennetError)
                 samplingTab.append(samplingTime)
                 hypoTab.append(hypothesisTime)
