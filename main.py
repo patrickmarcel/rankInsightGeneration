@@ -33,11 +33,28 @@ def countViolations(conn,query,hypothesis):
     for r in res:
         #print(r)
         #print('this is s', r[1])
-        s=r[1].split(",")
+        s=r[-1].split(",")
         #print('this is s', s)
-        tau=statStuff.compute_kendall_tau(s,hyp)[0]
-        #print('tau:',tau)
-        v=v+( (1-tau) *((len(hyp)*(len(hyp)+1))/2) )
+        if len(s)==len(hyp):
+            tau=statStuff.compute_kendall_tau(s,hyp)[0]
+            #print('tau:',tau)
+            #v=v+( (1-tau) *((len(hyp)*(len(hyp)+1))/2) )
+            if tau!=1:
+                v=v+1
+        else:
+            # s is smaller
+            hyp2=hyp.copy()
+            #print('hyp2:',hyp2,' and s:',s)
+            for e in hyp2:
+                #print('e:',e)
+                if e not in s:
+                    hyp2.remove(e)
+            #print('hyp2:',hyp2)
+            tau = statStuff.compute_kendall_tau(s, hyp2)[0]
+            # print('tau:',tau)
+            # v=v+( (1-tau) *((len(hyp)*(len(hyp)+1))/2) )
+            if tau != 1:
+                v = v + 1
     return v
 
 def get_state_sample(conn, measBase, table, sel, sampleSize, state):
@@ -164,7 +181,7 @@ def getHypothesisCongressionalSampling(adom,congress):
 
     print('Alex hypothesis:',correctHyp)
     # checking all comparisons
-    valsToSelect=('HA','00','NK')
+    valsToSelect=('HA','OO','NK')
     correctHyp=generateHypothesisTest(conn, meas, measBase, table, sel, 9307,'SYSTEM_ROWS',valsToSelect)
     print('all comp. hypothesis:',correctHyp)
     return correctHyp
