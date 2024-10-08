@@ -315,7 +315,7 @@ def computeBHcorrection(pairwiseComparison, alpha=0.05):
     corrected = benjamini_hochberg(tabPValues, alpha)
     rejected, corrected2 = benjamini_hochberg_statmod(tabPValues, alpha)
 
-    print("nb of True in rejected: ", utilities.nbTrueInList(rejected))
+    #print("nb of True in rejected: ", utilities.nbTrueInList(rejected))
 
     pairwiseComp2 = []
     i = 0
@@ -333,6 +333,6 @@ def computeBHcorrection(pairwiseComparison, alpha=0.05):
 
     print("Number of BH corrections: ", nbChanges)
 
-    print("nb non zeros after corrections: ", utilities.countNonZeros(pairwiseComp2))
+    #print("nb non zeros after corrections: ", utilities.countNonZeros(pairwiseComp2))
 
     return pairwiseComp2

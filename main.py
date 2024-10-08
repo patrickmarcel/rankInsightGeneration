@@ -74,7 +74,7 @@ def countViolations(conn,query,hypothesis):
 def getHypothesisAllComparisons(conn, meas, measBase, table, sel,valsToSelect, sampleSize, method='SYSTEM_ROWS'):
     # checking all comparisons
     correctHyp = generateHypothesisTest(conn, meas, measBase, table, sel, sampleSize, method, valsToSelect)
-    print('all comp. hypothesis:', correctHyp)
+    #print('all comp. hypothesis:', correctHyp)
     return correctHyp
 
 def get_state_sample(conn, measBase, table, sel, sampleSize, state):
@@ -199,7 +199,7 @@ def getHypothesisCongressionalSampling(adom,congress):
                 correctHyp.append((a, currentRank))
                 prevb=b
 
-    print('Alex hypothesis:',correctHyp)
+    #print('Alex hypothesis:',correctHyp)
     return correctHyp
 
 
@@ -266,11 +266,11 @@ def test(conn, nbAdomVals, ratioViolations, proba, error, percentOfLattice, grou
 
     # total number of cuboids
     N = len(utilities.powerset(groupbyAtt))
-    print('size of sample according to Bardenet:',
-          int(bernstein.sizeOfSampleHoeffdingSerflingFromBardenet(proba, error, N)) + 1)
+    #print('size of sample according to Bardenet:',
+    #      int(bernstein.sizeOfSampleHoeffdingSerflingFromBardenet(proba, error, N)) + 1)
 
     pwrset = dbStuff.getCuboidsOfAtt(groupbyAtt, sel)
-    print(str(tuple(valsToSelect)))
+    #print(str(tuple(valsToSelect)))
     ranks, queryCountviolations, queryCountCuboid, cuboid = bernstein.getSample(proba, error, pwrset, sel, measBase, function,
                                                                          table, tuple(valsToSelect), limitedHyp,
                                                                          mvnames,False,True)
@@ -286,18 +286,18 @@ def test(conn, nbAdomVals, ratioViolations, proba, error, percentOfLattice, grou
         #v = dbStuff.execute_query(conn, queryCountviolations[i])[0][0]
         c = dbStuff.execute_query(conn, queryCountCuboid[i])[0][0]
         # print(v)
-        print(c)
+        #print(c)
         if c!=0:
             #print(v/c, " violation rate in cuboid ", cuboid[i], " of size: ", c, ". Number of violations: ", v)
-            print(ratio, " violation rate in cuboid ", cuboid[i], " of size: ", c, ". Number of violations (slices): ", v)
+            print(ratio, " violation rate in cuboid ", cuboid[i], " of size: ", c, ". Number of violations: ", v)
             if ratio < ratioViolations:
                 tabRandomVar.append(1)
                 nbViewOK = nbViewOK + 1
             else:
                 tabRandomVar.append(0)
-                sizeofsample=sizeofsample-1
         else:
             print("inconclusive, not enough tuples in cuboid for select values")
+            sizeofsample = sizeofsample - 1
 
 
     end_time = time.time()
@@ -346,7 +346,7 @@ def test(conn, nbAdomVals, ratioViolations, proba, error, percentOfLattice, grou
             # print(c)
             if c != 0:
                 #print(v / c, " violation rate in cuboid ", cuboid[i], " of size: ", c, ". Number of violations: ", v)
-                print(ratio, " violation rate in cuboid ", cuboid[i], " of size: ", c, ". Number of violations (slices): ", v)
+                print(ratio, " violation rate in cuboid ", cuboid[i], " of size: ", c, ". Number of violations: ", v)
                 if ratio < ratioViolations:
                     tabRandomVar.append(1)
                     nbViewOK = nbViewOK + 1

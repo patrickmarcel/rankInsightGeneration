@@ -80,7 +80,7 @@ def getSample(delta, t, pwrset, sel, meas, function, table, valsToSelect, hypo, 
             tabWeights.append(w)
             tabNb.append(i)
             i=i+1
-        print(tabWeights)
+        #print(tabWeights)
     #print(math.fsum(tabWeights))
     n=int(sizeOfSampleHoeffding(delta, t))
     tabRanks=[]
