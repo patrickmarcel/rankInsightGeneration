@@ -6,12 +6,12 @@ from psycopg2 import sql
 
 def generateHashIndex(conn, table,sel):
     indexname=table+'_'+sel
-    query = "create index \"" + indexname + "\" on " + table + " using hash(" + sel + ");"
+    query = "create index if not exists \"" + indexname + "\" on \"" + table + "\" using hash(" + sel + ");"
     execute_query(conn,query)
 
 def generateIndex(conn, table, sel):
         indexname = table + '_' + sel
-        query = "create index \"" + indexname + "\" on " + table + "(" + sel + ");"
+        query = "create index if not exists \"" + indexname + "\" on \"" + table + "\"(" + sel + ");"
         execute_query(conn, query)
 
 def getMVnames(conn):
@@ -42,7 +42,8 @@ def getCuboidsOfAtt(attInGB, selAtt):
 # percentOfLattice is a float in ]0,1]
 # returns nb of created views
 # todo for avg, should materialize sum and count
-def createMV(conn, attInGB, selAtt, meas, function, table, percentOfLattice):
+def createMV(conn, attInGB, selAtt, meas, function, table, percentOfLattice,generateIndex=False):
+    print("Creating views")
     pwset2=getCuboidsOfAtt(attInGB, selAtt)
     # remove last
     del pwset2[-1]
@@ -63,6 +64,8 @@ def createMV(conn, attInGB, selAtt, meas, function, table, percentOfLattice):
         query="create materialized view \"" + gbs + "\" as select " + gbs + ", " + function + "(" + meas + ") as " + meas + ", count(*) as count  from " + table + " group by " + gbs +  ";"
         #print(query)
         execute_query(conn, query)
+        if generateIndex==True:
+            generateHashIndex(conn,gbs,selAtt)
     return nbOfMV
 
 #returns the group by set of a query (having a single group by)

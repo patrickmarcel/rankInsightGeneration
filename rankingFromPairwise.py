@@ -196,6 +196,54 @@ def merge_sort(arr, claireTab):
 #sorted_arr = merge_sort(arr)
 #print("Sorted array:", sorted_arr)
 
+# computes separation as in JMLR 2018 By Shah and Wainwright
+def computeSeparationJMLR18(pairwiseComparison):
+    dict={}
+    for (c1,c2,comp,stat,proba) in pairwiseComparison:
+        dict[c1]=[]
+        dict[c2]=[]
+    for (c1,c2,comp,stat,proba) in pairwiseComparison:
+        if comp==1:
+            list=dict[c1]
+            list.append(1)
+            dict[c1]=list
+        if comp==-1:
+            list=dict[c2]
+            list.append(1)
+            dict[c2]=list
+        if comp==0:
+            list1=dict[c1]
+            list1.append(0.5)
+            dict[c1]=list1
+            list2=dict[c2]
+            list2.append(0.5)
+            dict[c2]=list2
+    #print(dict)
+    separation={}
+    for k in dict.keys():
+        list=dict[k]
+        tau=0
+        if len(list)!=0:
+            tau=sum(list)/len(list)
+        separation[k]=tau
+    print(separation)
+    n=len(separation)
+    p=1
+    r=1
+    alpha=8
+    probaError=1/(math.pow(n,14))
+    bound=alpha * (math.sqrt( (math.log(n)) / (n*p*r) ) )
+    #print("bound:",bound)
+    result=[]
+    for s1 in separation.keys():
+        scorek=separation[s1]
+        for s2 in separation.keys():
+            scorekplus1=separation[s2]
+            if scorek-scorekplus1 >= bound:
+                result.append((s1,s2))
+    print("result:",result)
+    return result
+
 def generateHypothesisTest(conn, meas, measBase, table, sel, sampleSize, method, valsToSelect=None):
     resultVals = getSample(conn, measBase, table, sel, sampleSize, method, False, valsToSelect)
     #resultVals = getSample(conn, measBase, table, sel, sampleSize, method=method, repeatable=DEBUG_FLAG)
@@ -219,13 +267,15 @@ def generateHypothesisTest(conn, meas, measBase, table, sel, sampleSize, method,
 
     #print('S:',S)
 
-    # nlog(n) comparisons enough for recovering the true ranking when commarisons are certain (not noisy)
+    # nlog(n) comparisons enough for recovering the true ranking when comparisons are certain (not noisy)
     # we should try less
     nbOfComparisons = len(Sels) * math.log(len(Sels), 2)
     #print("Number of comparisons to make: " + str(nbOfComparisons))
 
     pairwiseComparison=generateAllComparisons(Sels, S, nbOfComparisons)
 
+    #separation=computeSeparationJMLR18(pairwiseComparison)
+    #print("pairwise comparisons:")
     #for p in pairwiseComparison:
     #    print("p: ", p)
 
@@ -331,7 +381,7 @@ def computeBHcorrection(pairwiseComparison, alpha=0.05):
         pairwiseComp2.append((c[0], c[1], comp, c[2], corrected[i]))
         i = i + 1
 
-    print("Number of BH corrections: ", nbChanges)
+    #print("Number of BH corrections: ", nbChanges)
 
     #print("nb non zeros after corrections: ", utilities.countNonZeros(pairwiseComp2))
 

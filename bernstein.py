@@ -184,7 +184,8 @@ def generateAllqueries(pwrset, sel, meas, function, table, valsToSelect, hypo, m
             gbwithoutsel = gbwithoutsel + str(gb[i])
             if i != len(gb) - 2:
                 gbwithoutsel = gbwithoutsel + ","
-        materialized = findMV(mvnames, strgb, table)
+        #materialized = findMV(mvnames, strgb, table)
+        materialized=strgb
         queryHyp = (
                 "select " + sel + ",rank  from (values " + hyp + ") as t2 (" + sel + ",rank)")
         if strgb == sel:

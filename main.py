@@ -48,7 +48,7 @@ def countViolations(conn,query,hypothesis):
             # s is smaller
             hyp2=hyp.copy()
             #print('hyp2:',hyp2,' and s:',s)
-            for e in hyp2:
+            for e in hyp:
                 #print('e:',e)
                 if e not in s:
                     hyp2.remove(e)
@@ -56,8 +56,10 @@ def countViolations(conn,query,hypothesis):
             #tau = statStuff.compute_kendall_tau(s, hyp2)[0]
             #if tau != 1:
             #    v = v + 1
+            #print("s:",s)
+            #print("hyp2:",hyp2)
             tau = statStuff.normalised_kendall_tau_distance(s, hyp2)
-            # print('tau:',tau)
+            #print('tau:',tau)
             v = v + tau
     #if len(res)!=0:
     #    ratio=v/len(res)
@@ -203,7 +205,7 @@ def getHypothesisCongressionalSampling(adom,congress):
     return correctHyp
 
 
-def test(conn, nbAdomVals, ratioViolations, proba, error, percentOfLattice, groupbyAtt, sel, measBase, function,table,sampleSize,comparison=False,generateIndex=False,allComparison=True):
+def test(conn, nbAdomVals, prefs, ratioViolations, proba, error, percentOfLattice, groupbyAtt, sel, measBase, function,table,sampleSize,comparison=False,generateIndex=False,allComparison=True):
 
     if allComparison==False:
         #sampling
@@ -222,12 +224,12 @@ def test(conn, nbAdomVals, ratioViolations, proba, error, percentOfLattice, grou
     else:
         # sampling and hypothesis
         start_time = time.time()
-        hypothesis=getHypothesisAllComparisons(conn, meas, measBase, table, sel, valsToSelect=('HA', 'OO', 'NK'), sampleSize=9307, method='SYSTEM_ROWS')
+        hypothesis=getHypothesisAllComparisons(conn, meas, measBase, table, sel, tuple(prefs), sampleSize=9307, method='SYSTEM_ROWS')
         end_time = time.time()
         samplingTime = end_time - start_time
         hypothesisGenerationTime= samplingTime
         #print('sampling time:', samplingTime)
-        #print('hypothesis generation time:', hypothesisGenerationTime)
+        print('hypothesis generation time:', hypothesisGenerationTime)
 
     print("Hypothesis as predicted: ", hypothesis)
     limitedHyp = []
@@ -248,15 +250,15 @@ def test(conn, nbAdomVals, ratioViolations, proba, error, percentOfLattice, grou
     # valsEmptyGB=[a for (a, b) in emptyGBresult]
     # print(valsEmptyGB)
 
-
+    # generate hash index on sel attribute
+    if generateIndex == True:
+        dbStuff.generateHashIndex(conn, table, sel)
     # generate and get all materialized cuboids
     dbStuff.dropAllMVs(conn)
-    dbStuff.createMV(conn, groupbyAtt, sel, measBase, function, table, percentOfLattice)
+    dbStuff.createMV(conn, groupbyAtt, sel, measBase, function, table, percentOfLattice,generateIndex)
     mvnames = dbStuff.getMVnames(conn)
 
-    # generate hash index on sel attribute
-    if generateIndex==True:
-        dbStuff.generateHashIndex(conn,table,sel)
+
 
     #validation of hypothesis
     start_time = time.time()
@@ -288,15 +290,17 @@ def test(conn, nbAdomVals, ratioViolations, proba, error, percentOfLattice, grou
         # print(v)
         #print(c)
         if c!=0:
-            #print(v/c, " violation rate in cuboid ", cuboid[i], " of size: ", c, ". Number of violations: ", v)
-            print(ratio, " violation rate in cuboid ", cuboid[i], " of size: ", c, ". Number of violations: ", v)
+            #OLD print(v/c, " violation rate in cuboid ", cuboid[i], " of size: ", c, ". Number of violations: ", v)
+
+            #print(ratio, " violation rate in cuboid ", cuboid[i], " of size: ", c, ". Number of violations: ", v)
+
             if ratio < ratioViolations:
                 tabRandomVar.append(1)
                 nbViewOK = nbViewOK + 1
             else:
                 tabRandomVar.append(0)
         else:
-            print("inconclusive, not enough tuples in cuboid for select values")
+            #print("inconclusive, not enough tuples in cuboid for select values")
             sizeofsample = sizeofsample - 1
 
 
@@ -312,14 +316,18 @@ def test(conn, nbAdomVals, ratioViolations, proba, error, percentOfLattice, grou
     print('predicting number of views ok:', predictionNbOk)
 
     nbErrors = 2
-    print('probability of making ', nbErrors, ' errors: ', bernstein.bernsteinBound(variance, nbErrors))
+    #print('probability of making ', nbErrors, ' errors: ', bernstein.bernsteinBound(variance, nbErrors))
     #print('the error (according to Bernstein) for sum and confidence interval of size', proba, ' is: ',
     #      bernstein.bersteinError(proba, variance))
     bennetError=bernstein.bennetErrorOnAvg(proba, variance, sizeofsample)
-    #print('the error (according to Bennet) for avg and confidence interval of size', proba, ' is: ',
-    #      bernstein.bennetErrorOnAvg(proba, variance, sizeofsample))
-    #print('the error (empirical bennet) for avg and confidence interval of size', proba, ' is: ',
-    #      bernstein.empiricalBennetFromMaurer(proba, variance, sizeofsample))
+    print('the error (according to Bennet) for avg and confidence interval of size', proba, ' is: ',
+          bernstein.bennetErrorOnAvg(proba, variance, sizeofsample))
+    print('the error (empirical bennet) for avg and confidence interval of size', proba, ' is: ',
+          bernstein.empiricalBennetFromMaurer(proba, variance, sizeofsample))
+    ###
+    ### REPORTING EMPIRICAL ERROR
+    ###
+    bennetError = bernstein.empiricalBennetFromMaurer(proba, variance, sizeofsample)
     #print('the error (according to bardenet) for avg and confidence interval of size', proba, ' is: ',
     #      bernstein.empiricalBernsteinFromBardenet(proba, variance, sizeofsample, N))
 
@@ -327,9 +335,11 @@ def test(conn, nbAdomVals, ratioViolations, proba, error, percentOfLattice, grou
 
     if comparison==True:
         # comparison with ground truth
-        dbStuff.dropAllMVs(conn)
-        nbMVs = dbStuff.createMV(conn, groupbyAtt, sel, measBase, function, table, 1)
+        print('*** comparison to ground truth ***')
 
+        dbStuff.dropAllMVs(conn)
+        nbMVs = dbStuff.createMV(conn, groupbyAtt, sel, measBase, function, table, 1,generateIndex)
+        print("nb views generated:",nbMVs)
         ranks, queryCountviolations, queryCountCuboid, cuboid = bernstein.generateAllqueries(pwrset, sel, measBase, function,
                                                                                       table, tuple(valsToSelect),
                                                                                       limitedHyp, mvnames)
@@ -345,7 +355,8 @@ def test(conn, nbAdomVals, ratioViolations, proba, error, percentOfLattice, grou
             # print(v)
             # print(c)
             if c != 0:
-                #print(v / c, " violation rate in cuboid ", cuboid[i], " of size: ", c, ". Number of violations: ", v)
+                #OLD print(v / c, " violation rate in cuboid ", cuboid[i], " of size: ", c, ". Number of violations: ", v)
+
                 print(ratio, " violation rate in cuboid ", cuboid[i], " of size: ", c, ". Number of violations: ", v)
                 if ratio < ratioViolations:
                     tabRandomVar.append(1)
@@ -358,12 +369,12 @@ def test(conn, nbAdomVals, ratioViolations, proba, error, percentOfLattice, grou
 
         variance = np.var(tabRandomVar)
         # print('variance: ', variance)
-        print('*** comparison to ground truth ***')
+
         print('nb of views ok: ', nbViewOK, 'out of ', nbMVs, 'views, i.e., rate of:', nbViewOK / nbMVs)
         gtratio= nbViewOK / nbMVs
 
         realError=abs(prediction - (nbViewOK / nbMVs))
-        print('Error on avg is: ', abs(prediction - (nbViewOK / nbMVs)))
+        print('Error is: ', abs(prediction - (nbViewOK / nbMVs)))
 
         #print('Error on sum is: ', abs(nbViewOK - predictionNbOk))
 
@@ -379,9 +390,7 @@ def test(conn, nbAdomVals, ratioViolations, proba, error, percentOfLattice, grou
 
 # TODO
 #
-#  change sel and measures
-#  use other databases
-#
+
 
 if __name__ == "__main__":
 
@@ -409,12 +418,13 @@ if __name__ == "__main__":
     measBase = config["Common"]['measBase']
     function = config["Common"]['function']
     prefs = json.loads(config.get("Common", "preferred"))
+    #print(tuple(prefs))
     if len(prefs) == 0:
         prefs = None
 
 
     # number of values of adom to consider - top ones after hypothesis is generated
-    nbAdomVals = 5
+    nbAdomVals = len(prefs)
 
     # for Hoeffding
     epsilon = 0.1
@@ -443,7 +453,7 @@ if __name__ == "__main__":
     ratioViolations = 0.4
     ratioCuboidOK = 0.8
 
-    proba = 0.2
+    proba = 0.1
     error = 0.4  # rate
 
     percentOfLattice=0.3
@@ -454,7 +464,7 @@ if __name__ == "__main__":
     # do we compare to ground truth?
     comparison = True
 
-    nbOfRuns=5
+    nbOfRuns=3
 
     data=[]
 
@@ -473,10 +483,12 @@ if __name__ == "__main__":
         #tabTest=(0.1, 0.25, 0.5, 0.75, 1)
         tabTest=(0.1, 0.25, 0.5)
 
+
         for percentOfLattice in tabTest:
         #for sampleSize in (0.1, 0.25, 0.5, 0.75, 1):
         #for nbAdomVals in range(2,10):
 
+            print("--- TESTING VALUE:",percentOfLattice)
             predictionTab=[]
             realErrorTab=[]
             nbWrongRankingTab=[]
@@ -484,13 +496,15 @@ if __name__ == "__main__":
 
             for i in range(nbOfRuns):
 
-                prediction,bennetError,realError,gtratio=test(conn, nbAdomVals, ratioViolations, proba, error, percentOfLattice, groupbyAtt,
-                                                              sel, measBase, function,table, sampleSize, comparison,False,True)
+                print("-----RUN: ",i)
+                prediction,bennetError,realError,gtratio=test(conn, nbAdomVals, prefs, ratioViolations, proba, error, percentOfLattice, groupbyAtt,
+                                                              sel, measBase, function,table, sampleSize, comparison,True,True)
                 #resultRuns.append((percentOfLattice,prediction,bennetError,realError))
 
                 predictionTab.append(prediction)
                 bennetTab.append(bennetError)
                 realErrorTab.append(realError)
+                print("Desired cuboid ratio is:",ratioCuboidOK,". We predicted ratio of: ",prediction,". Real ratio is: ",gtratio)
                 if gtratio <ratioCuboidOK:
                     nbWrongRanking=1
                 else:
@@ -549,13 +563,16 @@ if __name__ == "__main__":
         #for sampleSize in tabTest:
         # for nbAdomVals in range(2,10):
 
+            print("--- TESTING VALUE:", percentOfLattice)
+
             benTab=[]
             samplingTab=[]
             hypoTab=[]
             validTab = []
 
             for i in range(nbOfRuns):
-                bennetError, samplingTime, hypothesisTime, validationTime = test(conn, nbAdomVals, ratioViolations, proba, error,
+                print("-----RUN: ",i)
+                bennetError, samplingTime, hypothesisTime, validationTime = test(conn, nbAdomVals, prefs, ratioViolations, proba, error,
                                                                percentOfLattice, groupbyAtt, sel, measBase, function,
                                                                table, sampleSize, comparison,False,False)
                 benTab.append(bennetError)
