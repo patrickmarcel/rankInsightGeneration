@@ -197,11 +197,11 @@ def merge_sort(arr, claireTab):
 #print("Sorted array:", sorted_arr)
 
 # computes separation as in JMLR 2018 By Shah and Wainwright
-def computeSeparationJMLR18(pairwiseComparison):
+def computeSeparationJMLR18(pairwiseComparison,nbItems):
     dict={}
     for (c1,c2,comp,stat,proba) in pairwiseComparison:
-        dict[c1]=[]
-        dict[c2]=[]
+        dict[c1]=[0.5]
+        dict[c2]=[0.5]
     for (c1,c2,comp,stat,proba) in pairwiseComparison:
         if comp==1:
             list=dict[c1]
@@ -218,13 +218,13 @@ def computeSeparationJMLR18(pairwiseComparison):
             list2=dict[c2]
             list2.append(0.5)
             dict[c2]=list2
-    #print(dict)
+    print(dict)
     separation={}
     for k in dict.keys():
         list=dict[k]
         tau=0
         if len(list)!=0:
-            tau=sum(list)/len(list)
+            tau=sum(list)/nbItems
         separation[k]=tau
     print(separation)
     n=len(separation)
@@ -233,7 +233,7 @@ def computeSeparationJMLR18(pairwiseComparison):
     alpha=8
     probaError=1/(math.pow(n,14))
     bound=alpha * (math.sqrt( (math.log(n)) / (n*p*r) ) )
-    #print("bound:",bound)
+    print("bound:",bound)
     result=[]
     for s1 in separation.keys():
         scorek=separation[s1]
@@ -274,7 +274,8 @@ def generateHypothesisTest(conn, meas, measBase, table, sel, sampleSize, method,
 
     pairwiseComparison=generateAllComparisons(Sels, S, nbOfComparisons)
 
-    #separation=computeSeparationJMLR18(pairwiseComparison)
+    #separation=computeSeparationJMLR18(pairwiseComparison,len(valsToSelect))
+
     #print("pairwise comparisons:")
     #for p in pairwiseComparison:
     #    print("p: ", p)

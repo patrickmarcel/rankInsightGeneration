@@ -23,9 +23,18 @@ import bernstein
 # ------  Debug ?  ------------
 DEBUG_FLAG = True
 
+def  compareHypToGB(hypothesis, conn, measBase,function, sel, vals):
+    #query="Select " + sel +" from  " + sel + " where " + sel + " in " +  str(vals) + " order by " + measBase + " desc;"
+    query="select 'all',string_agg(" + sel + ",',') from (SELECT " + sel + ", " + function + "(" + measBase + "),  rank () over (  order by " + function + "(" + measBase + ") desc ) as rank FROM \"" + sel + "\" WHERE " + sel + " in " + str(vals) +" group by " +  sel + " order by rank);"
+    #print(query)
+    v,ratio=countViolations(conn,query,hypothesis)
+    #print(v)
+    print("hypothesis compared to group by ",sel," has ",v," violations")
+    return v
+
 
 def countViolations(conn,query,hypothesis):
-    #print(query)
+    print(query)
     hyp=[a for (a,b) in hypothesis]
     #print('hyp:',hyp)
     v=0
@@ -231,7 +240,9 @@ def test(conn, nbAdomVals, prefs, ratioViolations, proba, error, percentOfLattic
         #print('sampling time:', samplingTime)
         print('hypothesis generation time:', hypothesisGenerationTime)
 
-    print("Hypothesis as predicted: ", hypothesis)
+    print("Hypothesis predicted: ", hypothesis)
+
+
     limitedHyp = []
     valsToSelect = []
     j = 0
@@ -273,13 +284,21 @@ def test(conn, nbAdomVals, prefs, ratioViolations, proba, error, percentOfLattic
 
     pwrset = dbStuff.getCuboidsOfAtt(groupbyAtt, sel)
     #print(str(tuple(valsToSelect)))
+
+    print("Generating sample of aggregate queries")
     ranks, queryCountviolations, queryCountCuboid, cuboid = bernstein.getSample(proba, error, pwrset, sel, measBase, function,
                                                                          table, tuple(valsToSelect), limitedHyp,
                                                                          mvnames,False,True)
     # queryCountviolations, queryCountCuboid, cuboid=bernstein.getSample(proba, error, pwrset, sel, measBase, function, table, tuple(valsEmptyGB), emptyGBresult, mvnames)
 
+
+    print("Computing violations")
+
     tabRandomVar = []
     nbViewOK = 0
+
+    nbInconclusive=0
+
     for i in range(len(queryCountviolations)):
         #print(queryCountviolations[i])
         #print(queryCountCuboid[i])
@@ -302,11 +321,14 @@ def test(conn, nbAdomVals, prefs, ratioViolations, proba, error, percentOfLattic
         else:
             #print("inconclusive, not enough tuples in cuboid for select values")
             sizeofsample = sizeofsample - 1
+            nbInconclusive=nbInconclusive+1
 
 
     end_time = time.time()
     validationTime = end_time - start_time
     print('validation time:', validationTime)
+
+    print('number of inconclusive: ',nbInconclusive, ' ratio: ',nbInconclusive/len(queryCountviolations))
 
     variance = np.var(tabRandomVar)
     # print('variance: ', variance)
@@ -325,9 +347,10 @@ def test(conn, nbAdomVals, prefs, ratioViolations, proba, error, percentOfLattic
     print('the error (empirical bennet) for avg and confidence interval of size', proba, ' is: ',
           bernstein.empiricalBennetFromMaurer(proba, variance, sizeofsample))
     ###
-    ### REPORTING EMPIRICAL ERROR
-    ###
-    bennetError = bernstein.empiricalBennetFromMaurer(proba, variance, sizeofsample)
+    ### IF REPORTING EMPIRICAL ERROR
+    ### UNCOMMENT BELOW
+    #bennetError = bernstein.empiricalBennetFromMaurer(proba, variance, sizeofsample)
+
     #print('the error (according to bardenet) for avg and confidence interval of size', proba, ' is: ',
     #      bernstein.empiricalBernsteinFromBardenet(proba, variance, sizeofsample, N))
 
@@ -339,11 +362,13 @@ def test(conn, nbAdomVals, prefs, ratioViolations, proba, error, percentOfLattic
 
         dbStuff.dropAllMVs(conn)
         nbMVs = dbStuff.createMV(conn, groupbyAtt, sel, measBase, function, table, 1,generateIndex)
-        print("nb views generated:",nbMVs)
+        #print("nb views generated:",nbMVs)
+
+        compareHypToGB(hypothesis, conn, measBase,function, sel,tuple(valsToSelect))
         ranks, queryCountviolations, queryCountCuboid, cuboid = bernstein.generateAllqueries(pwrset, sel, measBase, function,
                                                                                       table, tuple(valsToSelect),
                                                                                       limitedHyp, mvnames)
-
+        nbInconclusive=0
         tabRandomVar = []
         nbViewOK = 0
         for i in range(len(queryCountviolations)):
@@ -357,18 +382,21 @@ def test(conn, nbAdomVals, prefs, ratioViolations, proba, error, percentOfLattic
             if c != 0:
                 #OLD print(v / c, " violation rate in cuboid ", cuboid[i], " of size: ", c, ". Number of violations: ", v)
 
-                print(ratio, " violation rate in cuboid ", cuboid[i], " of size: ", c, ". Number of violations: ", v)
+                #print(ratio, " violation rate in cuboid ", cuboid[i], " of size: ", c, ". Number of violations: ", v)
                 if ratio < ratioViolations:
                     tabRandomVar.append(1)
                     nbViewOK = nbViewOK + 1
                 else:
                     tabRandomVar.append(0)
             else:
-                print("inconclusive, not enough tuples in cuboid for select values")
+                #print("inconclusive, not enough tuples in cuboid for select values")
                 nbMVs=nbMVs-1
+                nbInconclusive=nbInconclusive+1
 
         variance = np.var(tabRandomVar)
         # print('variance: ', variance)
+
+        print('number of inconclusive: ', nbInconclusive, ' ratio: ', nbInconclusive / len(queryCountviolations))
 
         print('nb of views ok: ', nbViewOK, 'out of ', nbMVs, 'views, i.e., rate of:', nbViewOK / nbMVs)
         gtratio= nbViewOK / nbMVs
@@ -461,6 +489,9 @@ if __name__ == "__main__":
     nbWrongRanking=0
     resultRuns=[]
 
+    #do we generate indexes?
+    generateIndex=True
+
     # do we compare to ground truth?
     comparison = True
 
@@ -481,7 +512,7 @@ if __name__ == "__main__":
 
         paramTested = 'Percent of lattice'
         #tabTest=(0.1, 0.25, 0.5, 0.75, 1)
-        tabTest=(0.1, 0.25, 0.5)
+        tabTest=(0.1, 0.25, 0.5, 0.75, 1)
 
 
         for percentOfLattice in tabTest:
@@ -498,7 +529,7 @@ if __name__ == "__main__":
 
                 print("-----RUN: ",i)
                 prediction,bennetError,realError,gtratio=test(conn, nbAdomVals, prefs, ratioViolations, proba, error, percentOfLattice, groupbyAtt,
-                                                              sel, measBase, function,table, sampleSize, comparison,True,True)
+                                                              sel, measBase, function,table, sampleSize, comparison,generateIndex,True)
                 #resultRuns.append((percentOfLattice,prediction,bennetError,realError))
 
                 predictionTab.append(prediction)
@@ -533,9 +564,9 @@ if __name__ == "__main__":
         # Example usage:
         data = [
             {'x': tabTest, 'y':listPred,  'yerr': devPred, 'label': 'prediction'},
-            {'x': tabTest, 'y': listError, 'yerr': devError, 'label': 'error'},
+            {'x': tabTest, 'y': listError, 'yerr': devError, 'label': 'real error'},
             {'x': tabTest, 'y': listWR, 'yerr': devWR, 'label': 'wrong prediction'},
-            {'x': tabTest, 'y': listBennet, 'yerr': devBennet, 'label': 'Bennet error'}
+            {'x': tabTest, 'y': listBennet, 'yerr': devBennet, 'label': 'Bennet theoretical error'}
         ]
 
         plot_curves_with_error_bars(data, x_label=paramTested, y_label='Error',
@@ -574,7 +605,7 @@ if __name__ == "__main__":
                 print("-----RUN: ",i)
                 bennetError, samplingTime, hypothesisTime, validationTime = test(conn, nbAdomVals, prefs, ratioViolations, proba, error,
                                                                percentOfLattice, groupbyAtt, sel, measBase, function,
-                                                               table, sampleSize, comparison,False,False)
+                                                               table, sampleSize, comparison,generateIndex,False)
                 benTab.append(bennetError)
                 samplingTab.append(samplingTime)
                 hypoTab.append(hypothesisTime)
@@ -600,7 +631,7 @@ if __name__ == "__main__":
             devValid.append(stdevValid)
 
         data = [
-            {'x': tabTest, 'y': listBennet, 'yerr': devBennet, 'label': 'Bennet error'},
+            {'x': tabTest, 'y': listBennet, 'yerr': devBennet, 'label': 'Bennet theoretical error'},
             {'x': tabTest, 'y': listSampling, 'yerr': devSampling, 'label': 'Sampling time'},
             {'x': tabTest, 'y': listHypo, 'yerr': devHypo, 'label': 'Hypothesis time'},
             {'x': tabTest, 'y': listValid, 'yerr': devValid, 'label': 'Generation time'}

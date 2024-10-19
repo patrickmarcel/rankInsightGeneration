@@ -129,7 +129,10 @@ def getSample(delta, t, pwrset, sel, meas, function, table, valsToSelect, hypo, 
         else:
             queryValidGB = ("select " + gbwithoutsel + " from (SELECT " + strgb + " FROM \"" + str(
                 materialized) + "\"" + " WHERE " + sel + " in " + str(
-                valsToSelect) + " group by " + strgb + " order by rank) t group by " + gbwithoutsel + " having count(*) >1")
+                valsToSelect) + " group by " + strgb + " ) t group by " + gbwithoutsel + " having count(*) >1")
+            #queryValidGB = ("select " + gbwithoutsel + " from (SELECT " + strgb + " FROM \"" + str(
+            #    materialized) + "\"" + " WHERE " + sel + " in " + str(
+            #    valsToSelect) + " group by " + strgb + " order by rank) t group by " + gbwithoutsel + " having count(*) >1")
             q = ("SELECT " + strgb + ", " + function + '(' + meas + "), "
                  + " rank () over ( partition by " + gbwithoutsel + " order by " + function + '(' + meas + ") desc ) as rank" +
              " FROM \"" + str(materialized) + "\"" +
@@ -200,7 +203,7 @@ def generateAllqueries(pwrset, sel, meas, function, table, valsToSelect, hypo, m
         else:
             queryValidGB = ("select " + gbwithoutsel + " from (SELECT " + strgb + " FROM \"" + str(
                 materialized) + "\"" + " WHERE " + sel + " in " + str(
-                valsToSelect) + " group by " + strgb + " order by rank) t group by " + gbwithoutsel + " having count(*) >1")
+                valsToSelect) + " group by " + strgb + " ) t group by " + gbwithoutsel + " having count(*) >1")
             q = ("SELECT " + strgb + ", " + function + '(' + meas + "), "
                  + " rank () over ( partition by " + gbwithoutsel + " order by " + function + '(' + meas + ") desc ) as rank" +
                  " FROM \"" + str(materialized) + "\"" +
