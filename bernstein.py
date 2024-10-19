@@ -125,7 +125,7 @@ def getSample(delta, t, pwrset, sel, meas, function, table, valsToSelect, hypo, 
             queryExcept = (
                         "select * from  (" + q + " ) t3 , (" + queryHyp + ") t4 where t3." + sel + "=t4." + sel + " and t3.rank!=t4.rank")
             queryCountCuboid = ("select count(*) from (" + q + ") t5;")
-            queryRank=("select 'all',string_agg(" + sel + ",',') from (" + q + "  order by rank);")
+            queryRank=("select 'all',string_agg(" + sel + "::text,',') from (" + q + "  order by rank);")
         else:
             queryValidGB = ("select " + gbwithoutsel + " from (SELECT " + strgb + " FROM \"" + str(
                 materialized) + "\"" + " WHERE " + sel + " in " + str(
@@ -139,7 +139,7 @@ def getSample(delta, t, pwrset, sel, meas, function, table, valsToSelect, hypo, 
                 " WHERE " + sel + " in " + str(valsToSelect) + " group by " + strgb + " ")
             queryExcept = (
                         "select * from  (select * from  (" + q + " ) t7 where ("+ gbwithoutsel + ") in ("+ queryValidGB + ")) t3 , (" + queryHyp + ") t4 where t3." + sel + "=t4." + sel + " and t3.rank!=t4.rank")
-            queryRank = ("select " + gbwithoutsel + ",string_agg(" + sel + ",',') from (" + q + " ) t7 where ("+ gbwithoutsel + ") in ("+ queryValidGB + ") group by "+gbwithoutsel +";")
+            queryRank = ("select " + gbwithoutsel + ",string_agg(" + sel + "::text,',') from (" + q + " ) t7 where ("+ gbwithoutsel + ") in ("+ queryValidGB + ") group by "+gbwithoutsel +";")
 
             #queryExcept = (
             #        "select * from  (" + q + " ) t3 , (" + queryHyp + ") t4 where t3." + sel + "=t4." + sel + " and t3.rank!=t4.rank")
@@ -199,7 +199,7 @@ def generateAllqueries(pwrset, sel, meas, function, table, valsToSelect, hypo, m
             queryExcept = (
                     "select * from  (" + q + " ) t3 , (" + queryHyp + ") t4 where t3." + sel + "=t4." + sel + " and t3.rank!=t4.rank")
             queryCountCuboid = ("select count(*) from (" + q + ") t5;")
-            queryRank = ("select 'all',string_agg(" + sel + ",',') from (" + q + "  order by rank);")
+            queryRank = ("select 'all',string_agg(" + sel + "::text,',') from (" + q + "  order by rank);")
         else:
             queryValidGB = ("select " + gbwithoutsel + " from (SELECT " + strgb + " FROM \"" + str(
                 materialized) + "\"" + " WHERE " + sel + " in " + str(
@@ -211,7 +211,7 @@ def generateAllqueries(pwrset, sel, meas, function, table, valsToSelect, hypo, m
             queryExcept = (
                     "select * from  (select * from  (" + q + " ) t7 where (" + gbwithoutsel + ") in (" + queryValidGB + ")) t3 , (" + queryHyp + ") t4 where t3." + sel + "=t4." + sel + " and t3.rank!=t4.rank")
             queryRank = (
-                        "select " + gbwithoutsel + ",string_agg(" + sel + ",',') from (" + q + " ) t7 where (" + gbwithoutsel + ") in (" + queryValidGB + ") group by " + gbwithoutsel + ";")
+                        "select " + gbwithoutsel + ",string_agg(" + sel + "::text,',') from (" + q + " ) t7 where (" + gbwithoutsel + ") in (" + queryValidGB + ") group by " + gbwithoutsel + ";")
 
             # queryExcept = (
             #        "select * from  (" + q + " ) t3 , (" + queryHyp + ") t4 where t3." + sel + "=t4." + sel + " and t3.rank!=t4.rank")

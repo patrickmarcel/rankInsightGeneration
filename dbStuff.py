@@ -4,6 +4,17 @@ import random
 
 from psycopg2 import sql
 
+
+def getSizeOf(conn, table):
+    query = "select count(*) from \"" + table + "\";"
+    res=execute_query(conn, query)
+    return res[0][0]
+
+def dropIndex(conn, table, sel):
+    indexname = table + '_' + sel
+    query = "drop index if exists \"" + indexname +"\";"
+    execute_query(conn, query)
+
 def generateHashIndex(conn, table,sel):
     indexname=table+'_'+sel
     query = "create index if not exists \"" + indexname + "\" on \"" + table + "\" using hash(" + sel + ");"
@@ -185,7 +196,7 @@ def getSample(conn, measBase, table, sel, sampleSize, method="SYSTEM_ROWS", repe
                 "SELECT " + sel + ", " + measBase + " FROM " + table + " TABLESAMPLE " + method + " (" + str(
             sampleSize) + ")" + is_repeatable + " WHERE " + sel + " in " + str(valsToSelect) +";")
 
-    #print('getsample query:', querySample)
+    print('getsample query:', querySample)
     resultVals = execute_query(conn, querySample)
     #print(resultVals)
     #print("Sample size in tuples: ", len(resultVals))

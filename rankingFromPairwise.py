@@ -227,7 +227,7 @@ def computeSeparationJMLR18(pairwiseComparison,nbItems):
             tau=sum(list)/nbItems
         separation[k]=tau
     print(separation)
-    n=len(separation)
+    n=nbItems
     p=1
     r=1
     alpha=8
@@ -247,6 +247,7 @@ def computeSeparationJMLR18(pairwiseComparison,nbItems):
 def generateHypothesisTest(conn, meas, measBase, table, sel, sampleSize, method, valsToSelect=None):
     resultVals = getSample(conn, measBase, table, sel, sampleSize, method, False, valsToSelect)
     #resultVals = getSample(conn, measBase, table, sel, sampleSize, method=method, repeatable=DEBUG_FLAG)
+    #print(resultVals)
 
     # get adom values
     Sels = list(set([x[0] for x in resultVals]))
@@ -269,10 +270,11 @@ def generateHypothesisTest(conn, meas, measBase, table, sel, sampleSize, method,
 
     # nlog(n) comparisons enough for recovering the true ranking when comparisons are certain (not noisy)
     # we should try less
-    nbOfComparisons = len(Sels) * math.log(len(Sels), 2)
+    #print(len(Sels))
+    #nbOfComparisons = len(Sels) * math.log(len(Sels), 2)
     #print("Number of comparisons to make: " + str(nbOfComparisons))
 
-    pairwiseComparison=generateAllComparisons(Sels, S, nbOfComparisons)
+    pairwiseComparison=generateAllComparisons(Sels, S)
 
     #separation=computeSeparationJMLR18(pairwiseComparison,len(valsToSelect))
 
@@ -309,7 +311,7 @@ def generateHypothesisTest(conn, meas, measBase, table, sel, sampleSize, method,
     return hypothesis
 
 
-def generateAllComparisons(Sels, S, nbOfComparisons):
+def generateAllComparisons(Sels, S):
     #tabPValues = []
     pairwiseComparison = []
     #tabStat = []

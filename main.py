@@ -34,7 +34,7 @@ def  compareHypToGB(hypothesis, conn, measBase,function, sel, vals):
 
 
 def countViolations(conn,query,hypothesis):
-    print(query)
+    #print(query)
     hyp=[a for (a,b) in hypothesis]
     #print('hyp:',hyp)
     v=0
@@ -233,7 +233,7 @@ def test(conn, nbAdomVals, prefs, ratioViolations, proba, error, percentOfLattic
     else:
         # sampling and hypothesis
         start_time = time.time()
-        hypothesis=getHypothesisAllComparisons(conn, meas, measBase, table, sel, tuple(prefs), sampleSize=9307, method='SYSTEM_ROWS')
+        hypothesis=getHypothesisAllComparisons(conn, meas, measBase, table, sel, tuple(prefs), sampleSize, method='SYSTEM_ROWS')
         end_time = time.time()
         samplingTime = end_time - start_time
         hypothesisGenerationTime= samplingTime
@@ -264,6 +264,8 @@ def test(conn, nbAdomVals, prefs, ratioViolations, proba, error, percentOfLattic
     # generate hash index on sel attribute
     if generateIndex == True:
         dbStuff.generateHashIndex(conn, table, sel)
+    else:
+        dbStuff.dropIndex(conn, table, sel)
     # generate and get all materialized cuboids
     dbStuff.dropAllMVs(conn)
     dbStuff.createMV(conn, groupbyAtt, sel, measBase, function, table, percentOfLattice,generateIndex)
@@ -425,8 +427,8 @@ if __name__ == "__main__":
     config = configparser.ConfigParser()
 
     # The DB wee want
-    config.read('configs/flights.ini')
-    #config.read('configs/ssb.ini')
+    #config.read('configs/flights.ini')
+    config.read('configs/ssb.ini')
     # The system this is running on
     USER = "PM"
 
@@ -450,11 +452,13 @@ if __name__ == "__main__":
     if len(prefs) == 0:
         prefs = None
 
+    if DEBUG_FLAG:
+        nbruns = 1
+    else:
+        nbruns = 10
 
-    # number of values of adom to consider - top ones after hypothesis is generated
-    nbAdomVals = len(prefs)
 
-    # for Hoeffding
+    # for Hoeffding - OLD
     epsilon = 0.1
     alpha = 0.1
     p = 0
@@ -463,40 +467,53 @@ if __name__ == "__main__":
     n = math.log(2 / alpha, 10) / (2* epsilon * epsilon)
     n = math.ceil(n)
 
+    ###
+    ### PARAMETERS
+    ###
+    proba = 0.1
+    error = 0.4  # rate
+
+    # number of values of adom to consider - default = all of prefs
+    nbAdomVals = len(prefs)
+
     # for DB sampling
     sampleSize = 1
     samplingMethod = 'SYSTEM_ROWS'  # or SYSTEM
 
-    if DEBUG_FLAG:
-        nbruns = 1
-    else:
-        nbruns = 10
+    # ratio max of violations in a cuboid
+    ratioViolations = 0.4
+
+    # ratio min of cuboids with raio violations < ratioViolations
+    ratioCuboidOK = 0.8
+
+    # percentage of the lattice to generate
+    percentOfLattice = 0.3
+
+    # do we generate indexes?
+    generateIndex = False
+
+    # do we compare to ground truth?
+    comparison = False
+
+    #do we generate all comparisons?
+    allComparisons = True
+
+    #number of runs
+    nbOfRuns = 10
+
 
     # Connect to the database
     conn = connect_to_db(dbname, user, password, host, port)
 
+    #get size of R
+    sizeOfR=dbStuff.getSizeOf(conn,table)
+    #print(sizeOfR)
+
     # to always have the same order in group bys, with sel attribute last
     groupbyAtt.sort()
 
-    ratioViolations = 0.4
-    ratioCuboidOK = 0.8
-
-    proba = 0.1
-    error = 0.4  # rate
-
-    percentOfLattice=0.3
-
     nbWrongRanking=0
     resultRuns=[]
-
-    #do we generate indexes?
-    generateIndex=True
-
-    # do we compare to ground truth?
-    comparison = True
-
-    nbOfRuns=3
-
     data=[]
 
     if comparison==True:
@@ -510,16 +527,18 @@ if __name__ == "__main__":
         listBennet=[]
         devBennet=[]
 
-        paramTested = 'Percent of lattice'
+        paramTested = 'Sample size'
+        #paramTested = 'Percent of lattice'
         #tabTest=(0.1, 0.25, 0.5, 0.75, 1)
         tabTest=(0.1, 0.25, 0.5, 0.75, 1)
 
 
-        for percentOfLattice in tabTest:
-        #for sampleSize in (0.1, 0.25, 0.5, 0.75, 1):
+        #for percentOfLattice in tabTest:
+        for sampleSize in tabTest:
         #for nbAdomVals in range(2,10):
+            sampleSize=sampleSize*sizeOfR
 
-            print("--- TESTING VALUE:",percentOfLattice)
+            print("--- TESTING VALUE:",sampleSize)
             predictionTab=[]
             realErrorTab=[]
             nbWrongRankingTab=[]
@@ -529,7 +548,7 @@ if __name__ == "__main__":
 
                 print("-----RUN: ",i)
                 prediction,bennetError,realError,gtratio=test(conn, nbAdomVals, prefs, ratioViolations, proba, error, percentOfLattice, groupbyAtt,
-                                                              sel, measBase, function,table, sampleSize, comparison,generateIndex,True)
+                                                              sel, measBase, function,table, sampleSize, comparison,generateIndex,allComparisons)
                 #resultRuns.append((percentOfLattice,prediction,bennetError,realError))
 
                 predictionTab.append(prediction)
@@ -565,7 +584,7 @@ if __name__ == "__main__":
         data = [
             {'x': tabTest, 'y':listPred,  'yerr': devPred, 'label': 'prediction'},
             {'x': tabTest, 'y': listError, 'yerr': devError, 'label': 'real error'},
-            {'x': tabTest, 'y': listWR, 'yerr': devWR, 'label': 'wrong prediction'},
+            {'x': tabTest, 'y': listWR, 'yerr': devWR, 'label': 'unvalidated prediction'},
             {'x': tabTest, 'y': listBennet, 'yerr': devBennet, 'label': 'Bennet theoretical error'}
         ]
 
@@ -587,12 +606,14 @@ if __name__ == "__main__":
         devValid=[]
 
         tabTest=(0.1, 0.2, 0.3, 0.4, 0.5)
-        paramTested='Percent of Lattice'
-        #paramTested='Sample size'
+        #paramTested='Percent of Lattice'
+        paramTested='Sample size'
 
-        for percentOfLattice in tabTest:
-        #for sampleSize in tabTest:
+        #for percentOfLattice in tabTest:
+        for sampleSize in tabTest:
         # for nbAdomVals in range(2,10):
+
+            sampleSize = sampleSize * sizeOfR
 
             print("--- TESTING VALUE:", percentOfLattice)
 
@@ -605,7 +626,7 @@ if __name__ == "__main__":
                 print("-----RUN: ",i)
                 bennetError, samplingTime, hypothesisTime, validationTime = test(conn, nbAdomVals, prefs, ratioViolations, proba, error,
                                                                percentOfLattice, groupbyAtt, sel, measBase, function,
-                                                               table, sampleSize, comparison,generateIndex,False)
+                                                               table, sampleSize, comparison,generateIndex,allComparisons)
                 benTab.append(bennetError)
                 samplingTab.append(samplingTime)
                 hypoTab.append(hypothesisTime)
