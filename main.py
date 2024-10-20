@@ -35,7 +35,7 @@ def  compareHypToGB(hypothesis, conn, measBase,function, sel, vals):
 
 def countViolations(conn,query,hypothesis):
     #print(query)
-    hyp=[a for (a,b) in hypothesis]
+    hyp=[str(a) for (a,b) in hypothesis]
     #print('hyp:',hyp)
     v=0
     res=dbStuff.execute_query(conn,query)
@@ -427,8 +427,8 @@ if __name__ == "__main__":
     config = configparser.ConfigParser()
 
     # The DB wee want
-    #config.read('configs/flights.ini')
-    config.read('configs/ssb.ini')
+    config.read('configs/flights.ini')
+    #config.read('configs/ssb.ini')
     # The system this is running on
     USER = "PM"
 
@@ -493,7 +493,7 @@ if __name__ == "__main__":
     generateIndex = False
 
     # do we compare to ground truth?
-    comparison = False
+    comparison = True
 
     #do we generate all comparisons?
     allComparisons = True
