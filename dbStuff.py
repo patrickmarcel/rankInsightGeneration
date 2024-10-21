@@ -15,7 +15,7 @@ def dropIndex(conn, table, sel):
     query = "drop index if exists \"" + indexname +"\";"
     execute_query(conn, query)
 
-def generateHashIndex(conn, table,sel):
+def generateHashIndex(conn, table, sel):
     indexname=table+'_'+sel
     query = "create index if not exists \"" + indexname + "\" on \"" + table + "\" using hash(" + sel + ");"
     execute_query(conn,query)
@@ -24,6 +24,17 @@ def generateIndex(conn, table, sel):
         indexname = table + '_' + sel
         query = "create index if not exists \"" + indexname + "\" on \"" + table + "\"(" + sel + ");"
         execute_query(conn, query)
+
+# generate a multicolumn index on table
+def generateMulticolIndex(conn, table, list, selAtt):
+    att=list.split(',')
+    ind=selAtt+','
+    for l in att[:-1]:
+        ind=ind+str(l)+','
+    ind=ind[:-1]
+    indexname = table + '_' + ind
+    query = "create index if not exists \"" + indexname + "\" on \"" + table + "\"(" + ind + ");"
+    execute_query(conn, query)
 
 def getMVnames(conn):
     return execute_query(conn, "select matviewname from pg_catalog.pg_matviews;")
@@ -78,7 +89,9 @@ def createMV(conn, attInGB, selAtt, meas, function, table, percentOfLattice,gene
         if gbs not in existing:
             execute_query(conn, query)
             if generateIndex==True:
-                generateHashIndex(conn,gbs,selAtt)
+                generateHashIndex(conn, gbs, selAtt)
+            if generateIndex=='mc':
+                generateMulticolIndex(conn, gbs, gbs, selAtt)
     return nbOfMV
 
 #returns the group by set of a query (having a single group by)

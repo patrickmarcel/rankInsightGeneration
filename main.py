@@ -264,11 +264,14 @@ def test(conn, nbAdomVals, prefs, ratioViolations, proba, error, percentOfLattic
     # generate hash index on sel attribute
     if generateIndex == True:
         dbStuff.generateHashIndex(conn, table, sel)
-    else:
+    #else:
+        #if generateIndex == 'mc':
+            #dbStuff.generateMulticolIndex(conn, table, sel)
+    else: #false
         dbStuff.dropIndex(conn, table, sel)
     # generate and get all materialized cuboids
     dbStuff.dropAllMVs(conn)
-    dbStuff.createMV(conn, groupbyAtt, sel, measBase, function, table, percentOfLattice,generateIndex)
+    dbStuff.createMV(conn, groupbyAtt, sel, measBase, function, table, percentOfLattice, generateIndex)
     mvnames = dbStuff.getMVnames(conn)
 
 
@@ -491,8 +494,8 @@ if __name__ == "__main__":
     # percentage of the lattice to generate
     percentOfLattice = 0.3
 
-    # do we generate indexes?
-    generateIndex = False
+    # do we generate indexes? possible value: True (create index on sel attribute), False (no index), mc (one multicolumn index, sel first)
+    generateIndex = 'mc'
 
     # do we compare to ground truth?
     comparison = True
