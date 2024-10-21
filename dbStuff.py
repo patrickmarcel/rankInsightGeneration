@@ -55,6 +55,7 @@ def getCuboidsOfAtt(attInGB, selAtt):
 # todo for avg, should materialize sum and count
 def createMV(conn, attInGB, selAtt, meas, function, table, percentOfLattice,generateIndex=False):
     print("Creating views")
+    existing=getMVnames(conn)
     pwset2=getCuboidsOfAtt(attInGB, selAtt)
     # remove last
     del pwset2[-1]
@@ -74,9 +75,10 @@ def createMV(conn, attInGB, selAtt, meas, function, table, percentOfLattice,gene
         #query="create materialized view MV" + str(i) + " as select " + gbs + "," + meas + " from " + table + " group by " + gbs +  ";"
         query="create materialized view \"" + gbs + "\" as select " + gbs + ", " + function + "(" + meas + ") as " + meas + ", count(*) as count  from " + table + " group by " + gbs +  ";"
         #print(query)
-        execute_query(conn, query)
-        if generateIndex==True:
-            generateHashIndex(conn,gbs,selAtt)
+        if gbs not in existing:
+            execute_query(conn, query)
+            if generateIndex==True:
+                generateHashIndex(conn,gbs,selAtt)
     return nbOfMV
 
 #returns the group by set of a query (having a single group by)

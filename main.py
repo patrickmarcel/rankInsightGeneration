@@ -470,8 +470,10 @@ if __name__ == "__main__":
     ###
     ### PARAMETERS
     ###
-    proba = 0.1
-    error = 0.4  # rate
+
+    # for Hoeffding
+    proba = 0.1 #probability of making an error
+    error = 0.3 #error
 
     # number of values of adom to consider - default = all of prefs
     nbAdomVals = len(prefs)
