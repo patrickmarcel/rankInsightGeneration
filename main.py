@@ -34,7 +34,7 @@ def  compareHypToGB(hypothesis, conn, measBase,function, sel, vals):
 
 
 def countViolations(conn,query,hypothesis):
-    print(query)
+    #print(query)
     hyp=[str(a) for (a,b) in hypothesis]
     #print('hyp:',hyp)
     v=0
@@ -263,10 +263,12 @@ def test(conn, nbAdomVals, prefs, ratioViolations, proba, error, percentOfLattic
 
     #generate index on sel attribute
     if generateIndex == True :
+        print('Creating indexes')
         dbStuff.dropAllIndex(conn,table)
         dbStuff.generateHashIndex(conn, table, sel)
     else:
         if generateIndex == 'mc':
+            print('Creating indexes')
             dbStuff.dropAllIndex(conn, table)
             dbStuff.generateHashIndex(conn, table, sel)
             gat=''
@@ -277,6 +279,7 @@ def test(conn, nbAdomVals, prefs, ratioViolations, proba, error, percentOfLattic
         else: #false
             dbStuff.dropAllIndex(conn, table)
             #dbStuff.dropIndex(conn, table, sel)
+
     # generate and get all materialized cuboids
     dbStuff.dropAllMVs(conn)
     dbStuff.createMV(conn, groupbyAtt, sel, measBase, function, table, percentOfLattice, generateIndex)
@@ -438,8 +441,8 @@ if __name__ == "__main__":
     config = configparser.ConfigParser()
 
     # The DB wee want
-    config.read('configs/flights.ini')
-    #config.read('configs/ssb.ini')
+    #config.read('configs/flights.ini')
+    config.read('configs/ssb.ini')
     # The system this is running on
     USER = "PM"
 
@@ -507,7 +510,7 @@ if __name__ == "__main__":
     generateIndex = 'mc'
 
     # do we compare to ground truth?
-    comparison = True
+    comparison = False
 
     #do we generate all comparisons?
     allComparisons = True

@@ -19,7 +19,7 @@ def dropAllIndex(conn, table):
     query="select indexname from pg_catalog.pg_indexes where tablename = \'" + table + "\';"
     res=execute_query(conn, query)
     for r in res:
-        if not r[0].startswith('Key'):
+        if not r[0].startswith('Key') and not r[0].endswith('_pkey'):
             drop="drop index \"" + r[0] + "\";"
             execute_query(conn, drop)
 
