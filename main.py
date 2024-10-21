@@ -34,7 +34,7 @@ def  compareHypToGB(hypothesis, conn, measBase,function, sel, vals):
 
 
 def countViolations(conn,query,hypothesis):
-    #print(query)
+    print(query)
     hyp=[str(a) for (a,b) in hypothesis]
     #print('hyp:',hyp)
     v=0
@@ -261,14 +261,22 @@ def test(conn, nbAdomVals, prefs, ratioViolations, proba, error, percentOfLattic
     # valsEmptyGB=[a for (a, b) in emptyGBresult]
     # print(valsEmptyGB)
 
-    # generate hash index on sel attribute
-    if generateIndex == True:
+    #generate index on sel attribute
+    if generateIndex == True :
+        dbStuff.dropAllIndex(conn,table)
         dbStuff.generateHashIndex(conn, table, sel)
-    #else:
-        #if generateIndex == 'mc':
-            #dbStuff.generateMulticolIndex(conn, table, sel)
-    else: #false
-        dbStuff.dropIndex(conn, table, sel)
+    else:
+        if generateIndex == 'mc':
+            dbStuff.dropAllIndex(conn, table)
+            dbStuff.generateHashIndex(conn, table, sel)
+            gat=''
+            for g in groupbyAtt:
+                gat=gat+g+','
+            gat=gat+sel
+            dbStuff.generateMulticolIndex(conn, table, gat, sel)
+        else: #false
+            dbStuff.dropAllIndex(conn, table)
+            #dbStuff.dropIndex(conn, table, sel)
     # generate and get all materialized cuboids
     dbStuff.dropAllMVs(conn)
     dbStuff.createMV(conn, groupbyAtt, sel, measBase, function, table, percentOfLattice, generateIndex)
@@ -494,7 +502,8 @@ if __name__ == "__main__":
     # percentage of the lattice to generate
     percentOfLattice = 0.3
 
-    # do we generate indexes? possible value: True (create index on sel attribute), False (no index), mc (one multicolumn index, sel first)
+    # do we generate indexes? possible value: True (create index on sel attribute), False (no index),
+    # mc (one multicolumn index, sel first), so far only over views
     generateIndex = 'mc'
 
     # do we compare to ground truth?
@@ -504,7 +513,7 @@ if __name__ == "__main__":
     allComparisons = True
 
     #number of runs
-    nbOfRuns = 10
+    nbOfRuns = 3
 
 
     # Connect to the database
@@ -610,7 +619,7 @@ if __name__ == "__main__":
         listValid=[]
         devValid=[]
 
-        tabTest=(0.1, 0.2, 0.3, 0.4, 0.5)
+        tabTest=(0.1, 0.25, 0.5)
         #paramTested='Percent of Lattice'
         paramTested='Sample size'
 

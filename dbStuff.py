@@ -15,6 +15,14 @@ def dropIndex(conn, table, sel):
     query = "drop index if exists \"" + indexname +"\";"
     execute_query(conn, query)
 
+def dropAllIndex(conn, table):
+    query="select indexname from pg_catalog.pg_indexes where tablename = \'" + table + "\';"
+    res=execute_query(conn, query)
+    for r in res:
+        if not r[0].startswith('Key'):
+            drop="drop index \"" + r[0] + "\";"
+            execute_query(conn, drop)
+
 def generateHashIndex(conn, table, sel):
     indexname=table+'_'+sel
     query = "create index if not exists \"" + indexname + "\" on \"" + table + "\" using hash(" + sel + ");"
@@ -211,7 +219,7 @@ def getSample(conn, measBase, table, sel, sampleSize, method="SYSTEM_ROWS", repe
                 "SELECT " + sel + ", " + measBase + " FROM " + table + " TABLESAMPLE " + method + " (" + str(
             sampleSize) + ")" + is_repeatable + " WHERE " + sel + " in " + str(valsToSelect) +";")
 
-    print('getsample query:', querySample)
+    #print('getsample query:', querySample)
     resultVals = execute_query(conn, querySample)
     #print(resultVals)
     #print("Sample size in tuples: ", len(resultVals))
