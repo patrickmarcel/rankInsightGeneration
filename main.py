@@ -214,7 +214,7 @@ def getHypothesisCongressionalSampling(adom,congress):
     return correctHyp
 
 
-def test(conn, nbAdomVals, prefs, ratioViolations, proba, error, percentOfLattice, groupbyAtt, sel, measBase, function,table,sampleSize,comparison=False,generateIndex=False,allComparison=True):
+def test(conn, nbAdomVals, prefs, ratioViolations, proba, error, percentOfLattice, groupbyAtt, sel, measBase, function,table,sampleSize,comparison,generateIndex,allComparison,sizeofquerysample):
 
     if allComparison==False:
         #sampling
@@ -290,8 +290,12 @@ def test(conn, nbAdomVals, prefs, ratioViolations, proba, error, percentOfLattic
     #validation of hypothesis
     start_time = time.time()
 
+    #size of query sample
     sizeofsample = int(bernstein.sizeOfSampleHoeffding(proba, error)) + 1
-    print('size of sample according to Hoeffding:', sizeofsample)
+    print('size of query sample according to Hoeffding:', sizeofsample)
+    sizeofsample = sizeofquerysample
+    print('actual size of query sample:', sizeofsample)
+
 
     # total number of cuboids
     N = len(utilities.powerset(groupbyAtt))
@@ -304,7 +308,7 @@ def test(conn, nbAdomVals, prefs, ratioViolations, proba, error, percentOfLattic
     print("Generating sample of aggregate queries")
     ranks, queryCountviolations, queryCountCuboid, cuboid = bernstein.getSample(proba, error, pwrset, sel, measBase, function,
                                                                          table, tuple(valsToSelect), limitedHyp,
-                                                                         mvnames,False,True)
+                                                                         mvnames,False,True,sizeofquerysample)
     # queryCountviolations, queryCountCuboid, cuboid=bernstein.getSample(proba, error, pwrset, sel, measBase, function, table, tuple(valsEmptyGB), emptyGBresult, mvnames)
 
 
@@ -441,8 +445,9 @@ if __name__ == "__main__":
     config = configparser.ConfigParser()
 
     # The DB wee want
-    #config.read('configs/flights.ini')
-    config.read('configs/ssb.ini')
+    #config.read('configs/flights1923.ini')
+    config.read('configs/flights.ini')
+    #config.read('configs/ssb.ini')
     # The system this is running on
     USER = "PM"
 
@@ -485,7 +490,7 @@ if __name__ == "__main__":
     ### PARAMETERS
     ###
 
-    # for Hoeffding
+    # for query sample size according to Hoeffding
     proba = 0.1 #probability of making an error
     error = 0.3 #error
 
@@ -493,7 +498,7 @@ if __name__ == "__main__":
     nbAdomVals = len(prefs)
 
     # for DB sampling
-    sampleSize = 1
+    sampleSize = 0.3
     samplingMethod = 'SYSTEM_ROWS'  # or SYSTEM
 
     # ratio max of violations in a cuboid
@@ -510,14 +515,16 @@ if __name__ == "__main__":
     generateIndex = 'mc'
 
     # do we compare to ground truth?
-    comparison = False
+    comparison = True
 
     #do we generate all comparisons?
     allComparisons = True
 
-    #number of runs
-    nbOfRuns = 3
+    # size of sample of queries for validation
+    sizeofquerysample = 10
 
+    #number of runs
+    nbOfRuns = 5
 
     # Connect to the database
     conn = connect_to_db(dbname, user, password, host, port)
@@ -547,15 +554,17 @@ if __name__ == "__main__":
         paramTested = 'Sample size'
         #paramTested = 'Percent of lattice'
         #tabTest=(0.1, 0.25, 0.5, 0.75, 1)
-        tabTest=(0.1, 0.25, 0.5, 0.75, 1)
+        #tabTest=(0.1,0.25,0.5,1)
+        tabTest=(5,10,20,40)
 
 
         #for percentOfLattice in tabTest:
-        for sampleSize in tabTest:
+        #for sampleSize in tabTest:
+        for sizeofquerysample in tabTest:
         #for nbAdomVals in range(2,10):
             sampleSize=sampleSize*sizeOfR
 
-            print("--- TESTING VALUE:",sampleSize)
+            print("--- TESTING VALUE:",sizeofquerysample)
             predictionTab=[]
             realErrorTab=[]
             nbWrongRankingTab=[]
@@ -565,14 +574,15 @@ if __name__ == "__main__":
 
                 print("-----RUN: ",i)
                 prediction,bennetError,realError,gtratio=test(conn, nbAdomVals, prefs, ratioViolations, proba, error, percentOfLattice, groupbyAtt,
-                                                              sel, measBase, function,table, sampleSize, comparison,generateIndex,allComparisons)
+                                                              sel, measBase, function,table, sampleSize, comparison,generateIndex,allComparisons,sizeofquerysample)
                 #resultRuns.append((percentOfLattice,prediction,bennetError,realError))
 
                 predictionTab.append(prediction)
                 bennetTab.append(bennetError)
                 realErrorTab.append(realError)
                 print("Desired cuboid ratio is:",ratioCuboidOK,". We predicted ratio of: ",prediction,". Real ratio is: ",gtratio)
-                if gtratio <ratioCuboidOK:
+                #if gtratio <ratioCuboidOK:
+                if (gtratio < ratioCuboidOK and prediction > ratioCuboidOK) or (gtratio > ratioCuboidOK and prediction < ratioCuboidOK):
                     nbWrongRanking=1
                 else:
                     nbWrongRanking = 0
@@ -632,7 +642,7 @@ if __name__ == "__main__":
 
             sampleSize = sampleSize * sizeOfR
 
-            print("--- TESTING VALUE:", percentOfLattice)
+            print("--- TESTING VALUE:", sampleSize)
 
             benTab=[]
             samplingTab=[]
@@ -643,7 +653,7 @@ if __name__ == "__main__":
                 print("-----RUN: ",i)
                 bennetError, samplingTime, hypothesisTime, validationTime = test(conn, nbAdomVals, prefs, ratioViolations, proba, error,
                                                                percentOfLattice, groupbyAtt, sel, measBase, function,
-                                                               table, sampleSize, comparison,generateIndex,allComparisons)
+                                                               table, sampleSize, comparison,generateIndex,allComparisons,sizeofquerysample)
                 benTab.append(bennetError)
                 samplingTab.append(samplingTime)
                 hypoTab.append(hypothesisTime)

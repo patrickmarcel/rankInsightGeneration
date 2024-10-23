@@ -97,8 +97,10 @@ def createMV(conn, attInGB, selAtt, meas, function, table, percentOfLattice,gene
         if gbs not in existing:
             execute_query(conn, query)
             if generateIndex==True:
+                #print('creating index on view')
                 generateHashIndex(conn, gbs, selAtt)
             if generateIndex=='mc':
+                #print('creating multicolumn index on view')
                 generateMulticolIndex(conn, gbs, gbs, selAtt)
     return nbOfMV
 
