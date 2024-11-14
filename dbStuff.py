@@ -273,7 +273,7 @@ def generateArtificialDataset(conn,num_rows = 50000, nbAtt=10):
     # Generating values for the other attributes (categorical, repeated, uniformly random)
     categorical_values = [f'Category_{i+1}' for i in range(15)]
     other_attributes = {
-        f'Attribute_{i+3}': np.random.choice(categorical_values, size=num_rows)
+        f'A_{i+3}': np.random.choice(categorical_values, size=num_rows)
         for i in range(nbAtt)
     }
 
@@ -296,7 +296,7 @@ def generateArtificialDataset(conn,num_rows = 50000, nbAtt=10):
     execute_query(conn, query)
     att='Attribute_1 varchar, Attribute_2 float, '
     for i in range(1,nbAtt+1):
-        att=att+"Attribute_"+str(i+2)+" varchar, "
+        att=att+"A_"+str(i+2)+" varchar, "
     att=att[:-2]
     query="create table "+tablename+"("+att+");"
     execute_query(conn, query)
@@ -327,5 +327,5 @@ if __name__ == "__main__":
     # Connect to the database
     conn = connect_to_db(dbname, user, password, host, port)
 
-    #dropAllMVs(conn)
+    dropAllMVs(conn)
     generateArtificialDataset(conn)

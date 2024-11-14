@@ -510,7 +510,7 @@ if __name__ == "__main__":
     nbAdomVals = len(prefs)
 
     # for sampling fact table with Postgresql
-    initsampleSize = 0.3
+    initsampleSize = 0.2
     samplingMethod = 'SYSTEM_ROWS'  # or SYSTEM
 
     # ratio max of violations in a cuboid
@@ -520,7 +520,7 @@ if __name__ == "__main__":
     ratioCuboidOK = 0.8
 
     # percentage of the lattice to generate
-    percentOfLattice = 0.5
+    percentOfLattice = 0.1
 
     # do we generate indexes?
     # possible values:
@@ -576,7 +576,8 @@ if __name__ == "__main__":
         #paramTested = 'Percent of lattice'
         #tabTest=(0.01, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8,0.9, 1)
         #tabTest=(0.1,0.25,0.5,1)
-        tabTest=(2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20)
+        #tabTest=(2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20)
+        tabTest=(5,10,20,50,75,100)
 
 
         #for percentOfLattice in tabTest:
