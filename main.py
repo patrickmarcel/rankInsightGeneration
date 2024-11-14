@@ -13,7 +13,6 @@ from rankingFromPairwise import computeRanksForAll, generateHypothesisTest
 
 from statsmodels.stats.multitest import fdrcorrection
 
-
 import configparser
 import json
 
