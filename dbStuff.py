@@ -3,8 +3,7 @@ from utilities import powerset
 import random
 import numpy as np
 import pandas as pd
-
-
+import configparser
 
 
 def getSizeOf(conn, table):
@@ -263,7 +262,7 @@ def emptyGB(conn, nb_of_adom_vals, table, sel, meas):
     return resultEmptyGbAll[:nb_of_adom_vals], resultEmptyGbAll
 
 
-def generateArtificialDataset(num_rows = 50000):
+def generateArtificialDataset(conn,num_rows = 50000, nbAtt=10):
     # Generating values for the first attribute (categorical, repeated, exponential distribution)
     exp_values = np.random.exponential(scale=1.0, size=num_rows)
     first_attribute = pd.qcut(exp_values, q=10, labels=[f'Category_{i+1}' for i in range(10)])
@@ -275,7 +274,7 @@ def generateArtificialDataset(num_rows = 50000):
     categorical_values = [f'Category_{i+1}' for i in range(15)]
     other_attributes = {
         f'Attribute_{i+3}': np.random.choice(categorical_values, size=num_rows)
-        for i in range(10)
+        for i in range(nbAtt)
     }
 
     # Creating the DataFrame
@@ -287,6 +286,46 @@ def generateArtificialDataset(num_rows = 50000):
 
     # Creating the DataFrame and saving to CSV
     df = pd.DataFrame(data)
-    df.to_csv('relational_table.csv', index=False)
+    path='/Users/marcel/PycharmProjects/hoeffding4ranks/data/'
+    df.to_csv(path+'relational_table.csv', index=False)
 
-    print("Relational table with 50,000 rows and 12 attributes has been generated and saved as 'relational_table.csv'")
+    print("Relational table with ",num_rows," rows and ", nbAtt+2," attributes has been generated and saved as 'relational_table.csv'")
+
+    tablename="artificial_"+str(nbAtt)
+    query = "drop table if exists \"" + tablename + "\";"
+    execute_query(conn, query)
+    att='Attribute_1 varchar, Attribute_2 float, '
+    for i in range(1,nbAtt+1):
+        att=att+"Attribute_"+str(i+2)+" varchar, "
+    att=att[:-2]
+    query="create table "+tablename+"("+att+");"
+    execute_query(conn, query)
+    query = "copy " + tablename + " from \'" + path+'relational_table.csv' + "\' (header, format csv);"
+    print(query)
+    execute_query(conn, query)
+
+if __name__ == "__main__":
+
+    config = configparser.ConfigParser()
+
+    # The DB wee want
+    #config.read('configs/flights1923.ini')
+    #config.read('configs/flights.ini')
+    config.read('configs/artificial.ini')
+    #config.read('configs/ssb.ini')
+    # The system this is running on
+    USER = "PM"
+
+    # Database connection parameters
+    dbname = config[USER]['dbname']
+    user = config[USER]['user']
+    password = config[USER]['password']
+    host = config[USER]['host']
+    port = int(config[USER]['port'])
+
+
+    # Connect to the database
+    conn = connect_to_db(dbname, user, password, host, port)
+
+    #dropAllMVs(conn)
+    generateArtificialDataset(conn)

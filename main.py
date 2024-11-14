@@ -457,8 +457,8 @@ if __name__ == "__main__":
 
     # The DB wee want
     #config.read('configs/flights1923.ini')
-    config.read('configs/flights.ini')
-    #config.read('configs/artificial.ini')
+    #config.read('configs/flights.ini')
+    config.read('configs/artificial.ini')
     #config.read('configs/ssb.ini')
     # The system this is running on
     USER = "PM"
