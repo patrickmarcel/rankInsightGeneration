@@ -50,8 +50,10 @@ def countViolations(conn,query,hypothesis):
             #tau=statStuff.compute_kendall_tau(s,hyp)[0]
             #if tau!=1:
             #    v=v+1
-            tau=statStuff.normalised_kendall_tau_distance(s,hyp)
+            #tau=statStuff.normalised_kendall_tau_distance(s,hyp)
+            tau,pvalue=statStuff.compute_kendall_tau(s,hyp)
             #print('tau:',tau)
+            tau=(tau+1)/2
             v=v+tau
         else:
             # s is smaller
@@ -67,14 +69,16 @@ def countViolations(conn,query,hypothesis):
             #    v = v + 1
             #print("s:",s)
             #print("hyp2:",hyp2)
-            tau = statStuff.normalised_kendall_tau_distance(s, hyp2)
+            #tau = statStuff.normalised_kendall_tau_distance(s, hyp2)
+            tau,pvalue = statStuff.compute_kendall_tau(s, hyp2)
             #print('tau:',tau)
+            tau = (tau + 1) / 2
             v = v + tau
     #if len(res)!=0:
     #    ratio=v/len(res)
     #else:
     #    ratio=0
-    if len(res) != 0:
+    if len(res) >1:
         ratio=v/normalize
     else:
         ratio=0
@@ -253,7 +257,7 @@ def test(conn, nbAdomVals, prefs, ratioViolations, proba, error, percentOfLattic
             j = j + 1
     #print("Hypothesis limited to choosen values: ", limitedHyp)
 
-    # print("vals: ",valsToSelect)
+    #print("vals: ",valsToSelect)
 
     # just for checking on groupBy sel
     # emptyGBresult, emptyGBresultAll = emptyGB(conn, nbAdomVals, table, sel, meas)
@@ -352,27 +356,35 @@ def test(conn, nbAdomVals, prefs, ratioViolations, proba, error, percentOfLattic
 
     variance = np.var(tabRandomVar)
     # print('variance: ', variance)
-    prediction = nbViewOK / sizeofsample
-    predictionNbOk = prediction * len(pwrset)
-    print('nb of views ok: ', nbViewOK, 'out of ', sizeofsample, 'views, i.e., rate of:', nbViewOK / sizeofsample)
-    print('predicting number of views ok:', predictionNbOk)
+    # check if sizeofsample=0!
+    if sizeofsample==0:
+        prediction = 0
+        print("nothing conclusive")
+        bennetError=0
+    else:
+        prediction = nbViewOK / sizeofsample
 
-    nbErrors = 2
-    #print('probability of making ', nbErrors, ' errors: ', bernstein.bernsteinBound(variance, nbErrors))
-    #print('the error (according to Bernstein) for sum and confidence interval of size', proba, ' is: ',
-    #      bernstein.bersteinError(proba, variance))
-    bennetError=bernstein.bennetErrorOnAvg(proba, variance, sizeofsample)
-    print('the error (according to Bennet) for avg and confidence interval of size', proba, ' is: ',
-          bernstein.bennetErrorOnAvg(proba, variance, sizeofsample))
-    print('the error (empirical bennet) for avg and confidence interval of size', proba, ' is: ',
-          bernstein.empiricalBennetFromMaurer(proba, variance, sizeofsample))
-    ###
-    ### IF REPORTING EMPIRICAL ERROR
-    ### UNCOMMENT BELOW
-    #bennetError = bernstein.empiricalBennetFromMaurer(proba, variance, sizeofsample)
+        predictionNbOk = prediction * len(pwrset)
+        print('nb of views ok: ', nbViewOK, 'out of ', sizeofsample, 'views, i.e., rate of:', nbViewOK / sizeofsample)
+        print('predicting number of views ok:', predictionNbOk)
 
-    #print('the error (according to bardenet) for avg and confidence interval of size', proba, ' is: ',
-    #      bernstein.empiricalBernsteinFromBardenet(proba, variance, sizeofsample, N))
+        #nbErrors = 2
+        #print('probability of making ', nbErrors, ' errors: ', bernstein.bernsteinBound(variance, nbErrors))
+        #print('the error (according to Bernstein) for sum and confidence interval of size', proba, ' is: ',
+        #      bernstein.bersteinError(proba, variance))
+        bennetError=bernstein.bennetErrorOnAvg(proba, variance, sizeofsample)
+        print('the error (according to Bennet) for avg and confidence interval of size', proba, ' is: ',
+              bernstein.bennetErrorOnAvg(proba, variance, sizeofsample))
+        #print('the error (empirical bennet) for avg and confidence interval of size', proba, ' is: ',
+        #      bernstein.empiricalBennetFromMaurer(proba, variance, sizeofsample))
+
+        ###
+        ### IF REPORTING EMPIRICAL ERROR
+        ### UNCOMMENT BELOW
+        #bennetError = bernstein.empiricalBennetFromMaurer(proba, variance, sizeofsample)
+
+        #print('the error (according to bardenet) for avg and confidence interval of size', proba, ' is: ',
+        #      bernstein.empiricalBernsteinFromBardenet(proba, variance, sizeofsample, N))
 
 
 
@@ -439,7 +451,6 @@ def test(conn, nbAdomVals, prefs, ratioViolations, proba, error, percentOfLattic
 # TODO
 #
 
-
 if __name__ == "__main__":
 
     config = configparser.ConfigParser()
@@ -447,6 +458,7 @@ if __name__ == "__main__":
     # The DB wee want
     #config.read('configs/flights1923.ini')
     config.read('configs/flights.ini')
+    #config.read('configs/artificial.ini')
     #config.read('configs/ssb.ini')
     # The system this is running on
     USER = "PM"
@@ -477,7 +489,7 @@ if __name__ == "__main__":
         nbruns = 10
 
 
-    # for Hoeffding - OLD
+    # for Hoeffding - OLD - REMOVE
     epsilon = 0.1
     alpha = 0.1
     p = 0
@@ -497,39 +509,47 @@ if __name__ == "__main__":
     # number of values of adom to consider - default = all of prefs
     nbAdomVals = len(prefs)
 
-    # for DB sampling
-    sampleSize = 0.3
+    # for sampling fact table with Postgresql
+    initsampleSize = 0.3
     samplingMethod = 'SYSTEM_ROWS'  # or SYSTEM
 
     # ratio max of violations in a cuboid
     ratioViolations = 0.4
 
-    # ratio min of cuboids with raio violations < ratioViolations
+    # ratio min of cuboids with ratio violations < ratioViolations
     ratioCuboidOK = 0.8
 
     # percentage of the lattice to generate
-    percentOfLattice = 0.3
+    percentOfLattice = 0.5
 
-    # do we generate indexes? possible value: True (create index on sel attribute), False (no index),
-    # mc (one multicolumn index, sel first), so far only over views
+    # do we generate indexes?
+    # possible values:
+    # True (create index on sel attribute),
+    # False (no index),
+    # mc (one multicolumn index, sel first), so far only over views (not fact table)
     generateIndex = 'mc'
 
-    # do we compare to ground truth?
+    # do we compare to ground truth? Otherwise, efficiency is tested
     comparison = True
 
-    #do we generate all comparisons?
+    # do we generate all comparisons?
     allComparisons = True
 
     # size of sample of queries for validation
-    sizeofquerysample = 10
+    sizeofquerysample = 20
 
-    #number of runs
+    # number of runs
     nbOfRuns = 5
+
+    ###
+    ### END OF PARAMETERS
+    ###
+
 
     # Connect to the database
     conn = connect_to_db(dbname, user, password, host, port)
 
-    #get size of R
+    # get size of fact table
     sizeOfR=dbStuff.getSizeOf(conn,table)
     #print(sizeOfR)
 
@@ -551,20 +571,23 @@ if __name__ == "__main__":
         listBennet=[]
         devBennet=[]
 
-        paramTested = 'Sample size'
+        paramTested = 'Query sample size'
+        #paramTested = 'Sample size'
         #paramTested = 'Percent of lattice'
-        #tabTest=(0.1, 0.25, 0.5, 0.75, 1)
+        #tabTest=(0.01, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8,0.9, 1)
         #tabTest=(0.1,0.25,0.5,1)
-        tabTest=(5,10,20,40)
+        tabTest=(2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20)
 
 
         #for percentOfLattice in tabTest:
-        #for sampleSize in tabTest:
+        #for initsampleSize in tabTest:
         for sizeofquerysample in tabTest:
         #for nbAdomVals in range(2,10):
-            sampleSize=sampleSize*sizeOfR
 
             print("--- TESTING VALUE:",sizeofquerysample)
+
+            sampleSize = initsampleSize * sizeOfR
+
             predictionTab=[]
             realErrorTab=[]
             nbWrongRankingTab=[]
@@ -587,6 +610,13 @@ if __name__ == "__main__":
                 else:
                     nbWrongRanking = 0
                 nbWrongRankingTab.append(nbWrongRanking)
+
+                print("interval: [",prediction-bennetError,",",prediction+bennetError,"]")
+                print("user threshold:",ratioCuboidOK)
+                if ratioCuboidOK >= prediction-bennetError and ratioCuboidOK <= prediction+bennetError:
+                    print("continue")
+                else:
+                    print("WE CAN STOP")
 
             meanPred=statistics.mean(predictionTab)
             stdevPred = statistics.stdev(predictionTab)
@@ -637,10 +667,9 @@ if __name__ == "__main__":
         paramTested='Sample size'
 
         #for percentOfLattice in tabTest:
-        for sampleSize in tabTest:
+        for initsampleSize in tabTest:
+            sampleSize = initsampleSize * sizeOfR
         # for nbAdomVals in range(2,10):
-
-            sampleSize = sampleSize * sizeOfR
 
             print("--- TESTING VALUE:", sampleSize)
 

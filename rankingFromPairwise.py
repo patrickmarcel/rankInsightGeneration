@@ -245,6 +245,7 @@ def computeSeparationJMLR18(pairwiseComparison,nbItems):
     return result
 
 def generateHypothesisTest(conn, meas, measBase, table, sel, sampleSize, method, valsToSelect=None):
+    print(sampleSize)
     resultVals = getSample(conn, measBase, table, sel, sampleSize, method, False, valsToSelect)
     #resultVals = getSample(conn, measBase, table, sel, sampleSize, method=method, repeatable=DEBUG_FLAG)
     #print(resultVals)
