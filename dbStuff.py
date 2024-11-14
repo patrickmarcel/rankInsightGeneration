@@ -262,7 +262,7 @@ def emptyGB(conn, nb_of_adom_vals, table, sel, meas):
     return resultEmptyGbAll[:nb_of_adom_vals], resultEmptyGbAll
 
 
-def generateArtificialDataset(conn,num_rows = 50000, nbAtt=10):
+def generateArtificialDataset_V1(conn,num_rows = 50000, nbAtt=10):
     # Generating values for the first attribute (categorical, repeated, exponential distribution)
     exp_values = np.random.exponential(scale=1.0, size=num_rows)
     first_attribute = pd.qcut(exp_values, q=10, labels=[f'Category_{i+1}' for i in range(10)])
@@ -303,6 +303,78 @@ def generateArtificialDataset(conn,num_rows = 50000, nbAtt=10):
     query = "copy " + tablename + " from \'" + path+'relational_table.csv' + "\' (header, format csv);"
     print(query)
     execute_query(conn, query)
+
+
+
+def generateArtificialDataset(conn,num_rows = 50000, nbAtt=10):
+
+    # Set the number of unique categories for the categorical attributes
+    num_categories_first_attr = 10
+    num_categories_other_attrs = 5
+
+    # 1st Attribute: Categorical values with occurrences drawn from an exponential distribution
+    categories_first_attr = [f'Category_{i+1}' for i in range(num_categories_first_attr)]
+    occurrences = np.random.exponential(scale=num_rows / num_categories_first_attr, size=num_categories_first_attr).astype(int)
+    occurrences = occurrences * num_rows // occurrences.sum()  # Scale occurrences to match the total number of rows
+
+    first_attribute = []
+    for i, count in enumerate(occurrences):
+        first_attribute.extend([categories_first_attr[i]] * count)
+    #this is because GPT does not know how to count
+    while len( first_attribute) != num_rows:
+        first_attribute.append('Category_1')
+    # Shuffle to randomize order
+    random.shuffle(first_attribute)
+
+    # 2nd Attribute: Numerical values drawn from a Gaussian (normal) distribution
+    mean = 50
+    std_dev = 10
+    second_attribute = np.random.normal(loc=mean, scale=std_dev, size=num_rows)
+
+    # Other Attributes: Categorical values drawn uniformly at random
+    other_attributes = []
+    for i in range(nbAtt):  # nbAtt other categorical attributes
+        other_attribute = [f'Cat_{i+1}_{j+1}' for j in range(num_categories_other_attrs)]
+        other_attributes.append(np.random.choice(other_attribute, size=num_rows))
+
+    # Create a DataFrame to represent the relational table
+    data = {
+        'Attribute_1': first_attribute,
+        'Attribute_2': second_attribute
+    }
+
+    for i in range(nbAtt):
+        data[f'A_{i+3}'] = other_attributes[i]
+
+    #print(data)
+    df = pd.DataFrame(data)
+
+    # Display the DataFrame structure
+    df.info()
+
+    # Optionally, save the DataFrame to a CSV file
+    #df.to_csv('generated_table_instance.csv', index=False)
+
+
+    df = pd.DataFrame(data)
+    path='/Users/marcel/PycharmProjects/hoeffding4ranks/data/'
+    df.to_csv(path+'relational_table.csv', index=False)
+
+    print("Relational table with ",num_rows," rows and ", nbAtt+2," attributes has been generated and saved as 'relational_table.csv'")
+
+    tablename="artificial_"+str(nbAtt)
+    query = "drop table if exists \"" + tablename + "\";"
+    execute_query(conn, query)
+    att='Attribute_1 varchar, Attribute_2 float, '
+    for i in range(1,nbAtt+1):
+        att=att+"A_"+str(i+2)+" varchar, "
+    att=att[:-2]
+    query="create table "+tablename+"("+att+");"
+    execute_query(conn, query)
+    query = "copy " + tablename + " from \'" + path+'relational_table.csv' + "\' (header, format csv);"
+    #print(query)
+    execute_query(conn, query)
+
 
 if __name__ == "__main__":
 

@@ -510,7 +510,7 @@ if __name__ == "__main__":
     nbAdomVals = len(prefs)
 
     # for sampling fact table with Postgresql
-    initsampleSize = 0.2
+    initsampleSize = 0.3
     samplingMethod = 'SYSTEM_ROWS'  # or SYSTEM
 
     # ratio max of violations in a cuboid
@@ -539,7 +539,7 @@ if __name__ == "__main__":
     sizeofquerysample = 20
 
     # number of runs
-    nbOfRuns = 5
+    nbOfRuns = 3
 
     ###
     ### END OF PARAMETERS
