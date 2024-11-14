@@ -32,6 +32,7 @@ def  compareHypToGB(hypothesis, conn, measBase,function, sel, vals):
     return v
 
 
+
 def countViolations(conn,query,hypothesis):
     #print(query)
     hyp=[str(a) for (a,b) in hypothesis]
