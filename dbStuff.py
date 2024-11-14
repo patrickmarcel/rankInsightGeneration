@@ -1,8 +1,10 @@
 import psycopg2
 from utilities import powerset
 import random
+import numpy as np
+import pandas as pd
 
-from psycopg2 import sql
+
 
 
 def getSizeOf(conn, table):
@@ -259,3 +261,32 @@ def emptyGB(conn, nb_of_adom_vals, table, sel, meas):
     resultEmptyGbAll = execute_query(conn, queryEmptyGbAll)
 
     return resultEmptyGbAll[:nb_of_adom_vals], resultEmptyGbAll
+
+
+def generateArtificialDataset(num_rows = 50000):
+    # Generating values for the first attribute (categorical, repeated, exponential distribution)
+    exp_values = np.random.exponential(scale=1.0, size=num_rows)
+    first_attribute = pd.qcut(exp_values, q=10, labels=[f'Category_{i+1}' for i in range(10)])
+
+    # Generating values for the second attribute (numerical, Gaussian distribution)
+    gaussian_values = np.random.normal(loc=50, scale=10, size=num_rows)
+
+    # Generating values for the other attributes (categorical, repeated, uniformly random)
+    categorical_values = [f'Category_{i+1}' for i in range(15)]
+    other_attributes = {
+        f'Attribute_{i+3}': np.random.choice(categorical_values, size=num_rows)
+        for i in range(10)
+    }
+
+    # Creating the DataFrame
+    data = {
+        'Attribute_1': first_attribute,
+        'Attribute_2': gaussian_values,
+    }
+    data.update(other_attributes)
+
+    # Creating the DataFrame and saving to CSV
+    df = pd.DataFrame(data)
+    df.to_csv('relational_table.csv', index=False)
+
+    print("Relational table with 50,000 rows and 12 attributes has been generated and saved as 'relational_table.csv'")
