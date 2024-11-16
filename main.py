@@ -16,7 +16,7 @@ from statsmodels.stats.multitest import fdrcorrection
 import configparser
 import json
 
-import bernstein
+import bounders
 
 
 # ------  Debug ?  ------------
@@ -295,7 +295,7 @@ def test(conn, nbAdomVals, prefs, ratioViolations, proba, error, percentOfLattic
     start_time = time.time()
 
     #size of query sample
-    sizeofsample = int(bernstein.sizeOfSampleHoeffding(proba, error)) + 1
+    sizeofsample = int(bounders.sizeOfSampleHoeffding(proba, error)) + 1
     print('size of query sample according to Hoeffding:', sizeofsample)
     sizeofsample = sizeofquerysample
     print('actual size of query sample:', sizeofsample)
@@ -310,7 +310,7 @@ def test(conn, nbAdomVals, prefs, ratioViolations, proba, error, percentOfLattic
     #print(str(tuple(valsToSelect)))
 
     print("Generating sample of aggregate queries")
-    ranks, queryCountviolations, queryCountCuboid, cuboid = bernstein.getSample(proba, error, pwrset, sel, measBase, function,
+    ranks, queryCountviolations, queryCountCuboid, cuboid = bounders.getSample(proba, error, pwrset, sel, measBase, function,
                                                                          table, tuple(valsToSelect), limitedHyp,
                                                                          mvnames,False,True,sizeofquerysample)
     # queryCountviolations, queryCountCuboid, cuboid=bernstein.getSample(proba, error, pwrset, sel, measBase, function, table, tuple(valsEmptyGB), emptyGBresult, mvnames)
@@ -372,9 +372,9 @@ def test(conn, nbAdomVals, prefs, ratioViolations, proba, error, percentOfLattic
         #print('probability of making ', nbErrors, ' errors: ', bernstein.bernsteinBound(variance, nbErrors))
         #print('the error (according to Bernstein) for sum and confidence interval of size', proba, ' is: ',
         #      bernstein.bersteinError(proba, variance))
-        bennetError=bernstein.bennetErrorOnAvg(proba, variance, sizeofsample)
+        bennetError=bounders.bennetErrorOnAvg(proba, variance, sizeofsample)
         print('the error (according to Bennet) for avg and confidence interval of size', proba, ' is: ',
-              bernstein.bennetErrorOnAvg(proba, variance, sizeofsample))
+              bounders.bennetErrorOnAvg(proba, variance, sizeofsample))
         #print('the error (empirical bennet) for avg and confidence interval of size', proba, ' is: ',
         #      bernstein.empiricalBennetFromMaurer(proba, variance, sizeofsample))
 
@@ -397,7 +397,7 @@ def test(conn, nbAdomVals, prefs, ratioViolations, proba, error, percentOfLattic
         #print("nb views generated:",nbMVs)
 
         compareHypToGB(hypothesis, conn, measBase,function, sel,tuple(valsToSelect))
-        ranks, queryCountviolations, queryCountCuboid, cuboid = bernstein.generateAllqueries(pwrset, sel, measBase, function,
+        ranks, queryCountviolations, queryCountCuboid, cuboid = bounders.generateAllqueries(pwrset, sel, measBase, function,
                                                                                       table, tuple(valsToSelect),
                                                                                       limitedHyp, mvnames)
         nbInconclusive=0
