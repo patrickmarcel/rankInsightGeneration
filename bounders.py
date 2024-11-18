@@ -157,8 +157,14 @@ def getSample(pwrset, sel, meas, function, table, valsToSelect, hypo, mvnames, w
         tabQuery.append(queryCountExcept)
         tabCount.append(queryCountCuboid)
         tabCuboid.append(strgb)
-    return tabRanks,tabQuery,tabCount,tabCuboid
+    return tabRanks,tabQuery,tabCount,tabCuboid,pset
 
+def getMoreRandamQueries(sizeofquerysample,currentSample, sel, meas, function,table,valsToSelect,hypo,mvnames, withReplacement=False, withBias=False):
+    currentsize=len(currentSample["ranks"])
+    #print("sizeofquerysample - currentsize:",sizeofquerysample - currentsize)
+    # TODO call getSample with sizeOfSample = sizeofquerysample - currentsize and pwrset=currentSample["pset"]
+    tabRanks,tabQuery,tabCount,tabCuboid,pset=getSample(currentSample["pset"], sel, meas, function, table, valsToSelect, hypo, mvnames, withReplacement=False, withBias=False, sizeOfSample=sizeofquerysample - currentsize)
+    return tabRanks,tabQuery,tabCount,tabCuboid,pset
 
 def generateAllqueriesOnMVs(pwrset, sel, meas, function, table, valsToSelect, hypo, mvnames):
     pset=pwrset

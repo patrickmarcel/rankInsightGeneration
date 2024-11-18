@@ -320,8 +320,8 @@ def test(conn, nbAdomVals, prefs, ratioViolations, proba, error, percentOfLattic
     sizeofquerysample = int(ratioOfQuerySample * len(aggQueries))
     if sizeofquerysample==0:
         sizeofquerysample=1
-    print("ratio: ",ratioOfQuerySample)
-    print("len agg: ",len(aggQueries))
+    #print("ratio: ",ratioOfQuerySample)
+    #print("len agg: ",len(aggQueries))
     print('Size of query sample:', sizeofquerysample)
 
 
@@ -336,14 +336,14 @@ def test(conn, nbAdomVals, prefs, ratioViolations, proba, error, percentOfLattic
 
     print("Sampling aggregate queries")
     if cumulate==False:
-        ranks, queryCountviolations, queryCountCuboid, cuboid = bounders.getSample(pwrset, sel, measBase, function,
+        ranks, queryCountviolations, queryCountCuboid, cuboid, newpset = bounders.getSample(pwrset, sel, measBase, function,
                                                                              table, tuple(valsToSelect), limitedHyp,
                                                                              mvnames,False,False,
                                                                                    sizeofquerysample)
         # queryCountviolations, queryCountCuboid, cuboid=bernstein.getSample(proba, error, pwrset, sel, measBase, function, table, tuple(valsEmptyGB), emptyGBresult, mvnames)
     else:
-        if currentSample==[]:
-            ranks, queryCountviolations, queryCountCuboid, cuboid = bounders.getSample(pwrset, sel, measBase, function,
+        if currentSample=={}:
+            ranks, queryCountviolations, queryCountCuboid, cuboid, newpset = bounders.getSample(pwrset, sel, measBase, function,
                                                                                        table, tuple(valsToSelect),
                                                                                        limitedHyp,
                                                                                        mvnames, False, False,
@@ -352,14 +352,22 @@ def test(conn, nbAdomVals, prefs, ratioViolations, proba, error, percentOfLattic
             currentSample["queryCountviolations"]=queryCountviolations
             currentSample["queryCountCuboid"]=queryCountCuboid
             currentSample["cuboid"]=cuboid
+            currentSample["pset"]=newpset
         else:
-            ranksTemp, queryCountviolationsTemp, queryCountCuboidTemp, cuboidTemp  = bounders.getMoreRandamQueries()
-            currentSample["ranks"].append(ranksTemp)
-            currentSample["queryCountViolations"].append(queryCountviolationsTemp)
-            currentSample["queryCountCuboid"] = queryCountCuboidTemp
-            currentSample["cuboid"] = cuboidTemp
+            ranksTemp, queryCountviolationsTemp, queryCountCuboidTemp, cuboidTemp, newpset  = bounders.getMoreRandamQueries(sizeofquerysample,currentSample,
+                                                                                                                            sel, measBase, function,
+                                                                                       table, tuple(valsToSelect),
+                                                                                       limitedHyp,
+                                                                                       mvnames, False, False)
+            #print(ranksTemp)
+            currentSample["ranks"].extend(ranksTemp)
+            #print(currentSample["ranks"])
+            currentSample["queryCountviolations"].extend(queryCountviolationsTemp)
+            currentSample["queryCountCuboid"].extend(queryCountCuboidTemp)
+            currentSample["cuboid"].extend(cuboidTemp)
+            currentSample["pset"] = newpset
             ranks=currentSample["ranks"]
-            queryCountviolations=currentSample["queryCountViolations"]
+            queryCountviolations=currentSample["queryCountviolations"]
             queryCountCuboid=currentSample["queryCountCuboid"]
             cuboid= currentSample["cuboid"]
 
@@ -372,9 +380,9 @@ def test(conn, nbAdomVals, prefs, ratioViolations, proba, error, percentOfLattic
     nbInconclusive=0
     sizeofsample=sizeofquerysample
 
-    for i in range(len(queryCountviolations)):
-
-        #print(ranks[i])
+    for i in range(len(ranks)):
+        #print(len(ranks))
+        #print(i,ranks[i])
         v,ratio=countViolations(conn,ranks[i],hypothesis)
         #v = dbStuff.execute_query(conn, queryCountviolations[i])[0][0]
         c = dbStuff.execute_query(conn, queryCountCuboid[i])[0][0]
@@ -572,7 +580,7 @@ if __name__ == "__main__":
     ratioCuboidOK = 0.8
 
     # percentage of the lattice to generate
-    percentOfLattice = 0.4
+    percentOfLattice = 0.2
 
     # do we generate indexes?
     # possible values:
@@ -588,10 +596,10 @@ if __name__ == "__main__":
     allComparisons = True
 
     # ratio of sample of queries for validation
-    ratioOfQuerySample = 0.4
+    ratioOfQuerySample = 0.2
 
     # number of runs
-    nbOfRuns = 3
+    nbOfRuns = 1
 
     ###
     ### END OF PARAMETERS
@@ -627,12 +635,12 @@ if __name__ == "__main__":
         #paramTested = 'Sample size'
         #paramTested = 'Percent of lattice'
         #tabTest=(0.01, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8,0.9, 1)
-        tabTest=(0.2,0.3, 0.4, 0.5, 0.6, 0.7, 0.8,0.9,1)
+        tabTest=(0.3, 0.4, 0.5, 0.6, 0.7, 0.8,0.9,1)
         #tabTest=(2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20)
         #tabTest=(5,10,20,50,75,100)
 
         mvnames,aggQueries=materializeViews(conn, groupbyAtt, sel, measBase, function, table, percentOfLattice, generateIndex)
-        currentSample=[]
+        currentSample={}
 
         #for percentOfLattice in tabTest:
         #for initsampleSize in tabTest:
@@ -652,7 +660,7 @@ if __name__ == "__main__":
 
                 print("-----RUN: ",i)
                 prediction,bennetError,realError,gtratio=test(conn, nbAdomVals, prefs, ratioViolations, proba, error, percentOfLattice, groupbyAtt,
-                                                              sel, measBase, function,table, sampleSize, comparison,generateIndex,allComparisons,ratioOfQuerySample,mvnames,aggQueries,currentSample,cumulate=False)
+                                                              sel, measBase, function,table, sampleSize, comparison,generateIndex,allComparisons,ratioOfQuerySample,mvnames,aggQueries,currentSample,cumulate=True)
                 #resultRuns.append((percentOfLattice,prediction,bennetError,realError))
 
                 predictionTab.append(prediction)
@@ -674,13 +682,17 @@ if __name__ == "__main__":
                     print("WE CAN STOP")
 
             meanPred=statistics.mean(predictionTab)
-            stdevPred = statistics.stdev(predictionTab)
+            #stdevPred = statistics.stdev(predictionTab)
+            stdevPred=0
             meanBen= statistics.mean(bennetTab)
-            stdevBen = statistics.stdev(bennetTab)
+            #stdevBen = statistics.stdev(bennetTab)
+            stdevBen=0
             meanError=statistics.mean(realErrorTab)
-            stdevError = statistics.stdev(realErrorTab)
+            #stdevError = statistics.stdev(realErrorTab)
+            stdevError=0
             meanWRTab = statistics.mean(nbWrongRankingTab)
-            stdevWRTab = statistics.stdev(nbWrongRankingTab)
+            #stdevWRTab = statistics.stdev(nbWrongRankingTab)
+            stdevWRTab=0
 
 
             listPred.append(meanPred)
