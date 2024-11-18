@@ -107,7 +107,6 @@ def getCuboidsOfAtt(attInGB, selAtt):
 # returns nb of created views
 # todo for avg, should materialize sum and count
 def createMV(conn, attInGB, selAtt, meas, function, table, percentOfLattice,generateIndex=False):
-    print("Creating views")
     existing=getMVnames(conn)
     pwset2=getCuboidsOfAtt(attInGB, selAtt)
     # remove last

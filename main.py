@@ -22,9 +22,11 @@ import bounders
 # ------  Debug ?  ------------
 DEBUG_FLAG = True
 
-def  compareHypToGB(hypothesis, conn, measBase,function, sel, vals):
+def  compareHypToGB(hypothesis, conn, measBase,function, sel, vals,mvnames, table):
     #query="Select " + sel +" from  " + sel + " where " + sel + " in " +  str(vals) + " order by " + measBase + " desc;"
-    query="select 'all',string_agg(" + sel + ",',') from (SELECT " + sel + ", " + function + "(" + measBase + "),  rank () over (  order by " + function + "(" + measBase + ") desc ) as rank FROM \"" + sel + "\" WHERE " + sel + " in " + str(vals) +" group by " +  sel + " order by rank);"
+    materialized=bounders.findMV(mvnames,sel,table)
+    #print("MATERIALIZED: ",materialized)
+    query="select 'all',string_agg(" + sel + ",',') from (SELECT " + sel + ", " + function + "(" + measBase + "),  rank () over (  order by " + function + "(" + measBase + ") desc ) as rank FROM \"" + materialized + "\" WHERE " + sel + " in " + str(vals) +" group by " +  sel + " order by rank);"
     #print(query)
     v,ratio=countViolations(conn,query,hypothesis)
     #print(v)
@@ -218,32 +220,52 @@ def getHypothesisCongressionalSampling(adom,congress):
     return correctHyp
 
 
-def test(conn, nbAdomVals, prefs, ratioViolations, proba, error, percentOfLattice, groupbyAtt, sel, measBase, function,table,sampleSize,comparison,generateIndex,allComparison,sizeofquerysample):
+def materializeViews(conn, groupbyAtt, sel, measBase, function, table, percentOfLattice, generateIndex):
+    # generate and get all materialized cuboids
+    print("Creating views")
+    dbStuff.dropAllMVs(conn)
+    dbStuff.createMV(conn, groupbyAtt, sel, measBase, function, table, percentOfLattice, generateIndex)
+    mvnames = dbStuff.getMVnames(conn)
 
-    if allComparison==False:
-        #sampling
+    aggQueries = dbStuff.getAggQueriesOverMV(mvnames, sel)
+    print("Materializing ", len(mvnames), " views: ", mvnames)
+    # print("queries: ",aggQueries)
+    print("Number of aggregate queries over the MVs: ", len(aggQueries))
+    return mvnames,aggQueries
+
+def hypothesisGeneration(conn, prefs, sel, measBase, table, sampleSize, allComparison):
+    if allComparison == False:
+        # sampling
         start_time = time.time()
-        adom, congress=fetchCongressionalSample(conn,sel,table,measBase,sampleSize, adom_restr=prefs)
+        adom, congress = fetchCongressionalSample(conn, sel, table, measBase, sampleSize, adom_restr=prefs)
         end_time = time.time()
         samplingTime = end_time - start_time
-        print('sampling time:',samplingTime)
+        print('sampling time:', samplingTime)
 
         # compute hypothesis
         start_time = time.time()
-        hypothesis = getHypothesisCongressionalSampling(adom,congress)
+        hypothesis = getHypothesisCongressionalSampling(adom, congress)
         end_time = time.time()
         hypothesisGenerationTime = end_time - start_time
-        print('hypothesis generation time:', hypothesisGenerationTime)
+        print('Hypothesis generation time:', hypothesisGenerationTime)
     else:
         # sampling and hypothesis
         start_time = time.time()
-        hypothesis=getHypothesisAllComparisons(conn, meas, measBase, table, sel, tuple(prefs), sampleSize, method='SYSTEM_ROWS')
+        hypothesis = getHypothesisAllComparisons(conn, meas, measBase, table, sel, tuple(prefs), sampleSize,
+                                                 method='SYSTEM_ROWS')
         end_time = time.time()
         samplingTime = end_time - start_time
-        hypothesisGenerationTime= samplingTime
-        #print('sampling time:', samplingTime)
-        print('hypothesis generation time:', hypothesisGenerationTime)
+        hypothesisGenerationTime = samplingTime
+        # print('sampling time:', samplingTime)
+        print('Hypothesis generation time:', hypothesisGenerationTime)
+    return hypothesis,hypothesisGenerationTime
 
+
+def test(conn, nbAdomVals, prefs, ratioViolations, proba, error, percentOfLattice, groupbyAtt, sel, measBase, function,table,
+         sampleSize,comparison,generateIndex,allComparison,ratioOfQuerySample,mvnames,aggQueries,currentSample,cumulate):
+    #print("Sample size: ",sampleSize)
+
+    hypothesis,hypothesisGenerationTime=hypothesisGeneration(conn, prefs, sel, measBase, table, sampleSize, allComparison)
     print("Hypothesis predicted: ", hypothesis)
 
 
@@ -256,7 +278,6 @@ def test(conn, nbAdomVals, prefs, ratioViolations, proba, error, percentOfLattic
             valsToSelect.append(h[0])
             j = j + 1
     #print("Hypothesis limited to choosen values: ", limitedHyp)
-
     #print("vals: ",valsToSelect)
 
     # just for checking on groupBy sel
@@ -284,30 +305,28 @@ def test(conn, nbAdomVals, prefs, ratioViolations, proba, error, percentOfLattic
             dbStuff.dropAllIndex(conn, table)
             #dbStuff.dropIndex(conn, table, sel)
 
-    # generate and get all materialized cuboids
-    dbStuff.dropAllMVs(conn)
-    dbStuff.createMV(conn, groupbyAtt, sel, measBase, function, table, percentOfLattice, generateIndex)
-    mvnames = dbStuff.getMVnames(conn)
 
-    aggQueries=dbStuff.getAggQueriesOverMV(mvnames,sel)
-    print("mvnames: ",mvnames)
-    print("len(mvnames):",len(mvnames))
-    print("queries: ",aggQueries)
-    print("len(aggQ):",len(aggQueries))
+    #MVs creation was here
 
 
     #validation of hypothesis
     start_time = time.time()
 
     #size of query sample
-    sizeofsample = int(bounders.sizeOfSampleHoeffding(proba, error)) + 1
-    print('size of query sample according to Hoeffding:', sizeofsample)
-    sizeofsample = sizeofquerysample
-    print('actual size of query sample:', sizeofsample)
+    #sizeofsample = int(bounders.sizeOfSampleHoeffding(proba, error)) + 1
+    #print('size of query sample according to Hoeffding:', sizeofsample)
+    #sizeofsample = sizeofquerysample
+
+    sizeofquerysample = int(ratioOfQuerySample * len(aggQueries))
+    if sizeofquerysample==0:
+        sizeofquerysample=1
+    print("ratio: ",ratioOfQuerySample)
+    print("len agg: ",len(aggQueries))
+    print('Size of query sample:', sizeofquerysample)
 
 
     # total number of cuboids
-    N = len(utilities.powerset(groupbyAtt))
+    #N = len(utilities.powerset(groupbyAtt))
     #print('size of sample according to Bardenet:',
     #      int(bounders.sizeOfSampleHoeffdingSerflingFromBardenet(proba, error, N)) + 1)
 
@@ -315,23 +334,46 @@ def test(conn, nbAdomVals, prefs, ratioViolations, proba, error, percentOfLattic
     pwrset=aggQueries
     #print("pwrset:",pwrset)
 
-    print("Generating sample of aggregate queries")
-    ranks, queryCountviolations, queryCountCuboid, cuboid = bounders.getSample(proba, error, pwrset, sel, measBase, function,
-                                                                         table, tuple(valsToSelect), limitedHyp,
-                                                                         mvnames,False,False,sizeofquerysample)
-    # queryCountviolations, queryCountCuboid, cuboid=bernstein.getSample(proba, error, pwrset, sel, measBase, function, table, tuple(valsEmptyGB), emptyGBresult, mvnames)
+    print("Sampling aggregate queries")
+    if cumulate==False:
+        ranks, queryCountviolations, queryCountCuboid, cuboid = bounders.getSample(pwrset, sel, measBase, function,
+                                                                             table, tuple(valsToSelect), limitedHyp,
+                                                                             mvnames,False,False,
+                                                                                   sizeofquerysample)
+        # queryCountviolations, queryCountCuboid, cuboid=bernstein.getSample(proba, error, pwrset, sel, measBase, function, table, tuple(valsEmptyGB), emptyGBresult, mvnames)
+    else:
+        if currentSample==[]:
+            ranks, queryCountviolations, queryCountCuboid, cuboid = bounders.getSample(pwrset, sel, measBase, function,
+                                                                                       table, tuple(valsToSelect),
+                                                                                       limitedHyp,
+                                                                                       mvnames, False, False,
+                                                                                       sizeofquerysample)
+            currentSample["ranks"]=ranks
+            currentSample["queryCountviolations"]=queryCountviolations
+            currentSample["queryCountCuboid"]=queryCountCuboid
+            currentSample["cuboid"]=cuboid
+        else:
+            ranksTemp, queryCountviolationsTemp, queryCountCuboidTemp, cuboidTemp  = bounders.getMoreRandamQueries()
+            currentSample["ranks"].append(ranksTemp)
+            currentSample["queryCountViolations"].append(queryCountviolationsTemp)
+            currentSample["queryCountCuboid"] = queryCountCuboidTemp
+            currentSample["cuboid"] = cuboidTemp
+            ranks=currentSample["ranks"]
+            queryCountviolations=currentSample["queryCountViolations"]
+            queryCountCuboid=currentSample["queryCountCuboid"]
+            cuboid= currentSample["cuboid"]
 
-    print("sample:",ranks)
-    print("Computing violations")
+
+    print("Validating: computing violations")
 
     tabRandomVar = []
     nbViewOK = 0
 
     nbInconclusive=0
+    sizeofsample=sizeofquerysample
 
     for i in range(len(queryCountviolations)):
-        #print(queryCountviolations[i])
-        #print(queryCountCuboid[i])
+
         #print(ranks[i])
         v,ratio=countViolations(conn,ranks[i],hypothesis)
         #v = dbStuff.execute_query(conn, queryCountviolations[i])[0][0]
@@ -340,7 +382,6 @@ def test(conn, nbAdomVals, prefs, ratioViolations, proba, error, percentOfLattic
         #print(c)
         if c!=0:
             #OLD print(v/c, " violation rate in cuboid ", cuboid[i], " of size: ", c, ". Number of violations: ", v)
-
             #print(ratio, " violation rate in cuboid ", cuboid[i], " of size: ", c, ". Number of violations: ", v)
 
             if ratio < ratioViolations:
@@ -356,33 +397,37 @@ def test(conn, nbAdomVals, prefs, ratioViolations, proba, error, percentOfLattic
 
     end_time = time.time()
     validationTime = end_time - start_time
-    print('validation time:', validationTime)
+    print('Validation time:', validationTime)
 
-    print('number of inconclusive: ',nbInconclusive, ' ratio: ',nbInconclusive/len(queryCountviolations))
+    print('Number of inconclusive: ',nbInconclusive, ' ratio: ',nbInconclusive/len(queryCountviolations))
 
     variance = np.var(tabRandomVar)
     # print('variance: ', variance)
     # check if sizeofsample=0!
     if sizeofsample==0:
         prediction = 0
-        print("nothing conclusive")
+        print("WARNING: Nothing conclusive")
         bennetError=0
     else:
         prediction = nbViewOK / sizeofsample
 
         predictionNbOk = prediction * len(pwrset)
-        print('nb of views ok: ', nbViewOK, 'out of ', sizeofsample, 'views, i.e., rate of:', nbViewOK / sizeofsample)
-        print('predicting number of views ok:', predictionNbOk)
+        print('Number of views ok: ', nbViewOK, 'out of ', sizeofsample, 'views, i.e., rate of:', nbViewOK / sizeofsample)
+        print('Prediction is:', predictionNbOk)
 
         #nbErrors = 2
         #print('probability of making ', nbErrors, ' errors: ', bernstein.bernsteinBound(variance, nbErrors))
         #print('the error (according to Bernstein) for sum and confidence interval of size', proba, ' is: ',
         #      bernstein.bersteinError(proba, variance))
         bennetError=bounders.bennetErrorOnAvg(proba, variance, sizeofsample)
-        print('the error (according to Bennet) for avg and confidence interval of size', proba, ' is: ',
+        print('The error (according to Bennet) for confidence interval of size', proba, ' is: ',
               bounders.bennetErrorOnAvg(proba, variance, sizeofsample))
-        #print('the error (empirical bennet) for avg and confidence interval of size', proba, ' is: ',
-        #      bernstein.empiricalBennetFromMaurer(proba, variance, sizeofsample))
+
+
+
+        #if sizeofsample>1:
+        #    print('The error (empirical Bennet from Maurer and Pontil) for confidence interval of size', proba, ' is: ',
+        #      bounders.empiricalBennetFromMaurer(proba, variance, sizeofsample))
 
         ###
         ### IF REPORTING EMPIRICAL ERROR
@@ -398,14 +443,15 @@ def test(conn, nbAdomVals, prefs, ratioViolations, proba, error, percentOfLattic
         # comparison with ground truth
         print('*** comparison to ground truth ***')
 
-        dbStuff.dropAllMVs(conn)
-        nbMVs = dbStuff.createMV(conn, groupbyAtt, sel, measBase, function, table, 1,generateIndex)
-        #print("nb views generated:",nbMVs)
+        #dbStuff.dropAllMVs(conn)
+        #nbMVs = dbStuff.createMV(conn, groupbyAtt, sel, measBase, function, table, 1,generateIndex)
+        nbMVs=len(pwrset)
 
-        compareHypToGB(hypothesis, conn, measBase,function, sel,tuple(valsToSelect))
-        ranks, queryCountviolations, queryCountCuboid, cuboid = bounders.generateAllqueries(pwrset, sel, measBase, function,
+        compareHypToGB(hypothesis, conn, measBase,function, sel,tuple(valsToSelect),mvnames,table)
+        ranks, queryCountviolations, queryCountCuboid, cuboid = bounders.generateAllqueriesOnMVs(pwrset, sel, measBase, function,
                                                                                       table, tuple(valsToSelect),
                                                                                       limitedHyp, mvnames)
+
         nbInconclusive=0
         tabRandomVar = []
         nbViewOK = 0
@@ -526,7 +572,7 @@ if __name__ == "__main__":
     ratioCuboidOK = 0.8
 
     # percentage of the lattice to generate
-    percentOfLattice = 0.2
+    percentOfLattice = 0.4
 
     # do we generate indexes?
     # possible values:
@@ -541,8 +587,8 @@ if __name__ == "__main__":
     # do we generate all comparisons?
     allComparisons = True
 
-    # size of sample of queries for validation
-    sizeofquerysample = 20
+    # ratio of sample of queries for validation
+    ratioOfQuerySample = 0.4
 
     # number of runs
     nbOfRuns = 3
@@ -581,17 +627,19 @@ if __name__ == "__main__":
         #paramTested = 'Sample size'
         #paramTested = 'Percent of lattice'
         #tabTest=(0.01, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8,0.9, 1)
-        #tabTest=(0.1,0.25,0.5,1)
+        tabTest=(0.2,0.3, 0.4, 0.5, 0.6, 0.7, 0.8,0.9,1)
         #tabTest=(2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20)
-        tabTest=(5,10,20,50,75,100)
+        #tabTest=(5,10,20,50,75,100)
 
+        mvnames,aggQueries=materializeViews(conn, groupbyAtt, sel, measBase, function, table, percentOfLattice, generateIndex)
+        currentSample=[]
 
         #for percentOfLattice in tabTest:
         #for initsampleSize in tabTest:
-        for sizeofquerysample in tabTest:
+        for ratioOfQuerySample in tabTest:
         #for nbAdomVals in range(2,10):
 
-            print("--- TESTING VALUE:",sizeofquerysample)
+            print("--- TESTING VALUE:",ratioOfQuerySample)
 
             sampleSize = initsampleSize * sizeOfR
 
@@ -604,7 +652,7 @@ if __name__ == "__main__":
 
                 print("-----RUN: ",i)
                 prediction,bennetError,realError,gtratio=test(conn, nbAdomVals, prefs, ratioViolations, proba, error, percentOfLattice, groupbyAtt,
-                                                              sel, measBase, function,table, sampleSize, comparison,generateIndex,allComparisons,sizeofquerysample)
+                                                              sel, measBase, function,table, sampleSize, comparison,generateIndex,allComparisons,ratioOfQuerySample,mvnames,aggQueries,currentSample,cumulate=False)
                 #resultRuns.append((percentOfLattice,prediction,bennetError,realError))
 
                 predictionTab.append(prediction)
@@ -689,7 +737,7 @@ if __name__ == "__main__":
                 print("-----RUN: ",i)
                 bennetError, samplingTime, hypothesisTime, validationTime = test(conn, nbAdomVals, prefs, ratioViolations, proba, error,
                                                                percentOfLattice, groupbyAtt, sel, measBase, function,
-                                                               table, sampleSize, comparison,generateIndex,allComparisons,sizeofquerysample)
+                                                               table, sampleSize, comparison,generateIndex,allComparisons,ratioOfQuerySample)
                 benTab.append(bennetError)
                 samplingTab.append(samplingTime)
                 hypoTab.append(hypothesisTime)
