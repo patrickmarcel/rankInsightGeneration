@@ -265,7 +265,7 @@ def test(conn, nbAdomVals, prefs, ratioViolations, proba, error, percentOfLattic
     # valsEmptyGB=[a for (a, b) in emptyGBresult]
     # print(valsEmptyGB)
 
-    #generate index on sel attribute
+    #generate index on sel attribute over table R
     if generateIndex == True :
         print('Creating indexes')
         dbStuff.dropAllIndex(conn,table)
@@ -289,6 +289,11 @@ def test(conn, nbAdomVals, prefs, ratioViolations, proba, error, percentOfLattic
     dbStuff.createMV(conn, groupbyAtt, sel, measBase, function, table, percentOfLattice, generateIndex)
     mvnames = dbStuff.getMVnames(conn)
 
+    aggQueries=dbStuff.getAggQueriesOverMV(mvnames)
+    print("mvnames: ",mvnames)
+    print("len(mvnames):",len(mvnames))
+    print("queries: ",aggQueries)
+    print("len(aggQ):",len(aggQueries))
 
 
     #validation of hypothesis
@@ -302,12 +307,12 @@ def test(conn, nbAdomVals, prefs, ratioViolations, proba, error, percentOfLattic
 
 
     # total number of cuboids
-    N = len(utilities.powerset(groupbyAtt))
+    N = 2*len(utilities.powerset(groupbyAtt))
     #print('size of sample according to Bardenet:',
-    #      int(bernstein.sizeOfSampleHoeffdingSerflingFromBardenet(proba, error, N)) + 1)
+    #      int(bounders.sizeOfSampleHoeffdingSerflingFromBardenet(proba, error, N)) + 1)
 
     pwrset = dbStuff.getCuboidsOfAtt(groupbyAtt, sel)
-    #print(str(tuple(valsToSelect)))
+    #print("pwrset:",pwrset)
 
     print("Generating sample of aggregate queries")
     ranks, queryCountviolations, queryCountCuboid, cuboid = bounders.getSample(proba, error, pwrset, sel, measBase, function,
@@ -457,8 +462,8 @@ if __name__ == "__main__":
 
     # The DB wee want
     #config.read('configs/flights1923.ini')
-    #config.read('configs/flights.ini')
-    config.read('configs/artificial.ini')
+    config.read('configs/flights.ini')
+    #config.read('configs/artificial.ini')
     #config.read('configs/ssb.ini')
     # The system this is running on
     USER = "PM"
@@ -520,7 +525,7 @@ if __name__ == "__main__":
     ratioCuboidOK = 0.8
 
     # percentage of the lattice to generate
-    percentOfLattice = 0.1
+    percentOfLattice = 0.2
 
     # do we generate indexes?
     # possible values:

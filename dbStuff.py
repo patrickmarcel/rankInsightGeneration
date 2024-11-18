@@ -60,6 +60,27 @@ def getDefOfMV(conn, MVname):
 def getJSONPlannerForQuery(conn, query):
     return execute_query(conn, "explain (format json) " + query)
 
+
+# returns the set of aggregate queries that can be run over the set of MV in mvnames
+def getAggQueriesOverMV(mvnames):
+    result=[]
+    #print(mvnames)
+    for n in mvnames:
+        n=n[0]
+        nset=[]
+        for s in n.split(","):
+            nset.append(s)
+        #print(nset)
+        pwset = powerset(nset)
+        #print(pwset)
+        for p in pwset:
+            result.append(p)
+    #remove duplicates
+    #print(result)
+    result=list(set(result))
+    #print(result)
+    return result
+
 # generate all cuboids (group bys) including selAtt
 def getCuboidsOfAtt(attInGB, selAtt):
     pwset = powerset(attInGB)
