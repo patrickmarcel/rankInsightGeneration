@@ -289,7 +289,7 @@ def test(conn, nbAdomVals, prefs, ratioViolations, proba, error, percentOfLattic
     dbStuff.createMV(conn, groupbyAtt, sel, measBase, function, table, percentOfLattice, generateIndex)
     mvnames = dbStuff.getMVnames(conn)
 
-    aggQueries=dbStuff.getAggQueriesOverMV(mvnames)
+    aggQueries=dbStuff.getAggQueriesOverMV(mvnames,sel)
     print("mvnames: ",mvnames)
     print("len(mvnames):",len(mvnames))
     print("queries: ",aggQueries)
@@ -307,20 +307,21 @@ def test(conn, nbAdomVals, prefs, ratioViolations, proba, error, percentOfLattic
 
 
     # total number of cuboids
-    N = 2*len(utilities.powerset(groupbyAtt))
+    N = len(utilities.powerset(groupbyAtt))
     #print('size of sample according to Bardenet:',
     #      int(bounders.sizeOfSampleHoeffdingSerflingFromBardenet(proba, error, N)) + 1)
 
-    pwrset = dbStuff.getCuboidsOfAtt(groupbyAtt, sel)
+    #pwrset = dbStuff.getCuboidsOfAtt(groupbyAtt, sel)
+    pwrset=aggQueries
     #print("pwrset:",pwrset)
 
     print("Generating sample of aggregate queries")
     ranks, queryCountviolations, queryCountCuboid, cuboid = bounders.getSample(proba, error, pwrset, sel, measBase, function,
                                                                          table, tuple(valsToSelect), limitedHyp,
-                                                                         mvnames,False,True,sizeofquerysample)
+                                                                         mvnames,False,False,sizeofquerysample)
     # queryCountviolations, queryCountCuboid, cuboid=bernstein.getSample(proba, error, pwrset, sel, measBase, function, table, tuple(valsEmptyGB), emptyGBresult, mvnames)
 
-
+    print("sample:",ranks)
     print("Computing violations")
 
     tabRandomVar = []

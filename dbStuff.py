@@ -62,24 +62,36 @@ def getJSONPlannerForQuery(conn, query):
 
 
 # returns the set of aggregate queries that can be run over the set of MV in mvnames
-def getAggQueriesOverMV(mvnames):
+def getAggQueriesOverMV(mvnames,sel):
     result=[]
     #print(mvnames)
     for n in mvnames:
+        #print("n ",n)
         n=n[0]
+        #print("n[0] ",n)
         nset=[]
         for s in n.split(","):
             nset.append(s)
         #print(nset)
         pwset = powerset(nset)
-        #print(pwset)
+        #print("pwset ",pwset)
         for p in pwset:
             result.append(p)
     #remove duplicates
     #print(result)
     result=list(set(result))
+    #remove queries without sel attribute
     #print(result)
-    return result
+    result.remove(())
+    #print(result)
+    res=[]
+    for r in result:
+        #print(r)
+        #print(r[-1])
+        if r[-1]==sel:
+            res.append(r)
+    #print(res)
+    return res
 
 # generate all cuboids (group bys) including selAtt
 def getCuboidsOfAtt(attInGB, selAtt):
