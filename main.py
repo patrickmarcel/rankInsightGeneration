@@ -580,7 +580,7 @@ if __name__ == "__main__":
     ratioCuboidOK = 0.8
 
     # percentage of the lattice to generate
-    percentOfLattice = 0.2
+    percentOfLattice = 0.4
 
     # do we generate indexes?
     # possible values:
@@ -596,7 +596,7 @@ if __name__ == "__main__":
     allComparisons = True
 
     # ratio of sample of queries for validation
-    ratioOfQuerySample = 0.2
+    ratioOfQuerySample = 0.4
 
     # number of runs
     nbOfRuns = 1
@@ -682,17 +682,20 @@ if __name__ == "__main__":
                     print("WE CAN STOP")
 
             meanPred=statistics.mean(predictionTab)
-            #stdevPred = statistics.stdev(predictionTab)
-            stdevPred=0
             meanBen= statistics.mean(bennetTab)
-            #stdevBen = statistics.stdev(bennetTab)
-            stdevBen=0
             meanError=statistics.mean(realErrorTab)
-            #stdevError = statistics.stdev(realErrorTab)
-            stdevError=0
             meanWRTab = statistics.mean(nbWrongRankingTab)
-            #stdevWRTab = statistics.stdev(nbWrongRankingTab)
-            stdevWRTab=0
+
+            if nbruns==1:
+                stdevPred = 0
+                stdevBen = 0
+                stdevError = 0
+                stdevWRTab = 0
+            else:
+                stdevPred = statistics.stdev(predictionTab)
+                stdevBen = statistics.stdev(bennetTab)
+                stdevError = statistics.stdev(realErrorTab)
+                stdevWRTab = statistics.stdev(nbWrongRankingTab)
 
 
             listPred.append(meanPred)
