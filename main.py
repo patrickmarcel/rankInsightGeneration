@@ -28,7 +28,7 @@ def  compareHypToGB(hypothesis, conn, measBase,function, sel, vals,mvnames, tabl
     #print("MATERIALIZED: ",materialized)
     query="select 'all',string_agg(" + sel + ",',') from (SELECT " + sel + ", " + function + "(" + measBase + "),  rank () over (  order by " + function + "(" + measBase + ") desc ) as rank FROM \"" + materialized + "\" WHERE " + sel + " in " + str(vals) +" group by " +  sel + " order by rank);"
     #print(query)
-    v,ratio=countViolations(conn,query,hypothesis)
+    v,ratio,qtime=countViolations(conn,query,hypothesis)
     #print(v)
     print("hypothesis compared to group by ",sel," has ",v," violations")
     return v
@@ -40,7 +40,10 @@ def countViolations(conn,query,hypothesis):
     hyp=[str(a) for (a,b) in hypothesis]
     #print('hyp:',hyp)
     v=0
+    start_time_q = time.time()
     res=dbStuff.execute_query(conn,query)
+    end_time_q = time.time()
+    querytime=end_time_q-start_time_q
     normalize=0
     for r in res:
         #print(r)
@@ -84,7 +87,7 @@ def countViolations(conn,query,hypothesis):
         ratio=v/normalize
     else:
         ratio=0
-    return v,ratio
+    return v,ratio,querytime
 
 
 
@@ -380,10 +383,13 @@ def test(conn, nbAdomVals, prefs, ratioViolations, proba, error, percentOfLattic
     nbInconclusive=0
     sizeofsample=sizeofquerysample
 
+    totalQueryTime=0
+
     for i in range(len(ranks)):
         #print(len(ranks))
         #print(i,ranks[i])
-        v,ratio=countViolations(conn,ranks[i],hypothesis)
+        v,ratio,qtime=countViolations(conn,ranks[i],hypothesis)
+        totalQueryTime=totalQueryTime+qtime
         #v = dbStuff.execute_query(conn, queryCountviolations[i])[0][0]
         c = dbStuff.execute_query(conn, queryCountCuboid[i])[0][0]
         # print(v)
@@ -455,7 +461,8 @@ def test(conn, nbAdomVals, prefs, ratioViolations, proba, error, percentOfLattic
         #nbMVs = dbStuff.createMV(conn, groupbyAtt, sel, measBase, function, table, 1,generateIndex)
         nbMVs=len(pwrset)
 
-        compareHypToGB(hypothesis, conn, measBase,function, sel,tuple(valsToSelect),mvnames,table)
+        #compareHypToGB(hypothesis, conn, measBase,function, sel,tuple(valsToSelect),mvnames,table)
+
         ranks, queryCountviolations, queryCountCuboid, cuboid = bounders.generateAllqueriesOnMVs(pwrset, sel, measBase, function,
                                                                                       table, tuple(valsToSelect),
                                                                                       limitedHyp, mvnames)
@@ -467,7 +474,7 @@ def test(conn, nbAdomVals, prefs, ratioViolations, proba, error, percentOfLattic
             #print('gt violations:',queryCountviolations[i])
             #print('gt count:',queryCountCuboid[i])
             #v = dbStuff.execute_query(conn, queryCountviolations[i])[0][0]
-            v,ratio = countViolations(conn, ranks[i], hypothesis)
+            v,ratio,qtime = countViolations(conn, ranks[i], hypothesis)
             c = dbStuff.execute_query(conn, queryCountCuboid[i])[0][0]
             # print(v)
             # print(c)
@@ -505,7 +512,7 @@ def test(conn, nbAdomVals, prefs, ratioViolations, proba, error, percentOfLattic
 
         return prediction,bennetError,realError,gtratio
     else:
-        return bennetError, samplingTime, hypothesisGenerationTime, validationTime
+        return totalQueryTime, samplingTime, hypothesisGenerationTime, validationTime
 
 
 # TODO
@@ -517,9 +524,9 @@ if __name__ == "__main__":
 
     # The DB wee want
     #config.read('configs/flights1923.ini')
-    #config.read('configs/flights.ini')
+    config.read('configs/flights.ini')
     #config.read('configs/artificial.ini')
-    config.read('configs/ssb.ini')
+    #config.read('configs/ssb.ini')
     # The system this is running on
     USER = "PM"
 
@@ -759,12 +766,12 @@ if __name__ == "__main__":
             for i in range(nbOfRuns):
                 print("-----RUN: ",i)
 
-                bennetError, samplingTime, hypothesisTime, validationTime = test(conn, nbAdomVals, prefs, ratioViolations, proba, error,
+                queryTime, samplingTime, hypothesisTime, validationTime = test(conn, nbAdomVals, prefs, ratioViolations, proba, error,
                                                                percentOfLattice, groupbyAtt, sel, measBase, function,
                                                                table, sampleSize, comparison,generateIndex,allComparisons,ratioOfQuerySample, mvnames, aggQueries,
                                                                    currentSample, cumulate=True)
 
-                benTab.append(bennetError)
+                benTab.append(queryTime)
                 samplingTab.append(samplingTime)
                 hypoTab.append(hypothesisTime)
                 validTab.append(validationTime)
@@ -797,7 +804,7 @@ if __name__ == "__main__":
             devValid.append(stdevValid)
 
         data = [
-            {'x': tabTest, 'y': listBennet, 'yerr': devBennet, 'label': 'Bennet theoretical error'},
+            {'x': tabTest, 'y': listBennet, 'yerr': devBennet, 'label': 'Aggregate queries time'},
             {'x': tabTest, 'y': listSampling, 'yerr': devSampling, 'label': 'Sampling time'},
             {'x': tabTest, 'y': listHypo, 'yerr': devHypo, 'label': 'Hypothesis time'},
             {'x': tabTest, 'y': listValid, 'yerr': devValid, 'label': 'Validation time'}
