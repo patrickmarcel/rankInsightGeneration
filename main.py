@@ -540,15 +540,13 @@ def testTimings(nbruns,conn, nbAdomVals, prefs, ratioViolations,proba, error, pe
     tabTest = (0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1)
 
 
-    tabres=[]
-
     for j in range(nbruns):
         print("-----RUN: ", j)
 
         mvnames, aggQueries = materializeViews(conn, groupbyAtt, sel, measBase, function, table, percentOfLattice, generateIndex)
         currentSample = {}
 
-        #dictTest = {}
+
 
         for ratioOfQuerySample in tabTest:
             # for percentOfLattice in tabTest:
@@ -638,6 +636,112 @@ def testTimings(nbruns,conn, nbAdomVals, prefs, ratioViolations,proba, error, pe
 
     plot_curves_with_error_bars(data, x_label=paramTested, y_label='Time (s)',title='Times',scale='log')
 
+
+def testAccuracy(nbruns,conn, nbAdomVals, prefs, ratioViolations,proba, error, percentOfLattice, groupbyAtt, sel, measBase,function,table, comparison, generateIndex,
+                                                                           allComparisons, ratioOfQuerySample, cumulate):
+    dictPred = {}
+    dictBennet = {}
+    dictError = {}
+    dictWR = {}
+
+
+    paramTested = 'Query sample size'
+    # paramTested = 'Sample size'
+    # paramTested = 'Percent of lattice'
+    # tabTest=(0.01, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8,0.9, 1)
+    tabTest = (0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1)
+    # tabTest=(2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20)
+    # tabTest=(5,10,20,50,75,100
+
+    for j in range(nbruns):
+        print("-----RUN: ", j)
+
+        mvnames, aggQueries = materializeViews(conn, groupbyAtt, sel, measBase, function, table, percentOfLattice,
+                                               generateIndex)
+        currentSample = {}
+
+        # for percentOfLattice in tabTest:
+        # for initsampleSize in tabTest:
+        for ratioOfQuerySample in tabTest:
+            # for nbAdomVals in range(2,10):
+
+            print("--- TESTING VALUE:", ratioOfQuerySample)
+
+            sampleSize = initsampleSize * sizeOfR
+
+            prediction, bennetError, realError, gtratio = test(conn, nbAdomVals, prefs, ratioViolations, proba, error,
+                                                           percentOfLattice, groupbyAtt,
+                                                           sel, measBase, function, table, sampleSize, comparison,
+                                                           generateIndex, allComparisons, ratioOfQuerySample, mvnames,
+                                                           aggQueries, currentSample, cumulate=True)
+
+            if str(ratioOfQuerySample) in dictPred:
+                dictPred[str(ratioOfQuerySample)].extend([prediction])
+            else:
+                dictPred[str(ratioOfQuerySample)] = [prediction]
+            if str(ratioOfQuerySample) in dictBennet:
+                dictBennet[str(ratioOfQuerySample)].extend([bennetError])
+            else:
+                dictBennet[str(ratioOfQuerySample)] = [bennetError]
+            if str(ratioOfQuerySample) in dictError:
+                dictError[str(ratioOfQuerySample)].extend([realError])
+            else:
+                dictError[str(ratioOfQuerySample)] = [realError]
+
+            print("Desired cuboid ratio is:", ratioCuboidOK, ". We predicted ratio of: ", prediction, ". Real ratio is: ",
+                  gtratio)
+            if (gtratio < ratioCuboidOK and prediction > ratioCuboidOK) or (
+                    gtratio > ratioCuboidOK and prediction < ratioCuboidOK):
+                nbWrongRanking = 1
+            else:
+                nbWrongRanking = 0
+            #nbWrongRankingTab.append(nbWrongRanking)
+
+            print("interval: [", prediction - bennetError, ",", prediction + bennetError, "]")
+            print("user threshold:", ratioCuboidOK)
+            if ratioCuboidOK >= prediction - bennetError and ratioCuboidOK <= prediction + bennetError:
+                print("continue")
+            else:
+                print("WE CAN STOP")
+
+            if str(ratioOfQuerySample) in dictWR:
+                dictWR[str(ratioOfQuerySample)].extend([nbWrongRanking])
+            else:
+                dictWR[str(ratioOfQuerySample)] = [nbWrongRanking]
+
+    meanPred = []
+    stdevPred = []
+    meanBennet = []
+    stdevBennet = []
+    meanError = []
+    stdevError = []
+    meanWRW = []
+    stdevWR = []
+
+    for i in tabTest:
+        # prediction
+        meanPred.append(statistics.mean(dictPred[str(i)]))
+        stdevPred.append(statistics.stdev(dictPred[str(i)]))
+        # Bennet
+        meanBennet.append(statistics.mean(dictBennet[str(i)]))
+        stdevBennet.append(statistics.stdev(dictBennet[str(i)]))
+        # error
+        meanError.append(statistics.mean(dictError[str(i)]))
+        stdevError.append(statistics.stdev(dictError[str(i)]))
+        # WR
+        meanWRW.append(statistics.mean(dictWR[str(i)]))
+        stdevWR.append(statistics.stdev(dictWR[str(i)]))
+
+    data = [
+        {'x': tabTest, 'y': meanBennet, 'yerr': stdevBennet, 'label': 'Bennet theoretical error'},
+        {'x': tabTest, 'y': meanError, 'yerr': stdevError, 'label': 'real error'},
+        {'x': tabTest, 'y': meanPred, 'yerr': stdevPred, 'label': 'prediction'},
+        {'x': tabTest, 'y': meanWRW, 'yerr': stdevWR, 'label': 'unvalidated prediction'}
+    ]
+
+    plot_curves_with_error_bars(data, x_label=paramTested, y_label='Error',
+                                title='prediction and errors')
+
 #
 # Main
 
@@ -647,8 +751,8 @@ if __name__ == "__main__":
 
     # The DB wee want
     #config.read('configs/flights1923.ini')
-    config.read('configs/flights.ini')
-    #config.read('configs/artificial.ini')
+    #config.read('configs/flights.ini')
+    config.read('configs/artificial.ini')
     #config.read('configs/ssb.ini')
     # The system this is running on
     USER = "PM"
@@ -720,7 +824,7 @@ if __name__ == "__main__":
     generateIndex = 'mc'
 
     # do we compare to ground truth? Otherwise, efficiency is tested
-    comparison = False
+    comparison = True
 
     # do we generate all comparisons?
     allComparisons = True
@@ -729,7 +833,7 @@ if __name__ == "__main__":
     ratioOfQuerySample = 0.4
 
     # number of runs
-    nbOfRuns = 1
+    nbOfRuns = 1 ## no more used
     nbruns=3
 
     ###
@@ -753,105 +857,9 @@ if __name__ == "__main__":
 
     if comparison==True:
 
-        listPred=[]
-        devPred=[]
-        listError=[]
-        devError=[]
-        listWR=[]
-        devWR=[]
-        listBennet=[]
-        devBennet=[]
-
-        paramTested = 'Query sample size'
-        #paramTested = 'Sample size'
-        #paramTested = 'Percent of lattice'
-        #tabTest=(0.01, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8,0.9, 1)
-        tabTest=(0.3, 0.4, 0.5, 0.6, 0.7, 0.8,0.9,1)
-        #tabTest=(2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20)
-        #tabTest=(5,10,20,50,75,100)
-
-        mvnames,aggQueries=materializeViews(conn, groupbyAtt, sel, measBase, function, table, percentOfLattice, generateIndex)
-        currentSample={}
-
-        #for percentOfLattice in tabTest:
-        #for initsampleSize in tabTest:
-        for ratioOfQuerySample in tabTest:
-        #for nbAdomVals in range(2,10):
-
-            print("--- TESTING VALUE:",ratioOfQuerySample)
-
-            sampleSize = initsampleSize * sizeOfR
-
-            predictionTab=[]
-            realErrorTab=[]
-            nbWrongRankingTab=[]
-            bennetTab = []
-
-            for i in range(nbOfRuns):
-
-                print("-----RUN: ",i)
-                prediction,bennetError,realError,gtratio=test(conn, nbAdomVals, prefs, ratioViolations, proba, error, percentOfLattice, groupbyAtt,
-                                                              sel, measBase, function,table, sampleSize, comparison,generateIndex,allComparisons,ratioOfQuerySample,mvnames,aggQueries,currentSample,cumulate=True)
-                #resultRuns.append((percentOfLattice,prediction,bennetError,realError))
-
-                predictionTab.append(prediction)
-                bennetTab.append(bennetError)
-                realErrorTab.append(realError)
-                print("Desired cuboid ratio is:",ratioCuboidOK,". We predicted ratio of: ",prediction,". Real ratio is: ",gtratio)
-                #if gtratio <ratioCuboidOK:
-                if (gtratio < ratioCuboidOK and prediction > ratioCuboidOK) or (gtratio > ratioCuboidOK and prediction < ratioCuboidOK):
-                    nbWrongRanking=1
-                else:
-                    nbWrongRanking = 0
-                nbWrongRankingTab.append(nbWrongRanking)
-
-                print("interval: [",prediction-bennetError,",",prediction+bennetError,"]")
-                print("user threshold:",ratioCuboidOK)
-                if ratioCuboidOK >= prediction-bennetError and ratioCuboidOK <= prediction+bennetError:
-                    print("continue")
-                else:
-                    print("WE CAN STOP")
-
-            meanPred=statistics.mean(predictionTab)
-            meanBen= statistics.mean(bennetTab)
-            meanError=statistics.mean(realErrorTab)
-            meanWRTab = statistics.mean(nbWrongRankingTab)
-
-            if nbOfRuns==1:
-                stdevPred = 0
-                stdevBen = 0
-                stdevError = 0
-                stdevWRTab = 0
-            else:
-                stdevPred = statistics.stdev(predictionTab)
-                stdevBen = statistics.stdev(bennetTab)
-                stdevError = statistics.stdev(realErrorTab)
-                stdevWRTab = statistics.stdev(nbWrongRankingTab)
-
-
-            listPred.append(meanPred)
-            devPred.append(stdevPred)
-            listBennet.append(meanBen)
-            devBennet.append(stdevBen)
-            listError.append(meanError)
-            devError.append(stdevError)
-            listWR.append(meanWRTab)
-            devWR.append(stdevWRTab)
-
-        # Example usage:
-        data = [
-            {'x': tabTest, 'y':listPred,  'yerr': devPred, 'label': 'prediction'},
-            {'x': tabTest, 'y': listError, 'yerr': devError, 'label': 'real error'},
-            {'x': tabTest, 'y': listWR, 'yerr': devWR, 'label': 'unvalidated prediction'},
-            {'x': tabTest, 'y': listBennet, 'yerr': devBennet, 'label': 'Bennet theoretical error'}
-        ]
-
-        plot_curves_with_error_bars(data, x_label=paramTested, y_label='Error',
-                                    title='prediction and errors')
-        #print('Number of incorrect hypothesis:', nbWrongRanking)
-        #names = ['prediction', 'bennet', 'error']
-        #title = 'top-' + str(nbAdomVals)
-        #plot_curves(resultRuns, names, 'percentoflattice', 'error', title)
+        testAccuracy(nbruns, conn, nbAdomVals, prefs, ratioViolations, proba, error, percentOfLattice, groupbyAtt, sel,
+                    measBase, function, table, comparison, generateIndex,
+                    allComparisons, ratioOfQuerySample, cumulate=True)
     else:
         testTimings(nbruns,conn, nbAdomVals, prefs, ratioViolations,proba, error, percentOfLattice, groupbyAtt, sel, measBase,function,table, comparison, generateIndex,
                                                                            allComparisons, ratioOfQuerySample, cumulate=True)
