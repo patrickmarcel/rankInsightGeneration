@@ -1,4 +1,6 @@
 import math
+import time
+
 import numpy as np
 import utilities
 from dbStuff import getSample
@@ -245,10 +247,17 @@ def computeSeparationJMLR18(pairwiseComparison,nbItems):
     return result
 
 def generateHypothesisTest(conn, meas, measBase, table, sel, sampleSize, method, valsToSelect=None):
-    #print(sampleSize)
+    # sampling
+    start_time = time.time()
     resultVals = getSample(conn, measBase, table, sel, sampleSize, method, False, valsToSelect)
+    end_time = time.time()
+    samplingTime = end_time - start_time
+    print('sampling time:', samplingTime)
+
     #resultVals = getSample(conn, measBase, table, sel, sampleSize, method=method, repeatable=DEBUG_FLAG)
     #print(resultVals)
+
+    start_time = time.time()
 
     # get adom values
     Sels = list(set([x[0] for x in resultVals]))
@@ -309,7 +318,10 @@ def generateHypothesisTest(conn, meas, measBase, table, sel, sampleSize, method,
                 hypothesis.append((s[0], rank))
                 val = s[1]
 
-    return hypothesis
+    end_time = time.time()
+    hypothesisGenerationTime = end_time - start_time
+    print('Hypothesis generation time:', hypothesisGenerationTime)
+    return hypothesis, samplingTime, hypothesisGenerationTime
 
 
 def generateAllComparisons(Sels, S):

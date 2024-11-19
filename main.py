@@ -90,9 +90,9 @@ def countViolations(conn,query,hypothesis):
 
 def getHypothesisAllComparisons(conn, meas, measBase, table, sel,valsToSelect, sampleSize, method='SYSTEM_ROWS'):
     # checking all comparisons
-    correctHyp = generateHypothesisTest(conn, meas, measBase, table, sel, sampleSize, method, valsToSelect)
+    correctHyp,samplingTime, hypothesisGenerationTime = generateHypothesisTest(conn, meas, measBase, table, sel, sampleSize, method, valsToSelect)
     #print('all comp. hypothesis:', correctHyp)
-    return correctHyp
+    return correctHyp, samplingTime, hypothesisGenerationTime
 
 def get_state_sample(conn, measBase, table, sel, sampleSize, state):
 
@@ -250,22 +250,22 @@ def hypothesisGeneration(conn, prefs, sel, measBase, table, sampleSize, allCompa
         print('Hypothesis generation time:', hypothesisGenerationTime)
     else:
         # sampling and hypothesis
-        start_time = time.time()
-        hypothesis = getHypothesisAllComparisons(conn, meas, measBase, table, sel, tuple(prefs), sampleSize,
+        #start_time = time.time()
+        hypothesis,samplingTime, hypothesisGenerationTime = getHypothesisAllComparisons(conn, meas, measBase, table, sel, tuple(prefs), sampleSize,
                                                  method='SYSTEM_ROWS')
-        end_time = time.time()
-        samplingTime = end_time - start_time
-        hypothesisGenerationTime = samplingTime
+        #end_time = time.time()
+        #samplingTime = end_time - start_time
+        #hypothesisGenerationTime = samplingTime
         # print('sampling time:', samplingTime)
-        print('Hypothesis generation time:', hypothesisGenerationTime)
-    return hypothesis,hypothesisGenerationTime
+        #print('Hypothesis generation time:', hypothesisGenerationTime)
+    return hypothesis,hypothesisGenerationTime,samplingTime
 
 
 def test(conn, nbAdomVals, prefs, ratioViolations, proba, error, percentOfLattice, groupbyAtt, sel, measBase, function,table,
          sampleSize,comparison,generateIndex,allComparison,ratioOfQuerySample,mvnames,aggQueries,currentSample,cumulate):
     #print("Sample size: ",sampleSize)
 
-    hypothesis,hypothesisGenerationTime=hypothesisGeneration(conn, prefs, sel, measBase, table, sampleSize, allComparison)
+    hypothesis,hypothesisGenerationTime,samplingTime=hypothesisGeneration(conn, prefs, sel, measBase, table, sampleSize, allComparison)
     print("Hypothesis predicted: ", hypothesis)
 
 
@@ -517,8 +517,8 @@ if __name__ == "__main__":
 
     # The DB wee want
     #config.read('configs/flights1923.ini')
-    config.read('configs/flights.ini')
-    #config.read('configs/artificial.ini')
+    #config.read('configs/flights.ini')
+    config.read('configs/artificial.ini')
     #config.read('configs/ssb.ini')
     # The system this is running on
     USER = "PM"
@@ -590,7 +590,7 @@ if __name__ == "__main__":
     generateIndex = 'mc'
 
     # do we compare to ground truth? Otherwise, efficiency is tested
-    comparison = True
+    comparison = False
 
     # do we generate all comparisons?
     allComparisons = True
@@ -686,7 +686,7 @@ if __name__ == "__main__":
             meanError=statistics.mean(realErrorTab)
             meanWRTab = statistics.mean(nbWrongRankingTab)
 
-            if nbruns==1:
+            if nbOfRuns==1:
                 stdevPred = 0
                 stdevBen = 0
                 stdevError = 0
@@ -732,16 +732,24 @@ if __name__ == "__main__":
         listValid=[]
         devValid=[]
 
-        tabTest=(0.1, 0.25, 0.5)
-        #paramTested='Percent of Lattice'
-        paramTested='Sample size'
+        # paramTested='Percent of Lattice'
+        paramTested = 'Query sample size'
 
+        #tabTest=(0.1, 0.25, 0.5)
+        tabTest = (0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1)
+
+        mvnames, aggQueries = materializeViews(conn, groupbyAtt, sel, measBase, function, table, percentOfLattice,
+                                               generateIndex)
+        currentSample = {}
+
+        for ratioOfQuerySample in tabTest:
         #for percentOfLattice in tabTest:
-        for initsampleSize in tabTest:
-            sampleSize = initsampleSize * sizeOfR
+        #for initsampleSize in tabTest:
         # for nbAdomVals in range(2,10):
 
-            print("--- TESTING VALUE:", sampleSize)
+            print("--- TESTING VALUE:", ratioOfQuerySample)
+
+            sampleSize = initsampleSize * sizeOfR
 
             benTab=[]
             samplingTab=[]
@@ -750,9 +758,12 @@ if __name__ == "__main__":
 
             for i in range(nbOfRuns):
                 print("-----RUN: ",i)
+
                 bennetError, samplingTime, hypothesisTime, validationTime = test(conn, nbAdomVals, prefs, ratioViolations, proba, error,
                                                                percentOfLattice, groupbyAtt, sel, measBase, function,
-                                                               table, sampleSize, comparison,generateIndex,allComparisons,ratioOfQuerySample)
+                                                               table, sampleSize, comparison,generateIndex,allComparisons,ratioOfQuerySample, mvnames, aggQueries,
+                                                                   currentSample, cumulate=True)
+
                 benTab.append(bennetError)
                 samplingTab.append(samplingTime)
                 hypoTab.append(hypothesisTime)
@@ -760,13 +771,21 @@ if __name__ == "__main__":
 
             #resultRuns.append((percentOfLattice, bennetError, hypothesisTime, validationTime))
             meanBen = statistics.mean(benTab)
-            stdevBen = statistics.stdev(benTab)
             meanSamp = statistics.mean(samplingTab)
-            stdevSamp = statistics.stdev(samplingTab)
             meanHypo = statistics.mean(hypoTab)
-            stdevHypo = statistics.stdev(hypoTab)
             meanValid = statistics.mean(validTab)
-            stdevValid = statistics.stdev(validTab)
+
+
+            if nbOfRuns == 1:
+                stdevBen = 0
+                stdevSamp = 0
+                stdevHypo = 0
+                stdevValid = 0
+            else:
+                stdevBen = statistics.stdev(benTab)
+                stdevSamp = statistics.stdev(samplingTab)
+                stdevHypo = statistics.stdev(hypoTab)
+                stdevValid = statistics.stdev(validTab)
 
             listBennet.append(meanBen)
             devBennet.append(stdevBen)
@@ -781,11 +800,12 @@ if __name__ == "__main__":
             {'x': tabTest, 'y': listBennet, 'yerr': devBennet, 'label': 'Bennet theoretical error'},
             {'x': tabTest, 'y': listSampling, 'yerr': devSampling, 'label': 'Sampling time'},
             {'x': tabTest, 'y': listHypo, 'yerr': devHypo, 'label': 'Hypothesis time'},
-            {'x': tabTest, 'y': listValid, 'yerr': devValid, 'label': 'Generation time'}
+            {'x': tabTest, 'y': listValid, 'yerr': devValid, 'label': 'Validation time'}
         ]
 
-        plot_curves_with_error_bars(data, x_label=paramTested, y_label='Time (s)',
-                                    title='Times')
+
+        plot_curves_with_error_bars(data, x_label=paramTested, y_label='Time (s)',title='Times',scale='log')
+
         #names = ['error', 'hypothesis', 'validation']
         #title = 'top-' + str(nbAdomVals)
         #plot_curves(resultRuns, names, 'percentoflattice', 'time', title)

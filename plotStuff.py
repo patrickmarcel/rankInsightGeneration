@@ -1,6 +1,6 @@
 import matplotlib.pyplot as plt
 
-def plot_curves_with_error_bars(data, x_label, y_label, title):
+def plot_curves_with_error_bars(data, x_label, y_label, title, scale='linear'):
     """
     Plot multiple curves with error bars.
 
@@ -25,6 +25,9 @@ def plot_curves_with_error_bars(data, x_label, y_label, title):
     ax.set_xlabel(x_label)
     ax.set_ylabel(y_label)
     ax.set_title(title)
+
+    #scaling y axis
+    ax.set_yscale(scale)
 
     # Adding a legend
     ax.legend()
