@@ -316,3 +316,88 @@ def generateAllqueries(pwrset, sel, meas, function, table, valsToSelect, hypo, m
         tabCuboid.append(strgb)
     return tabQuery,tabCount,tabCuboid
 
+def testTimings(conn, nbAdomVals, prefs, ratioViolations,proba, error, percentOfLattice, groupbyAtt, sel, measBase,function,table, comparison, generateIndex,
+                                                                           allComparisons, ratioOfQuerySample, cumulate):
+    listBennet = []
+    devBennet = []
+    listSampling = []
+    devSampling = []
+    listHypo = []
+    devHypo = []
+    listValid = []
+    devValid = []
+
+    # paramTested='Percent of Lattice'
+    paramTested = 'Query sample size'
+
+    # tabTest=(0.1, 0.25, 0.5)
+    tabTest = (0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1)
+
+    mvnames, aggQueries = materializeViews(conn, groupbyAtt, sel, measBase, function, table, percentOfLattice, generateIndex)
+    currentSample = {}
+
+    for ratioOfQuerySample in tabTest:
+        # for percentOfLattice in tabTest:
+        # for initsampleSize in tabTest:
+        # for nbAdomVals in range(2,10):
+
+        print("--- TESTING VALUE:", ratioOfQuerySample)
+
+        sampleSize = initsampleSize * sizeOfR
+
+        benTab = []
+        samplingTab = []
+        hypoTab = []
+        validTab = []
+
+        for i in range(nbOfRuns):
+            print("-----RUN: ", i)
+
+            queryTime, samplingTime, hypothesisTime, validationTime = test(conn, nbAdomVals, prefs, ratioViolations,
+                                                                           proba, error,
+                                                                           percentOfLattice, groupbyAtt, sel, measBase,
+                                                                           function,
+                                                                           table, sampleSize, comparison, generateIndex,
+                                                                           allComparisons, ratioOfQuerySample, mvnames,
+                                                                           aggQueries,
+                                                                           currentSample, cumulate=True)
+
+            benTab.append(queryTime)
+            samplingTab.append(samplingTime)
+            hypoTab.append(hypothesisTime)
+            validTab.append(validationTime)
+
+        # resultRuns.append((percentOfLattice, bennetError, hypothesisTime, validationTime))
+        meanBen = statistics.mean(benTab)
+        meanSamp = statistics.mean(samplingTab)
+        meanHypo = statistics.mean(hypoTab)
+        meanValid = statistics.mean(validTab)
+
+        if nbOfRuns == 1:
+            stdevBen = 0
+            stdevSamp = 0
+            stdevHypo = 0
+            stdevValid = 0
+        else:
+            stdevBen = statistics.stdev(benTab)
+            stdevSamp = statistics.stdev(samplingTab)
+            stdevHypo = statistics.stdev(hypoTab)
+            stdevValid = statistics.stdev(validTab)
+
+        listBennet.append(meanBen)
+        devBennet.append(stdevBen)
+        listSampling.append(meanSamp)
+        devSampling.append(stdevSamp)
+        listHypo.append(meanHypo)
+        devHypo.append(stdevHypo)
+        listValid.append(meanValid)
+        devValid.append(stdevValid)
+
+    data = [
+        {'x': tabTest, 'y': listBennet, 'yerr': devBennet, 'label': 'Aggregate queries time'},
+        {'x': tabTest, 'y': listSampling, 'yerr': devSampling, 'label': 'Sampling time'},
+        {'x': tabTest, 'y': listHypo, 'yerr': devHypo, 'label': 'Hypothesis time'},
+        {'x': tabTest, 'y': listValid, 'yerr': devValid, 'label': 'Validation time'}
+    ]
+
+    plot_curves_with_error_bars(data, x_label=paramTested, y_label='Time (s)',title='Times',scale='log')

@@ -515,8 +515,131 @@ def test(conn, nbAdomVals, prefs, ratioViolations, proba, error, percentOfLattic
         return totalQueryTime, samplingTime, hypothesisGenerationTime, validationTime
 
 
-# TODO
+def testTimings(nbruns,conn, nbAdomVals, prefs, ratioViolations,proba, error, percentOfLattice, groupbyAtt, sel, measBase,function,table, comparison, generateIndex,
+                                                                           allComparisons, ratioOfQuerySample, cumulate):
+
+
+    listQuery = []
+    devQuery = []
+    listSampling = []
+    devSampling = []
+    listHypo = []
+    devHypo = []
+    listValid = []
+    devValid = []
+
+    dictQuery={}
+    dictSamp={}
+    dictHyp={}
+    dictVal={}
+
+    # paramTested='Percent of Lattice'
+    paramTested = 'Query sample size'
+
+    # tabTest=(0.1, 0.25, 0.5)
+    tabTest = (0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1)
+
+
+    tabres=[]
+
+    for j in range(nbruns):
+        print("-----RUN: ", j)
+
+        mvnames, aggQueries = materializeViews(conn, groupbyAtt, sel, measBase, function, table, percentOfLattice, generateIndex)
+        currentSample = {}
+
+        #dictTest = {}
+
+        for ratioOfQuerySample in tabTest:
+            # for percentOfLattice in tabTest:
+            # for initsampleSize in tabTest:
+            # for nbAdomVals in range(2,10):
+
+            print("--- TESTING VALUE:", ratioOfQuerySample)
+
+            sampleSize = initsampleSize * sizeOfR
+
+            #benTab = []
+            #samplingTab = []
+            #hypoTab = []
+            #validTab = []
+
+            #for i in range(nbOfRuns):
+            #    print("-----RUN: ", i)
+
+            queryTime, samplingTime, hypothesisTime, validationTime = test(conn, nbAdomVals, prefs, ratioViolations,
+                                                                               proba, error,
+                                                                               percentOfLattice, groupbyAtt, sel, measBase,
+                                                                               function,
+                                                                               table, sampleSize, comparison, generateIndex,
+                                                                               allComparisons, ratioOfQuerySample, mvnames,
+                                                                               aggQueries,
+                                                                               currentSample, cumulate=True)
+
+            if str(ratioOfQuerySample) in dictQuery:
+                dictQuery[str(ratioOfQuerySample)].extend([queryTime])
+            else:
+                dictQuery[str(ratioOfQuerySample)]=[queryTime]
+            if str(ratioOfQuerySample) in dictSamp:
+                dictSamp[str(ratioOfQuerySample)].extend([samplingTime])
+            else:
+                dictSamp[str(ratioOfQuerySample)]=[samplingTime]
+            if str(ratioOfQuerySample) in dictHyp:
+                dictHyp[str(ratioOfQuerySample)].extend([hypothesisTime])
+            else:
+                dictHyp[str(ratioOfQuerySample)]=[hypothesisTime]
+            if str(ratioOfQuerySample) in dictVal:
+                dictVal[str(ratioOfQuerySample)].extend([validationTime])
+            else:
+                dictVal[str(ratioOfQuerySample)]=[validationTime]
+            #benTab.append(queryTime)
+            #samplingTab.append(samplingTime)
+            #hypoTab.append(hypothesisTime)
+            #validTab.append(validationTime)
+
+        #tabres[j]=dictTest
+
+
+    meanQ=[]
+    stdevQ=[]
+    meanSamp=[]
+    stdevSamp=[]
+    meanHypo=[]
+    stdevHypo=[]
+    meanValid=[]
+    stdevValid=[]
+
+    for i in tabTest:
+        # query time
+        meanQ.append(statistics.mean(dictQuery[str(i)]))
+        stdevQ.append(statistics.stdev(dictQuery[str(i)]))
+        # sampling time
+        meanSamp.append(statistics.mean(dictSamp[str(i)]))
+        stdevSamp.append(statistics.stdev(dictSamp[str(i)]))
+        # hypothesis time
+        meanHypo.append(statistics.mean(dictHyp[str(i)]))
+        stdevHypo.append(statistics.stdev(dictHyp[str(i)]))
+        # validation time
+        meanValid.append(statistics.mean(dictVal[str(i)]))
+        stdevValid.append(statistics.stdev(dictVal[str(i)]))
+
+        #meanQ = statistics.mean(qtab)
+        #meanSamp = statistics.mean(samplingTab)
+        #meanHypo = statistics.mean(hypoTab)
+        #meanValid = statistics.mean(validTab)
+
+
+    data = [
+        {'x': tabTest, 'y': meanQ, 'yerr': stdevQ, 'label': 'Aggregate queries time'},
+        {'x': tabTest, 'y': meanSamp, 'yerr': stdevSamp, 'label': 'Sampling time'},
+        {'x': tabTest, 'y': meanHypo, 'yerr': stdevHypo, 'label': 'Hypothesis time'},
+        {'x': tabTest, 'y': meanValid, 'yerr': stdevValid, 'label': 'Validation time'}
+    ]
+
+    plot_curves_with_error_bars(data, x_label=paramTested, y_label='Time (s)',title='Times',scale='log')
+
 #
+# Main
 
 if __name__ == "__main__":
 
@@ -550,10 +673,10 @@ if __name__ == "__main__":
     if len(prefs) == 0:
         prefs = None
 
-    if DEBUG_FLAG:
-        nbruns = 1
-    else:
-        nbruns = 10
+    #if DEBUG_FLAG:
+    #    nbruns = 1
+    #else:
+    #    nbruns = 10
 
 
     # for Hoeffding - OLD - REMOVE
@@ -607,6 +730,7 @@ if __name__ == "__main__":
 
     # number of runs
     nbOfRuns = 1
+    nbruns=3
 
     ###
     ### END OF PARAMETERS
@@ -729,93 +853,9 @@ if __name__ == "__main__":
         #title = 'top-' + str(nbAdomVals)
         #plot_curves(resultRuns, names, 'percentoflattice', 'error', title)
     else:
+        testTimings(nbruns,conn, nbAdomVals, prefs, ratioViolations,proba, error, percentOfLattice, groupbyAtt, sel, measBase,function,table, comparison, generateIndex,
+                                                                           allComparisons, ratioOfQuerySample, cumulate=True)
 
-        listBennet = []
-        devBennet = []
-        listSampling=[]
-        devSampling=[]
-        listHypo=[]
-        devHypo=[]
-        listValid=[]
-        devValid=[]
-
-        # paramTested='Percent of Lattice'
-        paramTested = 'Query sample size'
-
-        #tabTest=(0.1, 0.25, 0.5)
-        tabTest = (0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1)
-
-        mvnames, aggQueries = materializeViews(conn, groupbyAtt, sel, measBase, function, table, percentOfLattice,
-                                               generateIndex)
-        currentSample = {}
-
-        for ratioOfQuerySample in tabTest:
-        #for percentOfLattice in tabTest:
-        #for initsampleSize in tabTest:
-        # for nbAdomVals in range(2,10):
-
-            print("--- TESTING VALUE:", ratioOfQuerySample)
-
-            sampleSize = initsampleSize * sizeOfR
-
-            benTab=[]
-            samplingTab=[]
-            hypoTab=[]
-            validTab = []
-
-            for i in range(nbOfRuns):
-                print("-----RUN: ",i)
-
-                queryTime, samplingTime, hypothesisTime, validationTime = test(conn, nbAdomVals, prefs, ratioViolations, proba, error,
-                                                               percentOfLattice, groupbyAtt, sel, measBase, function,
-                                                               table, sampleSize, comparison,generateIndex,allComparisons,ratioOfQuerySample, mvnames, aggQueries,
-                                                                   currentSample, cumulate=True)
-
-                benTab.append(queryTime)
-                samplingTab.append(samplingTime)
-                hypoTab.append(hypothesisTime)
-                validTab.append(validationTime)
-
-            #resultRuns.append((percentOfLattice, bennetError, hypothesisTime, validationTime))
-            meanBen = statistics.mean(benTab)
-            meanSamp = statistics.mean(samplingTab)
-            meanHypo = statistics.mean(hypoTab)
-            meanValid = statistics.mean(validTab)
-
-
-            if nbOfRuns == 1:
-                stdevBen = 0
-                stdevSamp = 0
-                stdevHypo = 0
-                stdevValid = 0
-            else:
-                stdevBen = statistics.stdev(benTab)
-                stdevSamp = statistics.stdev(samplingTab)
-                stdevHypo = statistics.stdev(hypoTab)
-                stdevValid = statistics.stdev(validTab)
-
-            listBennet.append(meanBen)
-            devBennet.append(stdevBen)
-            listSampling.append(meanSamp)
-            devSampling.append(stdevSamp)
-            listHypo.append(meanHypo)
-            devHypo.append(stdevHypo)
-            listValid.append(meanValid)
-            devValid.append(stdevValid)
-
-        data = [
-            {'x': tabTest, 'y': listBennet, 'yerr': devBennet, 'label': 'Aggregate queries time'},
-            {'x': tabTest, 'y': listSampling, 'yerr': devSampling, 'label': 'Sampling time'},
-            {'x': tabTest, 'y': listHypo, 'yerr': devHypo, 'label': 'Hypothesis time'},
-            {'x': tabTest, 'y': listValid, 'yerr': devValid, 'label': 'Validation time'}
-        ]
-
-
-        plot_curves_with_error_bars(data, x_label=paramTested, y_label='Time (s)',title='Times',scale='log')
-
-        #names = ['error', 'hypothesis', 'validation']
-        #title = 'top-' + str(nbAdomVals)
-        #plot_curves(resultRuns, names, 'percentoflattice', 'time', title)
 
 
 
