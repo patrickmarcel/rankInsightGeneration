@@ -654,7 +654,6 @@ if __name__ == "__main__":
 
 
 
-
     # Clean and cose the connection
     dbStuff.dropAllMVs(conn)
     close_connection(conn)
