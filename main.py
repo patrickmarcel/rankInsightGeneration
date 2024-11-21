@@ -1,22 +1,19 @@
-import random
 import math
 import statistics
 import numpy as np
+import time
+import configparser
+import json
+from statsmodels.stats.multitest import fdrcorrection
+
 import dbStuff
 import statStuff
-import utilities
 from plotStuff import plot_curves_with_error_bars
 from dbStuff import execute_query, connect_to_db, close_connection, getSample
 from statStuff import permutation_test, compute_skewness, claireStat
-import time
 from rankingFromPairwise import computeRanksForAll, generateHypothesisTest
-
-from statsmodels.stats.multitest import fdrcorrection
-
-import configparser
-import json
-
 import bounders
+import tests
 
 
 # ------  Debug ?  ------------
@@ -236,7 +233,7 @@ def materializeViews(conn, groupbyAtt, sel, measBase, function, table, percentOf
     print("Number of aggregate queries over the MVs: ", len(aggQueries))
     return mvnames,aggQueries
 
-def hypothesisGeneration(conn, prefs, sel, measBase, table, sampleSize, allComparison):
+def hypothesisGeneration(conn, prefs, sel, measBase, meas, table, sampleSize, allComparison):
     if allComparison == False:
         # sampling
         start_time = time.time()
@@ -264,11 +261,11 @@ def hypothesisGeneration(conn, prefs, sel, measBase, table, sampleSize, allCompa
     return hypothesis,hypothesisGenerationTime,samplingTime
 
 
-def test(conn, nbAdomVals, prefs, ratioViolations, proba, error, percentOfLattice, groupbyAtt, sel, measBase, function,table,
+def test(conn, nbAdomVals, prefs, ratioViolations, proba, error, percentOfLattice, groupbyAtt, sel, measBase, meas, function,table,
          sampleSize,comparison,generateIndex,allComparison,ratioOfQuerySample,mvnames,aggQueries,currentSample,cumulate):
     #print("Sample size: ",sampleSize)
 
-    hypothesis,hypothesisGenerationTime,samplingTime=hypothesisGeneration(conn, prefs, sel, measBase, table, sampleSize, allComparison)
+    hypothesis,hypothesisGenerationTime,samplingTime=hypothesisGeneration(conn, prefs, sel, measBase, meas, table, sampleSize, allComparison)
     print("Hypothesis predicted: ", hypothesis)
 
 
@@ -515,232 +512,6 @@ def test(conn, nbAdomVals, prefs, ratioViolations, proba, error, percentOfLattic
         return totalQueryTime, samplingTime, hypothesisGenerationTime, validationTime
 
 
-def testTimings(nbruns,conn, nbAdomVals, prefs, ratioViolations,proba, error, percentOfLattice, groupbyAtt, sel, measBase,function,table, comparison, generateIndex,
-                                                                           allComparisons, ratioOfQuerySample, cumulate):
-
-
-    listQuery = []
-    devQuery = []
-    listSampling = []
-    devSampling = []
-    listHypo = []
-    devHypo = []
-    listValid = []
-    devValid = []
-
-    dictQuery={}
-    dictSamp={}
-    dictHyp={}
-    dictVal={}
-
-    # paramTested='Percent of Lattice'
-    paramTested = 'Query sample size'
-
-    # tabTest=(0.1, 0.25, 0.5)
-    tabTest = (0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1)
-
-
-    for j in range(nbruns):
-        print("-----RUN: ", j)
-
-        mvnames, aggQueries = materializeViews(conn, groupbyAtt, sel, measBase, function, table, percentOfLattice, generateIndex)
-        currentSample = {}
-
-
-
-        for ratioOfQuerySample in tabTest:
-            # for percentOfLattice in tabTest:
-            # for initsampleSize in tabTest:
-            # for nbAdomVals in range(2,10):
-
-            print("--- TESTING VALUE:", ratioOfQuerySample)
-
-            sampleSize = initsampleSize * sizeOfR
-
-            #benTab = []
-            #samplingTab = []
-            #hypoTab = []
-            #validTab = []
-
-            #for i in range(nbOfRuns):
-            #    print("-----RUN: ", i)
-
-            queryTime, samplingTime, hypothesisTime, validationTime = test(conn, nbAdomVals, prefs, ratioViolations,
-                                                                               proba, error,
-                                                                               percentOfLattice, groupbyAtt, sel, measBase,
-                                                                               function,
-                                                                               table, sampleSize, comparison, generateIndex,
-                                                                               allComparisons, ratioOfQuerySample, mvnames,
-                                                                               aggQueries,
-                                                                               currentSample, cumulate=True)
-
-            if str(ratioOfQuerySample) in dictQuery:
-                dictQuery[str(ratioOfQuerySample)].extend([queryTime])
-            else:
-                dictQuery[str(ratioOfQuerySample)]=[queryTime]
-            if str(ratioOfQuerySample) in dictSamp:
-                dictSamp[str(ratioOfQuerySample)].extend([samplingTime])
-            else:
-                dictSamp[str(ratioOfQuerySample)]=[samplingTime]
-            if str(ratioOfQuerySample) in dictHyp:
-                dictHyp[str(ratioOfQuerySample)].extend([hypothesisTime])
-            else:
-                dictHyp[str(ratioOfQuerySample)]=[hypothesisTime]
-            if str(ratioOfQuerySample) in dictVal:
-                dictVal[str(ratioOfQuerySample)].extend([validationTime])
-            else:
-                dictVal[str(ratioOfQuerySample)]=[validationTime]
-            #benTab.append(queryTime)
-            #samplingTab.append(samplingTime)
-            #hypoTab.append(hypothesisTime)
-            #validTab.append(validationTime)
-
-        #tabres[j]=dictTest
-
-
-    meanQ=[]
-    stdevQ=[]
-    meanSamp=[]
-    stdevSamp=[]
-    meanHypo=[]
-    stdevHypo=[]
-    meanValid=[]
-    stdevValid=[]
-
-    for i in tabTest:
-        # query time
-        meanQ.append(statistics.mean(dictQuery[str(i)]))
-        stdevQ.append(statistics.stdev(dictQuery[str(i)]))
-        # sampling time
-        meanSamp.append(statistics.mean(dictSamp[str(i)]))
-        stdevSamp.append(statistics.stdev(dictSamp[str(i)]))
-        # hypothesis time
-        meanHypo.append(statistics.mean(dictHyp[str(i)]))
-        stdevHypo.append(statistics.stdev(dictHyp[str(i)]))
-        # validation time
-        meanValid.append(statistics.mean(dictVal[str(i)]))
-        stdevValid.append(statistics.stdev(dictVal[str(i)]))
-
-        #meanQ = statistics.mean(qtab)
-        #meanSamp = statistics.mean(samplingTab)
-        #meanHypo = statistics.mean(hypoTab)
-        #meanValid = statistics.mean(validTab)
-
-
-    data = [
-        {'x': tabTest, 'y': meanQ, 'yerr': stdevQ, 'label': 'Aggregate queries time'},
-        {'x': tabTest, 'y': meanSamp, 'yerr': stdevSamp, 'label': 'Sampling time'},
-        {'x': tabTest, 'y': meanHypo, 'yerr': stdevHypo, 'label': 'Hypothesis time'},
-        {'x': tabTest, 'y': meanValid, 'yerr': stdevValid, 'label': 'Validation time'}
-    ]
-
-    plot_curves_with_error_bars(data, x_label=paramTested, y_label='Time (s)',title='Times',scale='log')
-
-
-def testAccuracy(nbruns,conn, nbAdomVals, prefs, ratioViolations,proba, error, percentOfLattice, groupbyAtt, sel, measBase,function,table, comparison, generateIndex,
-                                                                           allComparisons, ratioOfQuerySample, cumulate):
-    dictPred = {}
-    dictBennet = {}
-    dictError = {}
-    dictWR = {}
-
-
-    paramTested = 'Query sample size'
-    # paramTested = 'Sample size'
-    # paramTested = 'Percent of lattice'
-    # tabTest=(0.01, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8,0.9, 1)
-    tabTest = (0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1)
-    # tabTest=(2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20)
-    # tabTest=(5,10,20,50,75,100
-
-    for j in range(nbruns):
-        print("-----RUN: ", j)
-
-        mvnames, aggQueries = materializeViews(conn, groupbyAtt, sel, measBase, function, table, percentOfLattice,
-                                               generateIndex)
-        currentSample = {}
-
-        # for percentOfLattice in tabTest:
-        # for initsampleSize in tabTest:
-        for ratioOfQuerySample in tabTest:
-            # for nbAdomVals in range(2,10):
-
-            print("--- TESTING VALUE:", ratioOfQuerySample)
-
-            sampleSize = initsampleSize * sizeOfR
-
-            prediction, bennetError, realError, gtratio = test(conn, nbAdomVals, prefs, ratioViolations, proba, error,
-                                                           percentOfLattice, groupbyAtt,
-                                                           sel, measBase, function, table, sampleSize, comparison,
-                                                           generateIndex, allComparisons, ratioOfQuerySample, mvnames,
-                                                           aggQueries, currentSample, cumulate=True)
-
-            if str(ratioOfQuerySample) in dictPred:
-                dictPred[str(ratioOfQuerySample)].extend([prediction])
-            else:
-                dictPred[str(ratioOfQuerySample)] = [prediction]
-            if str(ratioOfQuerySample) in dictBennet:
-                dictBennet[str(ratioOfQuerySample)].extend([bennetError])
-            else:
-                dictBennet[str(ratioOfQuerySample)] = [bennetError]
-            if str(ratioOfQuerySample) in dictError:
-                dictError[str(ratioOfQuerySample)].extend([realError])
-            else:
-                dictError[str(ratioOfQuerySample)] = [realError]
-
-            print("Desired cuboid ratio is:", ratioCuboidOK, ". We predicted ratio of: ", prediction, ". Real ratio is: ",
-                  gtratio)
-            if (gtratio < ratioCuboidOK and prediction > ratioCuboidOK) or (
-                    gtratio > ratioCuboidOK and prediction < ratioCuboidOK):
-                nbWrongRanking = 1
-            else:
-                nbWrongRanking = 0
-            #nbWrongRankingTab.append(nbWrongRanking)
-
-            print("interval: [", prediction - bennetError, ",", prediction + bennetError, "]")
-            print("user threshold:", ratioCuboidOK)
-            if ratioCuboidOK >= prediction - bennetError and ratioCuboidOK <= prediction + bennetError:
-                print("continue")
-            else:
-                print("WE CAN STOP")
-
-            if str(ratioOfQuerySample) in dictWR:
-                dictWR[str(ratioOfQuerySample)].extend([nbWrongRanking])
-            else:
-                dictWR[str(ratioOfQuerySample)] = [nbWrongRanking]
-
-    meanPred = []
-    stdevPred = []
-    meanBennet = []
-    stdevBennet = []
-    meanError = []
-    stdevError = []
-    meanWRW = []
-    stdevWR = []
-
-    for i in tabTest:
-        # prediction
-        meanPred.append(statistics.mean(dictPred[str(i)]))
-        stdevPred.append(statistics.stdev(dictPred[str(i)]))
-        # Bennet
-        meanBennet.append(statistics.mean(dictBennet[str(i)]))
-        stdevBennet.append(statistics.stdev(dictBennet[str(i)]))
-        # error
-        meanError.append(statistics.mean(dictError[str(i)]))
-        stdevError.append(statistics.stdev(dictError[str(i)]))
-        # WR
-        meanWRW.append(statistics.mean(dictWR[str(i)]))
-        stdevWR.append(statistics.stdev(dictWR[str(i)]))
-
-    data = [
-        {'x': tabTest, 'y': meanBennet, 'yerr': stdevBennet, 'label': 'Bennet theoretical error'},
-        {'x': tabTest, 'y': meanError, 'yerr': stdevError, 'label': 'real error'},
-        {'x': tabTest, 'y': meanPred, 'yerr': stdevPred, 'label': 'prediction'},
-        {'x': tabTest, 'y': meanWRW, 'yerr': stdevWR, 'label': 'unvalidated prediction'}
-    ]
-
-    plot_curves_with_error_bars(data, x_label=paramTested, y_label='Error',
-                                title='prediction and errors')
 
 #
 # Main
@@ -751,8 +522,8 @@ if __name__ == "__main__":
 
     # The DB wee want
     #config.read('configs/flights1923.ini')
-    #config.read('configs/flights.ini')
-    config.read('configs/artificial.ini')
+    config.read('configs/flights.ini')
+    #config.read('configs/artificial.ini')
     #config.read('configs/ssb.ini')
     # The system this is running on
     USER = "PM"
@@ -822,6 +593,7 @@ if __name__ == "__main__":
     # False (no index),
     # mc (one multicolumn index, sel first), so far only over views (not fact table)
     generateIndex = 'mc'
+    #generateIndex = False
 
     # do we compare to ground truth? Otherwise, efficiency is tested
     comparison = True
@@ -857,12 +629,23 @@ if __name__ == "__main__":
 
     if comparison==True:
 
-        testAccuracy(nbruns, conn, nbAdomVals, prefs, ratioViolations, proba, error, percentOfLattice, groupbyAtt, sel,
-                    measBase, function, table, comparison, generateIndex,
-                    allComparisons, ratioOfQuerySample, cumulate=True)
+        tests.testAccuracyQuerySampleSize(nbruns, conn, nbAdomVals, prefs, ratioViolations, proba, error, percentOfLattice, groupbyAtt, sel,
+                    measBase, meas, function, table, comparison, generateIndex,
+                    allComparisons, initsampleSize, sizeOfR, ratioCuboidOK, ratioOfQuerySample, cumulate=True)
+        #tests.testAccuracyInitSampleSize(conn, nbAdomVals, prefs, ratioViolations, proba, error, percentOfLattice,
+        #                           groupbyAtt, sel, measBase, meas, function, table, comparison, generateIndex,
+        #                           allComparisons,
+        #                           initsampleSize, sizeOfR, nbOfRuns, ratioCuboidOK,
+        #                           ratioOfQuerySample, cumulate=False)
     else:
-        testTimings(nbruns,conn, nbAdomVals, prefs, ratioViolations,proba, error, percentOfLattice, groupbyAtt, sel, measBase,function,table, comparison, generateIndex,
-                                                                           allComparisons, ratioOfQuerySample, cumulate=True)
+        tests.testTimingsQuerySampleSize(nbruns,conn, nbAdomVals, prefs, ratioViolations,proba, error, percentOfLattice, groupbyAtt, sel,
+                    measBase, meas, function,table, comparison, generateIndex,
+                    allComparisons, initsampleSize, sizeOfR, ratioOfQuerySample, cumulate=True)
+        #tests.testTimingsLattice(conn, nbAdomVals, prefs, ratioViolations, proba, error, percentOfLattice,
+        #                   groupbyAtt, sel, measBase, meas, function, table, comparison, generateIndex,
+        #                   allComparisons,
+        #                   initsampleSize, sizeOfR, nbOfRuns,
+        #                   ratioOfQuerySample, cumulate=False)
 
 
 
