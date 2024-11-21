@@ -610,7 +610,7 @@ if __name__ == "__main__":
     ratioOfQuerySample = 0.4
 
     # number of runs
-    nbOfRuns = 1 ## no more used
+    #nbOfRuns = 1 ## no more used
     nbruns=3
 
     ###
