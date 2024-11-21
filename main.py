@@ -19,6 +19,7 @@ import tests
 # ------  Debug ?  ------------
 DEBUG_FLAG = True
 
+
 def  compareHypToGB(hypothesis, conn, measBase,function, sel, vals,mvnames, table):
     #query="Select " + sel +" from  " + sel + " where " + sel + " in " +  str(vals) + " order by " + measBase + " desc;"
     materialized=bounders.findMV(mvnames,sel,table)
@@ -53,7 +54,9 @@ def countViolations(conn,query,hypothesis):
             #if tau!=1:
             #    v=v+1
             #tau=statStuff.normalised_kendall_tau_distance(s,hyp)
+
             tau,pvalue=statStuff.compute_kendall_tau(s,hyp)
+
             #print('tau:',tau)
             tau=(tau+1)/2
             v=v+tau
@@ -72,7 +75,9 @@ def countViolations(conn,query,hypothesis):
             #print("s:",s)
             #print("hyp2:",hyp2)
             #tau = statStuff.normalised_kendall_tau_distance(s, hyp2)
+
             tau,pvalue = statStuff.compute_kendall_tau(s, hyp2)
+
             #print('tau:',tau)
             tau = (tau + 1) / 2
             v = v + tau
@@ -596,10 +601,10 @@ if __name__ == "__main__":
     #generateIndex = False
 
     # do we compare to ground truth? Otherwise, efficiency is tested
-    comparison = True
+    comparison = False
 
     # do we generate all comparisons?
-    allComparisons = True
+    allComparisons = False
 
     # ratio of sample of queries for validation
     ratioOfQuerySample = 0.4

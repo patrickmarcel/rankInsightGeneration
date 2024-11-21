@@ -4,7 +4,22 @@ import random
 import numpy as np
 import pandas as pd
 import configparser
+import json
 
+def getDensity(conn, table,sel,measbase,groupbyAtt):
+    #query = "select n_distinct from pg_Stats where tablename= \'" + table + "\' and attname<>\'" + sel + "\' and attname<>\'" + measbase + "\';"
+    query = "select n_distinct from pg_Stats where tablename= \'" + table + "\' and attname in " + str(tuple(groupbyAtt)) + " ;"
+    print(query)
+    resAdoms = execute_query(conn, query)
+    query = "select count(*) from " + table + ";"
+    resCount = execute_query(conn, query)
+    m=1
+    for i in resAdoms:
+        if i[0]<0:
+            m=m*resCount[0][0]*-i[0]
+        else:
+            m=m*i[0]
+    return resCount[0][0]/m
 
 def getSizeOf(conn, table):
     query = "select count(*) from \"" + table + "\";"
@@ -338,11 +353,8 @@ def generateArtificialDataset_V1(conn,num_rows = 50000, nbAtt=10):
 
 
 
-def generateArtificialDataset(conn,num_rows = 50000, nbAtt=10):
+def generateArtificialDataset(conn,num_rows = 50000, nbAtt=10, num_categories_first_attr = 10, num_categories_other_attrs = 5):
 
-    # Set the number of unique categories for the categorical attributes
-    num_categories_first_attr = 10
-    num_categories_other_attrs = 5
 
     # 1st Attribute: Categorical values with occurrences drawn from an exponential distribution
     categories_first_attr = [f'Category_{i+1}' for i in range(num_categories_first_attr)]
@@ -427,9 +439,16 @@ if __name__ == "__main__":
     host = config[USER]['host']
     port = int(config[USER]['port'])
 
+    table = config["Common"]['table']
+    measures = json.loads(config.get("Common", "measures"))
+    groupbyAtt = json.loads(config.get("Common", "groupbyAtt"))
+    sel = config["Common"]['sel']
+    meas = config["Common"]['meas']
+    measBase = config["Common"]['measBase']
 
     # Connect to the database
     conn = connect_to_db(dbname, user, password, host, port)
 
-    dropAllMVs(conn)
+    print(getDensity(conn,table,sel,measBase,groupbyAtt))
+    #dropAllMVs(conn)
     #generateArtificialDataset(conn)
