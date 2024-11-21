@@ -115,6 +115,74 @@ def testTimingsQuerySampleSize(nbruns,conn, nbAdomVals, prefs, ratioViolations,p
     plotStuff.plot_curves_with_error_bars(data, x_label=paramTested, y_label='Time (s)',title='Times',scale='log')
 
 
+
+def errorOnAllLattice(tabTest,nbruns,conn, nbAdomVals, prefs, ratioViolations, proba, error,
+                                                               percentOfLattice, groupbyAtt,
+                                                               sel, measBase, meas, function, table,
+                                                               comparison,
+                                                               generateIndex, allComparisons,
+                                                               initsampleSize, sizeOfR, ratioCuboidOK):
+
+    dictError = {}
+
+
+    for j in range(nbruns):
+        print("-----RUN: ", j)
+
+        mvnames, aggQueries = materializeViews(conn, groupbyAtt, sel, measBase, function, table, 1, generateIndex)
+        currentSample = {}
+
+
+        for ratioOfQuerySample in tabTest:
+
+
+            print("--- TESTING VALUE:", ratioOfQuerySample)
+
+            sampleSize = initsampleSize * sizeOfR
+
+            prediction, bennetError, realError, gtratio = test(conn, nbAdomVals, prefs, ratioViolations, proba, error,
+                                                               percentOfLattice, groupbyAtt,
+                                                               sel, measBase, meas, function, table, sampleSize,
+                                                               comparison,
+                                                               generateIndex, allComparisons, ratioOfQuerySample,
+                                                               mvnames,
+                                                               aggQueries, currentSample, cumulate=True)
+
+
+            if str(ratioOfQuerySample) in dictError:
+                dictError[str(ratioOfQuerySample)].extend([realError])
+            else:
+                dictError[str(ratioOfQuerySample)] = [realError]
+
+            print("Desired cuboid ratio is:", ratioCuboidOK, ". We predicted ratio of: ", prediction,
+                  ". Real ratio is: ",
+                  gtratio)
+            if (gtratio < ratioCuboidOK and prediction > ratioCuboidOK) or (
+                    gtratio > ratioCuboidOK and prediction < ratioCuboidOK):
+                nbWrongRanking = 1
+            else:
+                nbWrongRanking = 0
+            # nbWrongRankingTab.append(nbWrongRanking)
+
+            print("interval: [", prediction - bennetError, ",", prediction + bennetError, "]")
+            print("user threshold:", ratioCuboidOK)
+            if ratioCuboidOK >= prediction - bennetError and ratioCuboidOK <= prediction + bennetError:
+                print("continue")
+            else:
+                print("WE CAN STOP")
+    meanError = []
+    stdevError = []
+
+
+    for i in tabTest:
+
+        # error
+        meanError.append(statistics.mean(dictError[str(i)]))
+        stdevError.append(statistics.stdev(dictError[str(i)]))
+
+    return meanError,stdevError
+
+
 def testAccuracyQuerySampleSize(nbruns,conn, nbAdomVals, prefs, ratioViolations,proba, error, percentOfLattice, groupbyAtt, sel, measBase, meas, function,table, comparison, generateIndex,
                                                                            allComparisons, initsampleSize, sizeOfR, ratioCuboidOK, ratioOfQuerySample, cumulate):
     dictPred = {}
@@ -210,11 +278,19 @@ def testAccuracyQuerySampleSize(nbruns,conn, nbAdomVals, prefs, ratioViolations,
         meanWRW.append(statistics.mean(dictWR[str(i)]))
         stdevWR.append(statistics.stdev(dictWR[str(i)]))
 
+    meanAll,stdevAll=errorOnAllLattice(tabTest,nbruns,conn, nbAdomVals, prefs, ratioViolations, proba, error,
+                                                               percentOfLattice, groupbyAtt,
+                                                               sel, measBase, meas, function, table,
+                                                               comparison,
+                                                               generateIndex, allComparisons,
+                                                               initsampleSize, sizeOfR, ratioCuboidOK)
+
     data = [
         {'x': tabTest, 'y': meanBennet, 'yerr': stdevBennet, 'label': 'Bennet theoretical error'},
         {'x': tabTest, 'y': meanError, 'yerr': stdevError, 'label': 'real error'},
         {'x': tabTest, 'y': meanPred, 'yerr': stdevPred, 'label': 'prediction'},
-        {'x': tabTest, 'y': meanWRW, 'yerr': stdevWR, 'label': 'unvalidated prediction'}
+        {'x': tabTest, 'y': meanWRW, 'yerr': stdevWR, 'label': 'unvalidated prediction'},
+        {'x': tabTest, 'y': meanAll, 'yerr': stdevAll, 'label': 'error on lattice'}
     ]
 
     plotStuff.plot_curves_with_error_bars(data, x_label=paramTested, y_label='Error',
