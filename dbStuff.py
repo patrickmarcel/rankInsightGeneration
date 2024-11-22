@@ -6,7 +6,9 @@ import pandas as pd
 import configparser
 import json
 
-def getDensity(conn, table,sel,measbase,groupbyAtt):
+def getDensity(conn, table,groupbyAtt):
+    query="analyze \"" + table + "\";"
+    execute_query(conn, query)
     #query = "select n_distinct from pg_Stats where tablename= \'" + table + "\' and attname<>\'" + sel + "\' and attname<>\'" + measbase + "\';"
     query = "select n_distinct from pg_Stats where tablename= \'" + table + "\' and attname in " + str(tuple(groupbyAtt)) + " ;"
     print(query)
@@ -393,12 +395,14 @@ def generateArtificialDataset(conn,num_rows = 50000, nbAtt=10, num_categories_fi
 
     # Create a DataFrame to represent the relational table
     data = {
-        'Attribute_1': first_attribute,
-        'Attribute_2': second_attribute
+        'attribute_1': first_attribute,
+        'attribute_2': second_attribute
     }
 
+    groupAtt=[]
     for i in range(nbAtt):
-        data[f'A_{i+3}'] = other_attributes[i]
+        data[f'a_{i+3}'] = other_attributes[i]
+        groupAtt.append(f'a_{i + 3}')
 
     #print(data)
     df = pd.DataFrame(data)
@@ -428,6 +432,7 @@ def generateArtificialDataset(conn,num_rows = 50000, nbAtt=10, num_categories_fi
     query = "copy " + tablename + " from \'" + path+'relational_table.csv' + "\' (header, format csv);"
     #print(query)
     execute_query(conn, query)
+    return tablename,groupAtt
 
 
 if __name__ == "__main__":
@@ -461,6 +466,6 @@ if __name__ == "__main__":
     conn = connect_to_db(dbname, user, password, host, port)
 
     dropAllMVs(conn)
-    generateArtificialDataset(conn,50,10,10,10,'log')
+    newtable,atts=generateArtificialDataset(conn,10,2,2,10,'log')
 #    generateArtificialDataset(conn,500000,10,10,10)
-    print(getDensity(conn,table,sel,measBase,groupbyAtt))
+    print(getDensity(conn,newtable,atts))
