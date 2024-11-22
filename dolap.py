@@ -649,7 +649,7 @@ if __name__ == "__main__":
 
         data=[]
 
-        nbpairs=5
+        nbpairs=90
         paramTested=list(range(nbpairs))
 
         pairs=dbStuff.generateAllPairs(conn, sel, table,nbpairs)
