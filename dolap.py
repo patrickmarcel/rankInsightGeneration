@@ -9,6 +9,7 @@ from statsmodels.stats.multitest import fdrcorrection
 import dbStuff
 import plotStuff
 import statStuff
+import utilities
 from plotStuff import plot_curves_with_error_bars
 from dbStuff import execute_query, connect_to_db, close_connection, getSample
 from statStuff import permutation_test, compute_skewness, claireStat
@@ -648,63 +649,57 @@ if __name__ == "__main__":
 
         data=[]
 
-        npairs=90
-        paramTested=list(range(npairs))
-        for nbpairs in range(npairs):
+        nbpairs=5
+        paramTested=list(range(nbpairs))
+
+        pairs=dbStuff.generateAllPairs(conn, sel, table,nbpairs)
+        dict={}
+
+        sampleSize = 1
+        minError = 0.1 #threshold
+        pred = 0
+        maxPred = 0
+
+        for p in pairs:
             start_time = time.time()
 
-
-            pairs=dbStuff.generateAllPairs(conn, sel, table,nbpairs)
-            dict={}
-
-            sampleSize = 1
-            minError = 0.1 #threshold
-            pred = 0
-            maxPred = 0
-
-            for p in pairs:
-                    #put couple in prefs, check nbAdomVals
-                    # change sel by testedAtt
-                    #change groupbyAtt
-                    #tests.testAccuracyQuerySampleSize outputs the prediction/error scores (on all tests performed) for couple
-                    #save scores
-                    # pick best/present top k
-
-                meanError, stdevError, meanPred, stdevPred=tests.testAccuracyQuerySampleSizeDOLAP(nbruns, conn,
+            meanError, stdevError, meanPred, stdevPred, meanBennet, stdevBennet=tests.testAccuracyQuerySampleSizeDOLAP(nbruns, conn,
                                                       nbAdomVals, p, ratioViolations, proba, error, percentOfLattice,
                                                       groupbyAtt, sel,
                         measBase, meas, function, table, comparison, generateIndex,
                         allComparisons, initsampleSize, sizeOfR, ratioCuboidOK, ratioOfQuerySample, cumulate=True)
 
-                #keep smallest sample with minimal error below threshold and prediction is maximum
-                if meanError!=[]:
-                    print(meanError)
-                    e=0
-                    while meanError[e] >=0.1 and e<len(meanError)-1:
-                        #print(e)
-                        e=e+1
-                    sampleSizeT=e/10
-                    minErrorT=meanError[e]
-                    predT=meanPred[e]
-                    if sampleSizeT<sampleSize and minErrorT<minError and predT>pred and minErrorT<0.1 and sampleSizeT>0:
-                        sampleSize = sampleSizeT
-                        minError = minErrorT
-                        pred = predT
-                        dict[p]=[sampleSize,minError,pred]
-                    if predT>maxPred and sampleSizeT>0 and minErrorT<0.1 :
-                        dict["best"]=[p,sampleSizeT,minErrorT,predT]
-                        maxPred=predT
-            print(dict)
+            #keep smallest sample with minimal error below threshold and prediction is maximum
+            if meanError!=[]:
+                print(meanError)
+                e=0
+                while meanError[e] >=0.1 and e<len(meanError)-1:
+                    #print(e)
+                    e=e+1
+                sampleSizeT=e/10
+                minErrorT=meanError[e]
+                predT=meanPred[e]
+                if sampleSizeT<sampleSize and minErrorT<minError and predT>pred and minErrorT<0.1 and sampleSizeT>0:
+                    sampleSize = sampleSizeT
+                    minError = minErrorT
+                    pred = predT
+                    dict[p]=[sampleSize,minError,pred]
+                if predT>maxPred and sampleSizeT>0 and minErrorT<0.1 :
+                    dict["best"]=[p,sampleSizeT,minErrorT,predT]
+                    maxPred=predT
+
             end_time = time.time()
             timings.append(end_time - start_time)
-
+        print(dict)
         print(timings)
-        stdevTiming=[0]*npairs
+        timings=utilities.accumulate_numbers(timings)
+        print(timings)
+        stdevTiming=[0]*nbpairs
         data = [
             {'x': paramTested, 'y': timings, 'yerr': stdevTiming, 'label': 'Number of pairs'}
         ]
 
-        plotStuff.plot_curves_with_error_bars(data, x_label=paramTested, y_label='Time (s)',title='Times')
+        plotStuff.plot_curves_with_error_bars(data, x_label='Number of pairs', y_label='Time (s)',title='Times')
 
         #tests.testAccuracyInitSampleSize(conn, nbAdomVals, prefs, ratioViolations, proba, error, percentOfLattice,
         #                           groupbyAtt, sel, measBase, meas, function, table, comparison, generateIndex,

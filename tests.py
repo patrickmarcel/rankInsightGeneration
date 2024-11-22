@@ -446,7 +446,7 @@ def testAccuracyQuerySampleSizeDOLAP(nbruns,conn, nbAdomVals, prefs, ratioViolat
 
 #    plotStuff.plot_curves_with_error_bars(data, x_label=paramTested, y_label='Error',title='prediction and errors')
 
-    return meanError, stdevError, meanPred, stdevPred
+    return meanError, stdevError, meanPred, stdevPred, meanBennet, stdevBennet
 
 
 

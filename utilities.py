@@ -1,6 +1,19 @@
 from itertools import chain, combinations
 
+def accumulate_numbers(input_list):
+    """
+    Accumulates the numbers in the input list such that each position i
+    contains the sum of all previous numbers (including itself).
 
+    :param input_list: List of numbers to be accumulated
+    :return: A new list with accumulated sums
+    """
+    accumulated_list = []
+    running_sum = 0
+    for num in input_list:
+        running_sum += num
+        accumulated_list.append(running_sum)
+    return accumulated_list
 
 def jaccard_similarity(set1, set2):
     """
