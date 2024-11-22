@@ -528,7 +528,7 @@ if __name__ == "__main__":
     # The DB wee want
     #config.read('configs/flights1923.ini')
     #config.read('configs/flightsquarter.ini')
-    config.read('configs/flights.ini')
+    config.read('configs/flightsDolap.ini')
     #config.read('configs/artificial.ini')
     #config.read('configs/ssb.ini')
     # The system this is running on
@@ -612,7 +612,7 @@ if __name__ == "__main__":
 
     # number of runs
     #nbOfRuns = 1 ## no more used
-    nbruns=1
+    nbruns=2
 
     ###
     ### END OF PARAMETERS
@@ -635,9 +635,46 @@ if __name__ == "__main__":
 
     if comparison==True:
 
-        tests.testAccuracyQuerySampleSize(nbruns, conn, nbAdomVals, prefs, ratioViolations, proba, error, percentOfLattice, groupbyAtt, sel,
+        # todo for on measures
+        # todo for testedAtt in groupbyAtt:
+        sel=groupbyAtt[0]
+        groupbyAtt=groupbyAtt[1:]
+        print(groupbyAtt)
+        pairs=dbStuff.generateAllPairs(conn, sel, table)
+        dict={}
+
+        sampleSize = 1
+        minError = 0.1 #threshold
+        pred = 0
+
+        for p in pairs:
+                #put couple in prefs, check nbAdomVals
+                # change sel by testedAtt
+                #change groupbyAtt
+                #tests.testAccuracyQuerySampleSize outputs the prediction/error scores (on all tests performed) for couple
+                #save scores
+                # pick best/present top k
+
+            meanError, stdevError, meanPred, stdevPred=tests.testAccuracyQuerySampleSize(nbruns, conn,
+                                                  nbAdomVals, p, ratioViolations, proba, error, percentOfLattice,
+                                                  groupbyAtt, sel,
                     measBase, meas, function, table, comparison, generateIndex,
                     allComparisons, initsampleSize, sizeOfR, ratioCuboidOK, ratioOfQuerySample, cumulate=True)
+
+            #keep smallest sample with minimal error below threshold and prediction is maximum
+            e=0
+            while meanError[e] >=0.1:
+                e=e+1
+            sampleSizeT=e/10
+            minErrorT=meanError[e]
+            predT=meanPred[e]
+            if sampleSizeT<sampleSize and minErrorT<minError and predT>pred:
+                sampleSize = sampleSizeT
+                minError = minErrorT
+                pred = predT
+                dict[p]=[sampleSize,minError,pred]
+        print(dict)
+
         #tests.testAccuracyInitSampleSize(conn, nbAdomVals, prefs, ratioViolations, proba, error, percentOfLattice,
         #                           groupbyAtt, sel, measBase, meas, function, table, comparison, generateIndex,
         #                           allComparisons,

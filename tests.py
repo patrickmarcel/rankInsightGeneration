@@ -183,6 +183,7 @@ def errorOnAllLattice(tabTest,nbruns,conn, nbAdomVals, prefs, ratioViolations, p
     return meanError,stdevError
 
 
+
 def testAccuracyQuerySampleSize(nbruns,conn, nbAdomVals, prefs, ratioViolations,proba, error, percentOfLattice, groupbyAtt, sel, measBase, meas, function,table, comparison, generateIndex,
                                                                            allComparisons, initsampleSize, sizeOfR, ratioCuboidOK, ratioOfQuerySample, cumulate):
     dictPred = {}
@@ -195,7 +196,7 @@ def testAccuracyQuerySampleSize(nbruns,conn, nbAdomVals, prefs, ratioViolations,
     # paramTested = 'Sample size'
     # paramTested = 'Percent of lattice'
     # tabTest=(0.01, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8,0.9, 1)
-    tabTest = (0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1)
+    tabTest = (0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1)
     # tabTest=(2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20)
     # tabTest=(5,10,20,50,75,100
 
@@ -293,8 +294,9 @@ def testAccuracyQuerySampleSize(nbruns,conn, nbAdomVals, prefs, ratioViolations,
         {'x': tabTest, 'y': meanAll, 'yerr': stdevAll, 'label': 'error on lattice'}
     ]
 
-    plotStuff.plot_curves_with_error_bars(data, x_label=paramTested, y_label='Error',
-                                title='prediction and errors')
+#    plotStuff.plot_curves_with_error_bars(data, x_label=paramTested, y_label='Error',title='prediction and errors')
+
+    return meanError, stdevError, meanPred, stdevPred
 
 
 

@@ -6,6 +6,18 @@ import pandas as pd
 import configparser
 import json
 
+def generateAllPairs(conn, sel, table):
+    query="select distinct(" + sel + ") from " + table + ";"
+    resQ=execute_query(conn,query)
+    tab=[]
+    for r in resQ:
+        tab.append(r[0])
+    res = [(a, b) for idx, a in enumerate(tab) for b in tab[idx + 1:]]
+    res=res[:5]
+    print("res: ",res)
+    print("Number of pairs: ",len(res))
+    return res
+
 def getDensity(conn, table,groupbyAtt):
     query="analyze \"" + table + "\";"
     execute_query(conn, query)
@@ -466,6 +478,6 @@ if __name__ == "__main__":
     conn = connect_to_db(dbname, user, password, host, port)
 
     dropAllMVs(conn)
-    newtable,atts=generateArtificialDataset(conn,10,2,2,10,'log')
-#    generateArtificialDataset(conn,500000,10,10,10)
+    #newtable,atts=generateArtificialDataset(conn,10,2,2,10,'log')
+    newtable,atts=generateArtificialDataset(conn,500000,10,10,10,'log')
     print(getDensity(conn,newtable,atts))
