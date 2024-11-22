@@ -106,3 +106,4 @@ def plot_2curves(x, y, z, labely, labelz, title):
     # Show plot
     plt.show()
 
+

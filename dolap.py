@@ -7,6 +7,7 @@ import json
 from statsmodels.stats.multitest import fdrcorrection
 
 import dbStuff
+import plotStuff
 import statStuff
 from plotStuff import plot_curves_with_error_bars
 from dbStuff import execute_query, connect_to_db, close_connection, getSample
@@ -273,217 +274,137 @@ def test(conn, nbAdomVals, prefs, ratioViolations, proba, error, percentOfLattic
     hypothesis,hypothesisGenerationTime,samplingTime=hypothesisGeneration(conn, prefs, sel, measBase, meas, table, sampleSize, allComparison)
     print("Hypothesis predicted: ", hypothesis)
 
-
-    limitedHyp = []
-    valsToSelect = []
-    j = 0
-    for h in hypothesis:
-        if (h[1] <= nbAdomVals and j < nbAdomVals):
-            limitedHyp.append(h)
-            valsToSelect.append(h[0])
-            j = j + 1
-    #print("Hypothesis limited to choosen values: ", limitedHyp)
-    #print("vals: ",valsToSelect)
-
-    # just for checking on groupBy sel
-    # emptyGBresult, emptyGBresultAll = emptyGB(conn, nbAdomVals, table, sel, meas)
-    # print("Empty GB says:", emptyGBresult)
-    # valsEmptyGB=[a for (a, b) in emptyGBresult]
-    # print(valsEmptyGB)
-
-    #generate index on sel attribute over table R
-    if generateIndex == True :
-        print('Creating indexes')
-        dbStuff.dropAllIndex(conn,table)
-        dbStuff.generateHashIndex(conn, table, sel)
+    # only ok if hypothesis is a<B or a>b
+    if len(hypothesis) <2 or hypothesis[0][1]==hypothesis[1][1]:
+        return 99,99,99,99 #ugly
     else:
-        if generateIndex == 'mc':
+
+        limitedHyp = []
+        valsToSelect = []
+        j = 0
+        for h in hypothesis:
+            if (h[1] <= nbAdomVals and j < nbAdomVals):
+                limitedHyp.append(h)
+                valsToSelect.append(h[0])
+                j = j + 1
+        #print("Hypothesis limited to choosen values: ", limitedHyp)
+        #print("vals: ",valsToSelect)
+
+        # just for checking on groupBy sel
+        # emptyGBresult, emptyGBresultAll = emptyGB(conn, nbAdomVals, table, sel, meas)
+        # print("Empty GB says:", emptyGBresult)
+        # valsEmptyGB=[a for (a, b) in emptyGBresult]
+        # print(valsEmptyGB)
+
+        #generate index on sel attribute over table R
+        if generateIndex == True :
             print('Creating indexes')
-            dbStuff.dropAllIndex(conn, table)
+            dbStuff.dropAllIndex(conn,table)
             dbStuff.generateHashIndex(conn, table, sel)
-            gat=''
-            for g in groupbyAtt:
-                gat=gat+g+','
-            gat=gat+sel
-            dbStuff.generateMulticolIndex(conn, table, gat, sel)
-        else: #false
-            dbStuff.dropAllIndex(conn, table)
-            #dbStuff.dropIndex(conn, table, sel)
+        else:
+            if generateIndex == 'mc':
+                print('Creating indexes')
+                dbStuff.dropAllIndex(conn, table)
+                dbStuff.generateHashIndex(conn, table, sel)
+                gat=''
+                for g in groupbyAtt:
+                    gat=gat+g+','
+                gat=gat+sel
+                dbStuff.generateMulticolIndex(conn, table, gat, sel)
+            else: #false
+                dbStuff.dropAllIndex(conn, table)
+                #dbStuff.dropIndex(conn, table, sel)
 
 
-    #MVs creation was here
+        #MVs creation was here
 
 
-    #validation of hypothesis
-    start_time = time.time()
+        #validation of hypothesis
+        start_time = time.time()
 
-    #size of query sample
-    #sizeofsample = int(bounders.sizeOfSampleHoeffding(proba, error)) + 1
-    #print('size of query sample according to Hoeffding:', sizeofsample)
-    #sizeofsample = sizeofquerysample
+        #size of query sample
+        #sizeofsample = int(bounders.sizeOfSampleHoeffding(proba, error)) + 1
+        #print('size of query sample according to Hoeffding:', sizeofsample)
+        #sizeofsample = sizeofquerysample
 
-    sizeofquerysample = int(ratioOfQuerySample * len(aggQueries))
-    if sizeofquerysample==0:
-        sizeofquerysample=1
-    #print("ratio: ",ratioOfQuerySample)
-    #print("len agg: ",len(aggQueries))
-    print('Size of query sample:', sizeofquerysample)
+        sizeofquerysample = int(ratioOfQuerySample * len(aggQueries))
+        if sizeofquerysample==0:
+            sizeofquerysample=1
+        #print("ratio: ",ratioOfQuerySample)
+        #print("len agg: ",len(aggQueries))
+        print('Size of query sample:', sizeofquerysample)
 
 
-    # total number of cuboids
-    #N = len(utilities.powerset(groupbyAtt))
-    #print('size of sample according to Bardenet:',
-    #      int(bounders.sizeOfSampleHoeffdingSerflingFromBardenet(proba, error, N)) + 1)
+        # total number of cuboids
+        #N = len(utilities.powerset(groupbyAtt))
+        #print('size of sample according to Bardenet:',
+        #      int(bounders.sizeOfSampleHoeffdingSerflingFromBardenet(proba, error, N)) + 1)
 
-    #pwrset = dbStuff.getCuboidsOfAtt(groupbyAtt, sel)
-    pwrset=aggQueries
-    #print("pwrset:",pwrset)
+        #pwrset = dbStuff.getCuboidsOfAtt(groupbyAtt, sel)
+        pwrset=aggQueries
+        #print("pwrset:",pwrset)
 
-    print("Sampling aggregate queries")
-    if cumulate==False:
-        ranks, queryCountviolations, queryCountCuboid, cuboid, newpset = bounders.getSample(pwrset, sel, measBase, function,
-                                                                             table, tuple(valsToSelect), limitedHyp,
-                                                                             mvnames,False,False,
-                                                                                   sizeofquerysample)
-        # queryCountviolations, queryCountCuboid, cuboid=bernstein.getSample(proba, error, pwrset, sel, measBase, function, table, tuple(valsEmptyGB), emptyGBresult, mvnames)
-    else:
-        if currentSample=={}:
+        print("Sampling aggregate queries")
+        if cumulate==False:
             ranks, queryCountviolations, queryCountCuboid, cuboid, newpset = bounders.getSample(pwrset, sel, measBase, function,
-                                                                                       table, tuple(valsToSelect),
-                                                                                       limitedHyp,
-                                                                                       mvnames, False, False,
+                                                                                 table, tuple(valsToSelect), limitedHyp,
+                                                                                 mvnames,False,False,
                                                                                        sizeofquerysample)
-            currentSample["ranks"]=ranks
-            currentSample["queryCountviolations"]=queryCountviolations
-            currentSample["queryCountCuboid"]=queryCountCuboid
-            currentSample["cuboid"]=cuboid
-            currentSample["pset"]=newpset
+            # queryCountviolations, queryCountCuboid, cuboid=bernstein.getSample(proba, error, pwrset, sel, measBase, function, table, tuple(valsEmptyGB), emptyGBresult, mvnames)
         else:
-            ranksTemp, queryCountviolationsTemp, queryCountCuboidTemp, cuboidTemp, newpset  = bounders.getMoreRandamQueries(sizeofquerysample,currentSample,
-                                                                                                                            sel, measBase, function,
-                                                                                       table, tuple(valsToSelect),
-                                                                                       limitedHyp,
-                                                                                       mvnames, False, False)
-            #print(ranksTemp)
-            currentSample["ranks"].extend(ranksTemp)
-            #print(currentSample["ranks"])
-            currentSample["queryCountviolations"].extend(queryCountviolationsTemp)
-            currentSample["queryCountCuboid"].extend(queryCountCuboidTemp)
-            currentSample["cuboid"].extend(cuboidTemp)
-            currentSample["pset"] = newpset
-            ranks=currentSample["ranks"]
-            queryCountviolations=currentSample["queryCountviolations"]
-            queryCountCuboid=currentSample["queryCountCuboid"]
-            cuboid= currentSample["cuboid"]
-
-
-    print("Validating: computing violations")
-
-    tabRandomVar = []
-    nbViewOK = 0
-
-    nbInconclusive=0
-    sizeofsample=sizeofquerysample
-
-    totalQueryTime=0
-
-    for i in range(len(ranks)):
-        #print(len(ranks))
-        #print(i,ranks[i])
-        v,ratio,qtime=countViolations(conn,ranks[i],hypothesis)
-        totalQueryTime=totalQueryTime+qtime
-        #v = dbStuff.execute_query(conn, queryCountviolations[i])[0][0]
-        c = dbStuff.execute_query(conn, queryCountCuboid[i])[0][0]
-        # print(v)
-        #print(c)
-        if c!=0:
-            #OLD print(v/c, " violation rate in cuboid ", cuboid[i], " of size: ", c, ". Number of violations: ", v)
-            #print(ratio, " violation rate in cuboid ", cuboid[i], " of size: ", c, ". Number of violations: ", v)
-
-            if ratio < ratioViolations:
-                tabRandomVar.append(1)
-                nbViewOK = nbViewOK + 1
+            if currentSample=={}:
+                ranks, queryCountviolations, queryCountCuboid, cuboid, newpset = bounders.getSample(pwrset, sel, measBase, function,
+                                                                                           table, tuple(valsToSelect),
+                                                                                           limitedHyp,
+                                                                                           mvnames, False, False,
+                                                                                           sizeofquerysample)
+                currentSample["ranks"]=ranks
+                currentSample["queryCountviolations"]=queryCountviolations
+                currentSample["queryCountCuboid"]=queryCountCuboid
+                currentSample["cuboid"]=cuboid
+                currentSample["pset"]=newpset
             else:
-                tabRandomVar.append(0)
-        else:
-            #print("inconclusive, not enough tuples in cuboid for select values")
-            sizeofsample = sizeofsample - 1
-            nbInconclusive=nbInconclusive+1
+                ranksTemp, queryCountviolationsTemp, queryCountCuboidTemp, cuboidTemp, newpset  = bounders.getMoreRandamQueries(sizeofquerysample,currentSample,
+                                                                                                                                sel, measBase, function,
+                                                                                           table, tuple(valsToSelect),
+                                                                                           limitedHyp,
+                                                                                           mvnames, False, False)
+                #print(ranksTemp)
+                currentSample["ranks"].extend(ranksTemp)
+                #print(currentSample["ranks"])
+                currentSample["queryCountviolations"].extend(queryCountviolationsTemp)
+                currentSample["queryCountCuboid"].extend(queryCountCuboidTemp)
+                currentSample["cuboid"].extend(cuboidTemp)
+                currentSample["pset"] = newpset
+                ranks=currentSample["ranks"]
+                queryCountviolations=currentSample["queryCountviolations"]
+                queryCountCuboid=currentSample["queryCountCuboid"]
+                cuboid= currentSample["cuboid"]
 
 
-    end_time = time.time()
-    validationTime = end_time - start_time
-    print('Validation time:', validationTime)
+        print("Validating: computing violations")
 
-    print('Number of inconclusive: ',nbInconclusive, ' ratio: ',nbInconclusive/len(queryCountviolations))
-
-    variance = np.var(tabRandomVar)
-    # print('variance: ', variance)
-    # check if sizeofsample=0!
-    if sizeofsample==0:
-        prediction = 0
-        print("WARNING: Nothing conclusive")
-        bennetError=0
-    else:
-        prediction = nbViewOK / sizeofsample
-
-        predictionNbOk = prediction * len(pwrset)
-        print('Number of views ok: ', nbViewOK, 'out of ', sizeofsample, 'views, i.e., rate of:', nbViewOK / sizeofsample)
-        print('Prediction is:', predictionNbOk)
-
-        #nbErrors = 2
-        #print('probability of making ', nbErrors, ' errors: ', bernstein.bernsteinBound(variance, nbErrors))
-        #print('the error (according to Bernstein) for sum and confidence interval of size', proba, ' is: ',
-        #      bernstein.bersteinError(proba, variance))
-        bennetError=bounders.bennetErrorOnAvg(proba, variance, sizeofsample)
-        print('The error (according to Bennet) for confidence interval of size', proba, ' is: ',
-              bounders.bennetErrorOnAvg(proba, variance, sizeofsample))
-
-
-
-        #if sizeofsample>1:
-        #    print('The error (empirical Bennet from Maurer and Pontil) for confidence interval of size', proba, ' is: ',
-        #      bounders.empiricalBennetFromMaurer(proba, variance, sizeofsample))
-
-        ###
-        ### IF REPORTING EMPIRICAL ERROR
-        ### UNCOMMENT BELOW
-        #bennetError = bernstein.empiricalBennetFromMaurer(proba, variance, sizeofsample)
-
-        #print('the error (according to bardenet) for avg and confidence interval of size', proba, ' is: ',
-        #      bernstein.empiricalBernsteinFromBardenet(proba, variance, sizeofsample, N))
-
-
-
-    if comparison==True:
-        # comparison with ground truth
-        print('*** comparison to ground truth ***')
-
-        #dbStuff.dropAllMVs(conn)
-        #nbMVs = dbStuff.createMV(conn, groupbyAtt, sel, measBase, function, table, 1,generateIndex)
-        nbMVs=len(pwrset)
-
-        #compareHypToGB(hypothesis, conn, measBase,function, sel,tuple(valsToSelect),mvnames,table)
-
-        ranks, queryCountviolations, queryCountCuboid, cuboid = bounders.generateAllqueriesOnMVs(pwrset, sel, measBase, function,
-                                                                                      table, tuple(valsToSelect),
-                                                                                      limitedHyp, mvnames)
-
-        nbInconclusive=0
         tabRandomVar = []
         nbViewOK = 0
-        for i in range(len(queryCountviolations)):
-            #print('gt violations:',queryCountviolations[i])
-            #print('gt count:',queryCountCuboid[i])
+
+        nbInconclusive=0
+        sizeofsample=sizeofquerysample
+
+        totalQueryTime=0
+
+        for i in range(len(ranks)):
+            #print(len(ranks))
+            #print(i,ranks[i])
+            v,ratio,qtime=countViolations(conn,ranks[i],hypothesis)
+            totalQueryTime=totalQueryTime+qtime
             #v = dbStuff.execute_query(conn, queryCountviolations[i])[0][0]
-            v,ratio,qtime = countViolations(conn, ranks[i], hypothesis)
             c = dbStuff.execute_query(conn, queryCountCuboid[i])[0][0]
             # print(v)
-            # print(c)
-            if c != 0:
-                #OLD print(v / c, " violation rate in cuboid ", cuboid[i], " of size: ", c, ". Number of violations: ", v)
-
+            #print(c)
+            if c!=0:
+                #OLD print(v/c, " violation rate in cuboid ", cuboid[i], " of size: ", c, ". Number of violations: ", v)
                 #print(ratio, " violation rate in cuboid ", cuboid[i], " of size: ", c, ". Number of violations: ", v)
+
                 if ratio < ratioViolations:
                     tabRandomVar.append(1)
                     nbViewOK = nbViewOK + 1
@@ -491,30 +412,114 @@ def test(conn, nbAdomVals, prefs, ratioViolations, proba, error, percentOfLattic
                     tabRandomVar.append(0)
             else:
                 #print("inconclusive, not enough tuples in cuboid for select values")
-                nbMVs=nbMVs-1
+                sizeofsample = sizeofsample - 1
                 nbInconclusive=nbInconclusive+1
+
+
+        end_time = time.time()
+        validationTime = end_time - start_time
+        print('Validation time:', validationTime)
+
+        print('Number of inconclusive: ',nbInconclusive, ' ratio: ',nbInconclusive/len(queryCountviolations))
 
         variance = np.var(tabRandomVar)
         # print('variance: ', variance)
+        # check if sizeofsample=0!
+        if sizeofsample==0:
+            prediction = 0
+            print("WARNING: Nothing conclusive")
+            bennetError=0
+        else:
+            prediction = nbViewOK / sizeofsample
 
-        print('number of inconclusive: ', nbInconclusive, ' ratio: ', nbInconclusive / len(queryCountviolations))
+            predictionNbOk = prediction * len(pwrset)
+            print('Number of views ok: ', nbViewOK, 'out of ', sizeofsample, 'views, i.e., rate of:', nbViewOK / sizeofsample)
+            print('Prediction is:', predictionNbOk)
 
-        print('nb of views ok: ', nbViewOK, 'out of ', nbMVs, 'views, i.e., rate of:', nbViewOK / nbMVs)
-        gtratio= nbViewOK / nbMVs
+            #nbErrors = 2
+            #print('probability of making ', nbErrors, ' errors: ', bernstein.bernsteinBound(variance, nbErrors))
+            #print('the error (according to Bernstein) for sum and confidence interval of size', proba, ' is: ',
+            #      bernstein.bersteinError(proba, variance))
+            bennetError=bounders.bennetErrorOnAvg(proba, variance, sizeofsample)
+            print('The error (according to Bennet) for confidence interval of size', proba, ' is: ',
+                  bounders.bennetErrorOnAvg(proba, variance, sizeofsample))
 
-        realError=abs(prediction - (nbViewOK / nbMVs))
-        print('Error is: ', abs(prediction - (nbViewOK / nbMVs)))
 
-        #print('Error on sum is: ', abs(nbViewOK - predictionNbOk))
 
-        #print('the error (according to Bennet) for avg and confidence interval of size', proba, ' is: ',
-              #bernstein.bennetErrorOnAvg(proba, variance, sizeofsample))
-        #print('the error (according to Bernstein) for confidence interval of size', proba, ' is: ',
-              #bernstein.bersteinError(proba, variance))
+            #if sizeofsample>1:
+            #    print('The error (empirical Bennet from Maurer and Pontil) for confidence interval of size', proba, ' is: ',
+            #      bounders.empiricalBennetFromMaurer(proba, variance, sizeofsample))
 
-        return prediction,bennetError,realError,gtratio
-    else:
-        return totalQueryTime, samplingTime, hypothesisGenerationTime, validationTime
+            ###
+            ### IF REPORTING EMPIRICAL ERROR
+            ### UNCOMMENT BELOW
+            #bennetError = bernstein.empiricalBennetFromMaurer(proba, variance, sizeofsample)
+
+            #print('the error (according to bardenet) for avg and confidence interval of size', proba, ' is: ',
+            #      bernstein.empiricalBernsteinFromBardenet(proba, variance, sizeofsample, N))
+
+
+
+        if comparison==True:
+            # comparison with ground truth
+            print('*** comparison to ground truth ***')
+
+            #dbStuff.dropAllMVs(conn)
+            #nbMVs = dbStuff.createMV(conn, groupbyAtt, sel, measBase, function, table, 1,generateIndex)
+            nbMVs=len(pwrset)
+
+            #compareHypToGB(hypothesis, conn, measBase,function, sel,tuple(valsToSelect),mvnames,table)
+
+            ranks, queryCountviolations, queryCountCuboid, cuboid = bounders.generateAllqueriesOnMVs(pwrset, sel, measBase, function,
+                                                                                          table, tuple(valsToSelect),
+                                                                                          limitedHyp, mvnames)
+
+            nbInconclusive=0
+            tabRandomVar = []
+            nbViewOK = 0
+            for i in range(len(queryCountviolations)):
+                #print('gt violations:',queryCountviolations[i])
+                #print('gt count:',queryCountCuboid[i])
+                #v = dbStuff.execute_query(conn, queryCountviolations[i])[0][0]
+                v,ratio,qtime = countViolations(conn, ranks[i], hypothesis)
+                c = dbStuff.execute_query(conn, queryCountCuboid[i])[0][0]
+                # print(v)
+                # print(c)
+                if c != 0:
+                    #OLD print(v / c, " violation rate in cuboid ", cuboid[i], " of size: ", c, ". Number of violations: ", v)
+
+                    #print(ratio, " violation rate in cuboid ", cuboid[i], " of size: ", c, ". Number of violations: ", v)
+                    if ratio < ratioViolations:
+                        tabRandomVar.append(1)
+                        nbViewOK = nbViewOK + 1
+                    else:
+                        tabRandomVar.append(0)
+                else:
+                    #print("inconclusive, not enough tuples in cuboid for select values")
+                    nbMVs=nbMVs-1
+                    nbInconclusive=nbInconclusive+1
+
+            variance = np.var(tabRandomVar)
+            # print('variance: ', variance)
+
+            print('number of inconclusive: ', nbInconclusive, ' ratio: ', nbInconclusive / len(queryCountviolations))
+
+            print('nb of views ok: ', nbViewOK, 'out of ', nbMVs, 'views, i.e., rate of:', nbViewOK / nbMVs)
+            gtratio= nbViewOK / nbMVs
+
+            realError=abs(prediction - (nbViewOK / nbMVs))
+            print('Error is: ', abs(prediction - (nbViewOK / nbMVs)))
+
+            #print('Error on sum is: ', abs(nbViewOK - predictionNbOk))
+
+            #print('the error (according to Bennet) for avg and confidence interval of size', proba, ' is: ',
+                  #bernstein.bennetErrorOnAvg(proba, variance, sizeofsample))
+            #print('the error (according to Bernstein) for confidence interval of size', proba, ' is: ',
+                  #bernstein.bersteinError(proba, variance))
+
+            return prediction,bennetError,realError,gtratio
+        else:
+            return totalQueryTime, samplingTime, hypothesisGenerationTime, validationTime
 
 
 
@@ -581,7 +586,7 @@ if __name__ == "__main__":
     nbAdomVals = len(prefs)
 
     # for sampling fact table with Postgresql
-    initsampleSize = 0.3
+    initsampleSize = 0.4
     samplingMethod = 'SYSTEM_ROWS'  # or SYSTEM
 
     # ratio max of violations in a cuboid
@@ -612,7 +617,7 @@ if __name__ == "__main__":
 
     # number of runs
     #nbOfRuns = 1 ## no more used
-    nbruns=2
+    nbruns=1
 
     ###
     ### END OF PARAMETERS
@@ -631,7 +636,7 @@ if __name__ == "__main__":
 
     nbWrongRanking=0
     resultRuns=[]
-    data=[]
+    timings=[]
 
     if comparison==True:
 
@@ -639,41 +644,67 @@ if __name__ == "__main__":
         # todo for testedAtt in groupbyAtt:
         sel=groupbyAtt[0]
         groupbyAtt=groupbyAtt[1:]
-        print(groupbyAtt)
-        pairs=dbStuff.generateAllPairs(conn, sel, table)
-        dict={}
+        #print(groupbyAtt)
 
-        sampleSize = 1
-        minError = 0.1 #threshold
-        pred = 0
+        data=[]
 
-        for p in pairs:
-                #put couple in prefs, check nbAdomVals
-                # change sel by testedAtt
-                #change groupbyAtt
-                #tests.testAccuracyQuerySampleSize outputs the prediction/error scores (on all tests performed) for couple
-                #save scores
-                # pick best/present top k
+        npairs=90
+        paramTested=list(range(npairs))
+        for nbpairs in range(npairs):
+            start_time = time.time()
 
-            meanError, stdevError, meanPred, stdevPred=tests.testAccuracyQuerySampleSize(nbruns, conn,
-                                                  nbAdomVals, p, ratioViolations, proba, error, percentOfLattice,
-                                                  groupbyAtt, sel,
-                    measBase, meas, function, table, comparison, generateIndex,
-                    allComparisons, initsampleSize, sizeOfR, ratioCuboidOK, ratioOfQuerySample, cumulate=True)
 
-            #keep smallest sample with minimal error below threshold and prediction is maximum
-            e=0
-            while meanError[e] >=0.1:
-                e=e+1
-            sampleSizeT=e/10
-            minErrorT=meanError[e]
-            predT=meanPred[e]
-            if sampleSizeT<sampleSize and minErrorT<minError and predT>pred:
-                sampleSize = sampleSizeT
-                minError = minErrorT
-                pred = predT
-                dict[p]=[sampleSize,minError,pred]
-        print(dict)
+            pairs=dbStuff.generateAllPairs(conn, sel, table,nbpairs)
+            dict={}
+
+            sampleSize = 1
+            minError = 0.1 #threshold
+            pred = 0
+            maxPred = 0
+
+            for p in pairs:
+                    #put couple in prefs, check nbAdomVals
+                    # change sel by testedAtt
+                    #change groupbyAtt
+                    #tests.testAccuracyQuerySampleSize outputs the prediction/error scores (on all tests performed) for couple
+                    #save scores
+                    # pick best/present top k
+
+                meanError, stdevError, meanPred, stdevPred=tests.testAccuracyQuerySampleSizeDOLAP(nbruns, conn,
+                                                      nbAdomVals, p, ratioViolations, proba, error, percentOfLattice,
+                                                      groupbyAtt, sel,
+                        measBase, meas, function, table, comparison, generateIndex,
+                        allComparisons, initsampleSize, sizeOfR, ratioCuboidOK, ratioOfQuerySample, cumulate=True)
+
+                #keep smallest sample with minimal error below threshold and prediction is maximum
+                if meanError!=[]:
+                    print(meanError)
+                    e=0
+                    while meanError[e] >=0.1 and e<len(meanError)-1:
+                        #print(e)
+                        e=e+1
+                    sampleSizeT=e/10
+                    minErrorT=meanError[e]
+                    predT=meanPred[e]
+                    if sampleSizeT<sampleSize and minErrorT<minError and predT>pred and minErrorT<0.1 and sampleSizeT>0:
+                        sampleSize = sampleSizeT
+                        minError = minErrorT
+                        pred = predT
+                        dict[p]=[sampleSize,minError,pred]
+                    if predT>maxPred and sampleSizeT>0 and minErrorT<0.1 :
+                        dict["best"]=[p,sampleSizeT,minErrorT,predT]
+                        maxPred=predT
+            print(dict)
+            end_time = time.time()
+            timings.append(end_time - start_time)
+
+        print(timings)
+        stdevTiming=[0]*npairs
+        data = [
+            {'x': paramTested, 'y': timings, 'yerr': stdevTiming, 'label': 'Number of pairs'}
+        ]
+
+        plotStuff.plot_curves_with_error_bars(data, x_label=paramTested, y_label='Time (s)',title='Times')
 
         #tests.testAccuracyInitSampleSize(conn, nbAdomVals, prefs, ratioViolations, proba, error, percentOfLattice,
         #                           groupbyAtt, sel, measBase, meas, function, table, comparison, generateIndex,

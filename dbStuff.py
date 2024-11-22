@@ -6,14 +6,14 @@ import pandas as pd
 import configparser
 import json
 
-def generateAllPairs(conn, sel, table):
+def generateAllPairs(conn, sel, table, nbPairs):
     query="select distinct(" + sel + ") from " + table + ";"
     resQ=execute_query(conn,query)
     tab=[]
     for r in resQ:
         tab.append(r[0])
     res = [(a, b) for idx, a in enumerate(tab) for b in tab[idx + 1:]]
-    res=res[:5]
+    res=res[:nbPairs]
     print("res: ",res)
     print("Number of pairs: ",len(res))
     return res
