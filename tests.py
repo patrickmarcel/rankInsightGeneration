@@ -316,7 +316,7 @@ def testAccuracyQuerySampleSize(nbruns,conn, nbAdomVals, prefs, ratioViolations,
 
 
 
-def testAccuracyQuerySampleSizeDOLAP(nbruns,conn, nbAdomVals, prefs, ratioViolations,proba, error, percentOfLattice, groupbyAtt, sel, measBase, meas, function,table, comparison, generateIndex,
+def testAccuracyQuerySampleSizeDOLAP(mvnames, aggQueries, nbruns,conn, nbAdomVals, prefs, ratioViolations,proba, error, percentOfLattice, groupbyAtt, sel, measBase, meas, function,table, comparison, generateIndex,
                                                                            allComparisons, initsampleSize, sizeOfR, ratioCuboidOK, ratioOfQuerySample, cumulate):
     dictPred = {}
     dictBennet = {}
@@ -335,8 +335,7 @@ def testAccuracyQuerySampleSizeDOLAP(nbruns,conn, nbAdomVals, prefs, ratioViolat
     for j in range(nbruns):
         print("-----RUN: ", j)
 
-        mvnames, aggQueries = materializeViews(conn, groupbyAtt, sel, measBase, function, table, percentOfLattice,
-                                               generateIndex)
+        #mvnames, aggQueries = materializeViews(conn, groupbyAtt, sel, measBase, function, table, percentOfLattice,generateIndex)
         currentSample = {}
 
         # for percentOfLattice in tabTest:

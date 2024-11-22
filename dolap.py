@@ -666,10 +666,13 @@ if __name__ == "__main__":
         pred = 0
         maxPred = 0
 
+        mvnames, aggQueries = materializeViews(conn, groupbyAtt, sel, measBase, function, table, percentOfLattice,
+                                               generateIndex)
+
         for p in pairs:
             start_time = time.time()
 
-            meanError, stdevError, meanPred, stdevPred, meanBennet, stdevBennet=tests.testAccuracyQuerySampleSizeDOLAP(nbruns, conn,
+            meanError, stdevError, meanPred, stdevPred, meanBennet, stdevBennet=tests.testAccuracyQuerySampleSizeDOLAP(mvnames, aggQueries,nbruns, conn,
                                                       nbAdomVals, p, ratioViolations, proba, error, percentOfLattice,
                                                       groupbyAtt, sel,
                         measBase, meas, function, table, comparison, generateIndex,
