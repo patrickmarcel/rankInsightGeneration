@@ -520,7 +520,10 @@ def test(conn, nbAdomVals, prefs, ratioViolations, proba, error, percentOfLattic
 
             return prediction,bennetError,realError,gtratio
         else:
-            return totalQueryTime, samplingTime, hypothesisGenerationTime, validationTime
+            #return totalQueryTime, samplingTime, hypothesisGenerationTime, validationTime
+
+            #if no comparison only outputs bennet error and prediction
+            return prediction, bennetError, bennetError, prediction
 
 
 
@@ -533,7 +536,7 @@ if __name__ == "__main__":
 
     # The DB wee want
     #config.read('configs/flights1923.ini')
-    #config.read('configs/flightsquarter.ini')
+    #config.read('configs/flightsquarterDolap.ini')
     config.read('configs/flightsDolap.ini')
     #config.read('configs/artificial.ini')
     #config.read('configs/ssb.ini')
@@ -649,6 +652,9 @@ if __name__ == "__main__":
 
         data=[]
 
+        # comparison = false if we don't want empirical error
+        # comparison = True if we want both empirical and Bennet error
+        comparison = False
         nbpairs=90
         paramTested=list(range(nbpairs))
 

@@ -348,6 +348,7 @@ def testAccuracyQuerySampleSizeDOLAP(nbruns,conn, nbAdomVals, prefs, ratioViolat
 
             sampleSize = initsampleSize * sizeOfR
 
+
             prediction, bennetError, realError, gtratio = dolap.test(conn, nbAdomVals, prefs, ratioViolations, proba, error,
                                                            percentOfLattice, groupbyAtt,
                                                            sel, measBase, meas, function, table, sampleSize, comparison,
