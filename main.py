@@ -111,16 +111,18 @@ def fetchCongressionalSample(conn,sel,table,measBase,sampleSize, adom_restr=None
     table_size = execute_query(conn, "select count(1) from " + table + ";")[0][0]
 
     sample_size = int(table_size * sampleSize)
-    alpha = 0.10
+    alpha = 0.25
     house_size = sample_size * alpha
     senate_size = sample_size * (1 - alpha)
-
-    house = getSample(conn, measBase, table, sel, house_size, method="SYSTEM_ROWS", repeatable=False)
 
     senate = []
     state_sample_size = int(senate_size / len(adom))
     for state in adom:
         senate.extend(get_state_sample(conn, measBase, table, sel, state_sample_size, state))
+
+    mising_senators = senate_size - len(senate)
+
+    house = getSample(conn, measBase, table, sel, house_size+mising_senators, method="SYSTEM_ROWS", repeatable=False)
 
     if adom_restr:
         house = list(filter(lambda x: x[0] in adom_restr, house))
@@ -522,11 +524,11 @@ if __name__ == "__main__":
 
     # The DB wee want
     #config.read('configs/flights1923.ini')
-    config.read('configs/flights.ini')
+    #config.read('configs/flights.ini')
     #config.read('configs/artificial.ini')
-    #config.read('configs/ssb.ini')
+    config.read('configs/ssb.ini')
     # The system this is running on
-    USER = "PM"
+    USER = "AC"
 
     # Database connection parameters
     dbname = config[USER]['dbname']
