@@ -607,8 +607,8 @@ if __name__ == "__main__":
     ratioOfQuerySample = 0.4
 
     # number of runs
-    nbOfRuns = 1 ## no more used
-    nbruns=3
+    #nbOfRuns = 1 ## no more used
+    nbruns=1
 
     ###
     ### END OF PARAMETERS
@@ -648,7 +648,6 @@ if __name__ == "__main__":
         #                   allComparisons,
         #                   initsampleSize, sizeOfR, nbOfRuns,
         #                   ratioOfQuerySample, cumulate=False)
-
 
 
 

@@ -1,0 +1,90 @@
+Create table flight(
+FL_DATE date,
+AIRLINE varchar,
+AIRLINE_DOT varchar,
+AIRLINE_CODE varchar,
+DOT_CODE int,
+FL_NUMBER int,
+ORIGIN varchar,
+ORIGIN_CITY varchar,
+DEST varchar,
+DEST_CITY varchar,
+CRS_DEP_TIME int,
+DEP_TIME float,
+DEP_DELAY float,
+TAXI_OUT float,
+WHEELS_OFF float,
+WHEELS_ON float,
+TAXI_IN float,
+CRS_ARR_TIME int,
+ARR_TIME float,
+ARR_DELAY float,
+CANCELLED float,
+CANCELLATION_CODE varchar,
+DIVERTED float,
+CRS_ELAPSED_TIME float,
+ELAPSED_TIME float,
+AIR_TIME float,
+DISTANCE float,
+DELAY_DUE_CARRIER float,
+DELAY_DUE_WEATHER float,
+DELAY_DUE_NAS float,
+DELAY_DUE_SECURITY float,
+DELAY_DUE_LATE_AIRCRAFT float
+);
+
+copy flight from '/Users/marcel/Documents/ENSEIGNEMENTS/BD/DATASETS/flights/flights2019-23/flights_sample_3m.csv' (header, format csv);
+
+Delete from flight where dep_delay is null;
+
+
+Create table flightProjected(
+FL_DATE date,
+AIRLINE_CODE varchar,
+FL_NUMBER int,
+ORIGIN varchar,
+DEST varchar,
+DEP_TIME float,
+ARR_TIME float,
+CANCELLED float,
+DIVERTED float,
+DISTANCE float,
+DEP_DELAY float,
+ARR_DELAY float,
+DELAY_DUE_CARRIER float,
+DELAY_DUE_WEATHER float,
+DELAY_DUE_NAS float,
+DELAY_DUE_SECURITY float,
+DELAY_DUE_LATE_AIRCRAFT float
+);
+
+Insert into flightProjected
+(
+Select fl_date, airline_code, fl_number, origin, dest, dep_time, arr_time, cancelled, diverted, distance, avg(dep_delay), avg(arr_delay), avg(DELAY_DUE_CARRIER), avg(DELAY_DUE_WEATHER), avg(DELAY_DUE_NAS), avg(DELAY_DUE_SECURITY), avg(DELAY_DUE_LATE_AIRCRAFT)
+From flight
+Group by fl_date, airline_code, fl_number, origin, dest, dep_time, arr_time, distance, diverted, cancelled
+);
+
+
+Create table flightQuarter(
+FL_DATE date,
+AIRLINE_CODE varchar,
+FL_NUMBER int,
+ORIGIN varchar,
+DEST varchar,
+DEP_TIME float,
+ARR_TIME float,
+DISTANCE float,
+DEP_DELAY float,
+ARR_DELAY float
+);
+
+Insert into flightQuarter
+(
+Select fl_date, airline_code, fl_number, origin, dest, dep_time, arr_time, distance, avg(dep_delay), avg(arr_delay)
+From flight
+where extract('month' from fl_date)=12 or extract('month' from fl_date)=11
+Or extract('month' from fl_date)=10
+Group by fl_date, airline_code, fl_number, origin, dest, dep_time, arr_time, distance, diverted, cancelled
+);
+
