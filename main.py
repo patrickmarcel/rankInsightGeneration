@@ -526,9 +526,10 @@ if __name__ == "__main__":
     config = configparser.ConfigParser()
 
     # The DB wee want
-    #config.read('configs/flights1923.ini')
+    config.read('configs/flights1923.ini')
+    #config.read('configs/flightsquarter.ini')
     #config.read('configs/flights.ini')
-    config.read('configs/artificial.ini')
+    #config.read('configs/artificial.ini')
     #config.read('configs/ssb.ini')
     # The system this is running on
     USER = "PM"
@@ -611,7 +612,7 @@ if __name__ == "__main__":
 
     # number of runs
     #nbOfRuns = 1 ## no more used
-    nbruns=3
+    nbruns=1
 
     ###
     ### END OF PARAMETERS
