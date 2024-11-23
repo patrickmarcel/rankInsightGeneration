@@ -316,7 +316,7 @@ def testAccuracyQuerySampleSize(nbruns,conn, nbAdomVals, prefs, ratioViolations,
 
 
 
-def testAccuracyQuerySampleSizeDOLAP(mvnames, aggQueries, nbruns,conn, nbAdomVals, prefs, ratioViolations,proba, error, percentOfLattice, groupbyAtt, sel, measBase, meas, function,table, comparison, generateIndex,
+def testAccuracyQuerySampleSizeDOLAP(tabTest,mvnames, aggQueries, nbruns,conn, nbAdomVals, prefs, ratioViolations,proba, error, percentOfLattice, groupbyAtt, sel, measBase, meas, function,table, comparison, generateIndex,
                                                                            allComparisons, initsampleSize, sizeOfR, ratioCuboidOK, ratioOfQuerySample, cumulate):
     dictPred = {}
     dictBennet = {}
@@ -328,66 +328,67 @@ def testAccuracyQuerySampleSizeDOLAP(mvnames, aggQueries, nbruns,conn, nbAdomVal
     # paramTested = 'Sample size'
     # paramTested = 'Percent of lattice'
     # tabTest=(0.01, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8,0.9, 1)
-    tabTest = (0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1)
+    #tabTest = (0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1)
     # tabTest=(2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20)
     # tabTest=(5,10,20,50,75,100
 
-    for j in range(nbruns):
-        print("-----RUN: ", j)
-
-        #mvnames, aggQueries = materializeViews(conn, groupbyAtt, sel, measBase, function, table, percentOfLattice,generateIndex)
-        currentSample = {}
-
-        # for percentOfLattice in tabTest:
-        # for initsampleSize in tabTest:
-        for ratioOfQuerySample in tabTest:
-            # for nbAdomVals in range(2,10):
-
-            print("--- TESTING VALUE:", ratioOfQuerySample)
-
-            sampleSize = initsampleSize * sizeOfR
 
 
-            prediction, bennetError, realError, gtratio = dolap.test(conn, nbAdomVals, prefs, ratioViolations, proba, error,
-                                                           percentOfLattice, groupbyAtt,
-                                                           sel, measBase, meas, function, table, sampleSize, comparison,
-                                                           generateIndex, allComparisons, ratioOfQuerySample, mvnames,
-                                                           aggQueries, currentSample, cumulate=True)
 
-            if prediction!=99:
-                if str(ratioOfQuerySample) in dictPred:
-                    dictPred[str(ratioOfQuerySample)].extend([prediction])
-                else:
-                    dictPred[str(ratioOfQuerySample)] = [prediction]
-                if str(ratioOfQuerySample) in dictBennet:
-                    dictBennet[str(ratioOfQuerySample)].extend([bennetError])
-                else:
-                    dictBennet[str(ratioOfQuerySample)] = [bennetError]
-                if str(ratioOfQuerySample) in dictError:
-                    dictError[str(ratioOfQuerySample)].extend([realError])
-                else:
-                    dictError[str(ratioOfQuerySample)] = [realError]
+    #mvnames, aggQueries = materializeViews(conn, groupbyAtt, sel, measBase, function, table, percentOfLattice,generateIndex)
+    currentSample = {}
 
-                print("Desired cuboid ratio is:", ratioCuboidOK, ". We predicted ratio of: ", prediction, ". Real ratio is: ",
-                      gtratio)
-                if (gtratio < ratioCuboidOK and prediction > ratioCuboidOK) or (
-                        gtratio > ratioCuboidOK and prediction < ratioCuboidOK):
-                    nbWrongRanking = 1
-                else:
-                    nbWrongRanking = 0
-                #nbWrongRankingTab.append(nbWrongRanking)
+    # for percentOfLattice in tabTest:
+    # for initsampleSize in tabTest:
+    #for ratioOfQuerySample in tabTest:
+    # for nbAdomVals in range(2,10):
 
-                print("interval: [", prediction - bennetError, ",", prediction + bennetError, "]")
-                print("user threshold:", ratioCuboidOK)
-                if ratioCuboidOK >= prediction - bennetError and ratioCuboidOK <= prediction + bennetError:
-                    print("continue")
-                else:
-                    print("WE CAN STOP")
+    #print("--- TESTING VALUE:", ratioOfQuerySample)
 
-                if str(ratioOfQuerySample) in dictWR:
-                    dictWR[str(ratioOfQuerySample)].extend([nbWrongRanking])
-                else:
-                    dictWR[str(ratioOfQuerySample)] = [nbWrongRanking]
+    sampleSize = initsampleSize * sizeOfR
+
+
+    prediction, bennetError, realError, gtratio = dolap.test(conn, nbAdomVals, prefs, ratioViolations, proba, error,
+                                                   percentOfLattice, groupbyAtt,
+                                                   sel, measBase, meas, function, table, sampleSize, comparison,
+                                                   generateIndex, allComparisons, ratioOfQuerySample, mvnames,
+                                                   aggQueries, currentSample, cumulate=True)
+    #print(prediction, bennetError, realError, gtratio)
+
+    if prediction!=99:
+        if str(ratioOfQuerySample) in dictPred:
+            dictPred[str(ratioOfQuerySample)].extend([prediction])
+        else:
+            dictPred[str(ratioOfQuerySample)] = [prediction]
+        if str(ratioOfQuerySample) in dictBennet:
+            dictBennet[str(ratioOfQuerySample)].extend([bennetError])
+        else:
+            dictBennet[str(ratioOfQuerySample)] = [bennetError]
+        if str(ratioOfQuerySample) in dictError:
+            dictError[str(ratioOfQuerySample)].extend([realError])
+        else:
+            dictError[str(ratioOfQuerySample)] = [realError]
+
+        print("Desired cuboid ratio is:", ratioCuboidOK, ". We predicted ratio of: ", prediction, ". Real ratio is: ",
+              gtratio)
+        if (gtratio < ratioCuboidOK and prediction > ratioCuboidOK) or (
+                gtratio > ratioCuboidOK and prediction < ratioCuboidOK):
+            nbWrongRanking = 1
+        else:
+            nbWrongRanking = 0
+        #nbWrongRankingTab.append(nbWrongRanking)
+
+        print("interval: [", prediction - bennetError, ",", prediction + bennetError, "]")
+        print("user threshold:", ratioCuboidOK)
+        if ratioCuboidOK >= prediction - bennetError and ratioCuboidOK <= prediction + bennetError:
+            print("continue")
+        else:
+            print("WE CAN STOP")
+
+        if str(ratioOfQuerySample) in dictWR:
+            dictWR[str(ratioOfQuerySample)].extend([nbWrongRanking])
+        else:
+            dictWR[str(ratioOfQuerySample)] = [nbWrongRanking]
 
     meanPred = []
     stdevPred = []
@@ -428,7 +429,7 @@ def testAccuracyQuerySampleSizeDOLAP(mvnames, aggQueries, nbruns,conn, nbAdomVal
             else:
                 stdevWR.append(0)
 
-    # uncomment me!!!
+    #
     #meanAll,stdevAll=errorOnAllLattice(tabTest,nbruns,conn, nbAdomVals, prefs, ratioViolations, proba, error,
     #                                                           percentOfLattice, groupbyAtt,
     #                                                           sel, measBase, meas, function, table,
@@ -446,7 +447,7 @@ def testAccuracyQuerySampleSizeDOLAP(mvnames, aggQueries, nbruns,conn, nbAdomVal
 
 #    plotStuff.plot_curves_with_error_bars(data, x_label=paramTested, y_label='Error',title='prediction and errors')
 
-    return meanError, stdevError, meanPred, stdevPred, meanBennet, stdevBennet
+    return meanError, meanPred, meanBennet
 
 
 

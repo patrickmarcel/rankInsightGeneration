@@ -297,6 +297,7 @@ def test(conn, nbAdomVals, prefs, ratioViolations, proba, error, percentOfLattic
         # valsEmptyGB=[a for (a, b) in emptyGBresult]
         # print(valsEmptyGB)
 
+        """
         #generate index on sel attribute over table R
         if generateIndex == True :
             print('Creating indexes')
@@ -315,7 +316,7 @@ def test(conn, nbAdomVals, prefs, ratioViolations, proba, error, percentOfLattic
             else: #false
                 dbStuff.dropAllIndex(conn, table)
                 #dbStuff.dropIndex(conn, table, sel)
-
+        """
 
         #MVs creation was here
 
@@ -563,20 +564,6 @@ if __name__ == "__main__":
     if len(prefs) == 0:
         prefs = None
 
-    #if DEBUG_FLAG:
-    #    nbruns = 1
-    #else:
-    #    nbruns = 10
-
-
-    # for Hoeffding - OLD - REMOVE
-    epsilon = 0.1
-    alpha = 0.1
-    p = 0
-    H = []
-    threshold = 0.1  # 10% of tuples violating the order
-    n = math.log(2 / alpha, 10) / (2* epsilon * epsilon)
-    n = math.ceil(n)
 
     ###
     ### PARAMETERS
@@ -584,7 +571,7 @@ if __name__ == "__main__":
 
     # for query sample size according to Hoeffding
     proba = 0.1 #probability of making an error
-    error = 0.3 #error
+    error = 0.1 #error
 
     # number of values of adom to consider - default = all of prefs
     nbAdomVals = len(prefs)
@@ -644,17 +631,27 @@ if __name__ == "__main__":
 
     if comparison==True:
 
+
         # todo for on measures
         # todo for testedAtt in groupbyAtt:
+        # todo compare to ground truth
+
+        # size of query sample according to Hoeffding
+        sizeHoeffding = int(bounders.sizeOfSampleHoeffding(proba, error))
+        print('size of query sample according to Hoeffding for proba=',proba," and error=",error,": ",sizeHoeffding)
+
+
+
         sel=groupbyAtt[0]
         groupbyAtt=groupbyAtt[1:]
         #print(groupbyAtt)
 
-        data=[]
+
+        dataPairs=[]
 
         # comparison = false if we don't want empirical error
         # comparison = True if we want both empirical and Bennet error
-        comparison = False
+        comparison = True
         nbpairs=90
         paramTested=list(range(nbpairs))
 
@@ -669,46 +666,73 @@ if __name__ == "__main__":
         mvnames, aggQueries = materializeViews(conn, groupbyAtt, sel, measBase, function, table, percentOfLattice,
                                                generateIndex)
 
-        for p in pairs:
-            start_time = time.time()
+        # total number of cuboids
+        N = len(aggQueries)
+        print('size of sample according to Bardenet:',
+              int(bounders.sizeOfSampleHoeffdingSerflingFromBardenet(proba, error, N)))
 
-            meanError, stdevError, meanPred, stdevPred, meanBennet, stdevBennet=tests.testAccuracyQuerySampleSizeDOLAP(mvnames, aggQueries,nbruns, conn,
-                                                      nbAdomVals, p, ratioViolations, proba, error, percentOfLattice,
-                                                      groupbyAtt, sel,
-                        measBase, meas, function, table, comparison, generateIndex,
-                        allComparisons, initsampleSize, sizeOfR, ratioCuboidOK, ratioOfQuerySample, cumulate=True)
+        ratioOfQuerySample = 0.5
+        tabTest = (0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1)
+        for ratioOfQuerySample in tabTest:
+            dict = {}
+            data = []
+            timings=[]
+            for p in pairs:
+                start_time = time.time()
 
-            #keep smallest sample with minimal error below threshold and prediction is maximum
-            if meanError!=[]:
-                print(meanError)
-                e=0
-                while meanError[e] >=0.1 and e<len(meanError)-1:
-                    #print(e)
-                    e=e+1
-                sampleSizeT=e/10
-                minErrorT=meanError[e]
-                predT=meanPred[e]
-                if sampleSizeT<sampleSize and minErrorT<minError and predT>pred and minErrorT<0.1 and sampleSizeT>0:
-                    sampleSize = sampleSizeT
-                    minError = minErrorT
-                    pred = predT
-                    dict[p]=[sampleSize,minError,pred]
-                if predT>maxPred and sampleSizeT>0 and minErrorT<0.1 :
-                    dict["best"]=[p,sampleSizeT,minErrorT,predT]
-                    maxPred=predT
+                meanError, meanPred, meanBennet=tests.testAccuracyQuerySampleSizeDOLAP(tabTest,mvnames, aggQueries,nbruns, conn,
+                                                          nbAdomVals, p, ratioViolations, proba, error, percentOfLattice,
+                                                          groupbyAtt, sel,
+                            measBase, meas, function, table, comparison, generateIndex,
+                            allComparisons, initsampleSize, sizeOfR, ratioCuboidOK, ratioOfQuerySample, cumulate=True)
 
-            end_time = time.time()
-            timings.append(end_time - start_time)
-        print(dict)
-        print(timings)
-        timings=utilities.accumulate_numbers(timings)
-        print(timings)
-        stdevTiming=[0]*nbpairs
+                print(p,meanError,meanPred)
+                if meanError!=[]:
+                    print(meanError)
+                    e=0
+                    while meanError[e] >=minError and e<len(meanError)-1:
+                        #print(e)
+                        e=e+1
+                    sampleSizeT=e/10
+                    sampleSizeT=ratioOfQuerySample
+                    minErrorT=meanError[e]
+                    predT=meanPred[e]
+
+                    #if minErrorT < minError and predT > pred and minErrorT < 0.1 and sampleSizeT > 0:
+                    if minErrorT < minError:
+                        #minError = minErrorT
+                        #pred = predT
+                        dict[p] = [minErrorT, predT]
+
+                    #print("TEST",predT, maxPred, sampleSizeT, minErrorT)
+                    if predT>maxPred and sampleSizeT>0 and minErrorT<0.1 :
+                        dict["best"]=[p,sampleSizeT,minErrorT,predT]
+                        maxPred=predT
+
+                end_time = time.time()
+                timings.append(end_time - start_time)
+            print("Best: ", dict)
+            print("Number of pairs with error < 0.1 (size of dict):",len(dict))
+            dataPairs.append(len(dict))
+            #print(timings)
+            timings=utilities.accumulate_numbers(timings)
+            #print(timings)
+            stdevTiming=[0]*nbpairs
+            data = [
+                {'x': paramTested, 'y': timings, 'yerr': stdevTiming, 'label': 'Number of pairs'}
+            ]
+
+            # uncomment if plot timings
+            #plotStuff.plot_curves_with_error_bars(data, x_label='Number of pairs', y_label='Time (s)',title='Times')
+
+        #plots number of pairs with error<0.1 by size of query sample
+        stdevPairs = [0] * len(tabTest)
         data = [
-            {'x': paramTested, 'y': timings, 'yerr': stdevTiming, 'label': 'Number of pairs'}
+            {'x': tabTest, 'y': dataPairs, 'yerr': stdevPairs, 'label': 'Sample size'}
         ]
 
-        plotStuff.plot_curves_with_error_bars(data, x_label='Number of pairs', y_label='Time (s)',title='Times')
+        plotStuff.plot_curves_with_error_bars(data, x_label='Size of query sample', y_label='Number of pairs', title='Pairs by sample')
+
 
         #tests.testAccuracyInitSampleSize(conn, nbAdomVals, prefs, ratioViolations, proba, error, percentOfLattice,
         #                           groupbyAtt, sel, measBase, meas, function, table, comparison, generateIndex,
