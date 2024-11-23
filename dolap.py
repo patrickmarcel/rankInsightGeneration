@@ -666,7 +666,6 @@ if __name__ == "__main__":
 
     if comparison==True:
 
-
         # todo for on measures
         # todo for testedAtt in groupbyAtt:
         # todo compare to ground truth
