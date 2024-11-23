@@ -682,7 +682,7 @@ if __name__ == "__main__":
         #print(groupbyAtt)
 
 
-        dataPairs=[]
+
 
         # comparison = false if we don't want empirical error
         # comparison = True if we want both empirical and Bennet error
@@ -712,79 +712,88 @@ if __name__ == "__main__":
 
         dictGT=groundTruth(minError)
 
-        for ratioOfQuerySample in tabTest:
-            dict = {}
-            data = []
-            timings=[]
-            for p in pairs:
-                start_time = time.time()
+        data = []
+        for initsampleSize in tabTest:
+            dataPairs = []
+            for ratioOfQuerySample in tabTest:
+                dict = {}
+                #data = []
+                timings=[]
+                for p in pairs:
+                    start_time = time.time()
 
-                meanError, meanPred, meanBennet=tests.testAccuracyQuerySampleSizeDOLAP(tabTest,mvnames, aggQueries,nbruns, conn,
-                                                          nbAdomVals, p, ratioViolations, proba, error, percentOfLattice,
-                                                          groupbyAtt, sel,
-                            measBase, meas, function, table, comparison, generateIndex,
-                            allComparisons, initsampleSize, sizeOfR, ratioCuboidOK, ratioOfQuerySample, cumulate=True)
+                    meanError, meanPred, meanBennet=tests.testAccuracyQuerySampleSizeDOLAP(tabTest,mvnames, aggQueries,nbruns, conn,
+                                                              nbAdomVals, p, ratioViolations, proba, error, percentOfLattice,
+                                                              groupbyAtt, sel,
+                                measBase, meas, function, table, comparison, generateIndex,
+                                allComparisons, initsampleSize, sizeOfR, ratioCuboidOK, ratioOfQuerySample, cumulate=True)
 
-                print(p,meanError,meanPred)
-                if meanError!=[]:
-                    print(meanError)
-                    e=0
-                    while meanError[e] >=minError and e<len(meanError)-1:
-                        #print(e)
-                        e=e+1
-                    sampleSizeT=e/10
-                    sampleSizeT=ratioOfQuerySample
-                    minErrorT=meanError[e]
-                    predT=meanPred[e]
+                    print(p,meanError,meanPred)
+                    if meanError!=[]:
+                        print(meanError)
+                        e=0
+                        while meanError[e] >=minError and e<len(meanError)-1:
+                            #print(e)
+                            e=e+1
+                        sampleSizeT=e/10
+                        sampleSizeT=ratioOfQuerySample
+                        minErrorT=meanError[e]
+                        predT=meanPred[e]
 
-                    #if minErrorT < minError and predT > pred and minErrorT < 0.1 and sampleSizeT > 0:
-                    if minErrorT < minError:
-                        #minError = minErrorT
-                        #pred = predT
-                        dict[p] = [minErrorT, predT]
+                        #if minErrorT < minError and predT > pred and minErrorT < 0.1 and sampleSizeT > 0:
+                        if minErrorT < minError:
+                            #minError = minErrorT
+                            #pred = predT
+                            dict[p] = [minErrorT, predT]
 
-                    #print("TEST",predT, maxPred, sampleSizeT, minErrorT)
-                    #if predT>maxPred and sampleSizeT>0 and minErrorT<0.1 :
-                    #    dict["best"]=[p,sampleSizeT,minErrorT,predT]
-                    #    maxPred=predT
+                        #print("TEST",predT, maxPred, sampleSizeT, minErrorT)
+                        #if predT>maxPred and sampleSizeT>0 and minErrorT<0.1 :
+                        #    dict["best"]=[p,sampleSizeT,minErrorT,predT]
+                        #    maxPred=predT
 
-                end_time = time.time()
-                timings.append(end_time - start_time)
-            dict=utilities.sort_dict_by_second_entry_desc(dict)
-            print("Best: ", dict)
-            print("Number of pairs with error < 0.1 (size of dict):",len(dict))
+                    end_time = time.time()
+                    timings.append(end_time - start_time)
+                dict=utilities.sort_dict_by_second_entry_desc(dict)
+                print("Best: ", dict)
+                print("Number of pairs with error < 0.1 (size of dict):",len(dict))
 
-            scoreComp=utilities.jaccard_score_first_k_keys(dict,dictGT,0)
-            p,r,f=utilities.f_measure_first_k_keys(dict,dictGT,0)
-            scoreComp = f
+                scoreComp=utilities.jaccard_score_first_k_keys(dict,dictGT,0)
+                p,r,f=utilities.f_measure_first_k_keys(dict,dictGT,0)
+                scoreComp = f
 
-            # if we want the number of pairs
-            #dataPairs.append(len(dict))
+                # if we want the number of pairs
+                #dataPairs.append(len(dict))
 
-            # if we want the comparison with GT
-            dataPairs.append(scoreComp)
+                # if we want the comparison with GT
+                dataPairs.append(scoreComp)
 
 
-            #print(timings)
-            timings=utilities.accumulate_numbers(timings)
-            #print(timings)
-            stdevTiming=[0]*nbpairs
-            data = [
-                {'x': paramTested, 'y': timings, 'yerr': stdevTiming, 'label': 'Number of pairs'}
-            ]
+                #TIMINGS
+                timings=utilities.accumulate_numbers(timings)
+                #print(timings)
+                stdevTiming=[0]*nbpairs
+                #data = [
+                #    {'x': paramTested, 'y': timings, 'yerr': stdevTiming, 'label': 'Number of pairs'}
+                #]
 
-            # uncomment if plot timings
-            #plotStuff.plot_curves_with_error_bars(data, x_label='Number of pairs', y_label='Time (s)',title='Times')
+                # uncomment if plot timings
+                #plotStuff.plot_curves_with_error_bars(data, x_label='Number of pairs', y_label='Time (s)',title='Times')
 
-        #plots number of pairs with error<0.1 by size of query sample
-        stdevPairs = [0] * len(tabTest)
-        print(dataPairs)
-        #print(tabTest)
-        data = [
-            {'x': tabTest, 'y': dataPairs, 'yerr': stdevPairs, 'label': 'Sample size'}
-        ]
+            #plots number of pairs with error<0.1 by size of query sample
+            stdevPairs = [0] * len(tabTest)
+            #print(dataPairs)
+            #print(tabTest)
 
-        plotStuff.plot_curves_with_error_bars(data, x_label='Size of query sample', y_label='Number of pairs', title='Pairs by sample')
+            #data = [
+            #    {'x': tabTest, 'y': dataPairs, 'yerr': stdevPairs, 'label': 'Sample size'}
+            #]
+            data.append({'x': tabTest, 'y': dataPairs, 'yerr': stdevPairs, 'label': initsampleSize})
+
+        plotStuff.plot_curves_with_error_bars(data, x_label='Size of query sample', y_label='F-measure', title='Pairs by sample')
+
+
+
+
 
 
         #tests.testAccuracyInitSampleSize(conn, nbAdomVals, prefs, ratioViolations, proba, error, percentOfLattice,
@@ -792,10 +801,10 @@ if __name__ == "__main__":
         #                           allComparisons,
         #                           initsampleSize, sizeOfR, nbOfRuns, ratioCuboidOK,
         #                           ratioOfQuerySample, cumulate=False)
-    else:
-        tests.testTimingsQuerySampleSize(nbruns,conn, nbAdomVals, prefs, ratioViolations,proba, error, percentOfLattice, groupbyAtt, sel,
-                    measBase, meas, function,table, comparison, generateIndex,
-                    allComparisons, initsampleSize, sizeOfR, ratioOfQuerySample, cumulate=True)
+    #else:
+    #    tests.testTimingsQuerySampleSize(nbruns,conn, nbAdomVals, prefs, ratioViolations,proba, error, percentOfLattice, groupbyAtt, sel,
+    #                measBase, meas, function,table, comparison, generateIndex,
+    #               allComparisons, initsampleSize, sizeOfR, ratioOfQuerySample, cumulate=True)
         #tests.testTimingsLattice(conn, nbAdomVals, prefs, ratioViolations, proba, error, percentOfLattice,
         #                   groupbyAtt, sel, measBase, meas, function, table, comparison, generateIndex,
         #                   allComparisons,
