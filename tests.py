@@ -324,26 +324,8 @@ def testAccuracyQuerySampleSizeDOLAP(tabTest,mvnames, aggQueries, nbruns,conn, n
     dictWR = {}
 
 
-    paramTested = 'Query sample size'
-    # paramTested = 'Sample size'
-    # paramTested = 'Percent of lattice'
-    # tabTest=(0.01, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8,0.9, 1)
-    #tabTest = (0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1)
-    # tabTest=(2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20)
-    # tabTest=(5,10,20,50,75,100
-
-
-
-
-    #mvnames, aggQueries = materializeViews(conn, groupbyAtt, sel, measBase, function, table, percentOfLattice,generateIndex)
     currentSample = {}
 
-    # for percentOfLattice in tabTest:
-    # for initsampleSize in tabTest:
-    #for ratioOfQuerySample in tabTest:
-    # for nbAdomVals in range(2,10):
-
-    #print("--- TESTING VALUE:", ratioOfQuerySample)
 
     sampleSize = initsampleSize * sizeOfR
 
@@ -429,23 +411,6 @@ def testAccuracyQuerySampleSizeDOLAP(tabTest,mvnames, aggQueries, nbruns,conn, n
             else:
                 stdevWR.append(0)
 
-    #
-    #meanAll,stdevAll=errorOnAllLattice(tabTest,nbruns,conn, nbAdomVals, prefs, ratioViolations, proba, error,
-    #                                                           percentOfLattice, groupbyAtt,
-    #                                                           sel, measBase, meas, function, table,
-    #                                                           comparison,
-    #                                                           generateIndex, allComparisons,
-    #                                                           initsampleSize, sizeOfR, ratioCuboidOK)
-
-    data = [
-        {'x': tabTest, 'y': meanBennet, 'yerr': stdevBennet, 'label': 'Bennet theoretical error'},
-        {'x': tabTest, 'y': meanError, 'yerr': stdevError, 'label': 'real error'},
-        {'x': tabTest, 'y': meanPred, 'yerr': stdevPred, 'label': 'prediction'},
-        {'x': tabTest, 'y': meanWRW, 'yerr': stdevWR, 'label': 'unvalidated prediction'}
-    #    {'x': tabTest, 'y': meanAll, 'yerr': stdevAll, 'label': 'error on lattice'}
-    ]
-
-#    plotStuff.plot_curves_with_error_bars(data, x_label=paramTested, y_label='Error',title='prediction and errors')
 
     return meanError, meanPred, meanBennet
 
