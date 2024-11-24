@@ -563,6 +563,9 @@ def groundTruth(minError):
     dict = utilities.sort_dict_by_second_entry_desc(dict)
     return dict
 
+
+
+
 #
 # Main
 
@@ -572,8 +575,8 @@ if __name__ == "__main__":
 
     # The DB wee want
     #config.read('configs/flights1923.ini')
-    #config.read('configs/flightsquarterDolap.ini')
-    config.read('configs/flightsDolap.ini')
+    config.read('configs/flightsquarterDolap.ini')
+    #config.read('configs/flightsDolap.ini')
     #config.read('configs/artificial.ini')
     #config.read('configs/ssb.ini')
     # The system this is running on
@@ -633,7 +636,7 @@ if __name__ == "__main__":
     #generateIndex = False
 
     # do we compare to ground truth? Otherwise, efficiency is tested
-    comparison = True
+    comparison = False
 
     # do we generate all comparisons?
     allComparisons = True
@@ -671,8 +674,8 @@ if __name__ == "__main__":
         # todo compare to ground truth
 
         # size of query sample according to Hoeffding
-        sizeHoeffding = int(bounders.sizeOfSampleHoeffding(proba, error))
-        print('size of query sample according to Hoeffding for proba=',proba," and error=",error,": ",sizeHoeffding)
+        #sizeHoeffding = int(bounders.sizeOfSampleHoeffding(proba, error))
+        #print('size of query sample according to Hoeffding for proba=',proba," and error=",error,": ",sizeHoeffding)
 
 
 
@@ -693,7 +696,7 @@ if __name__ == "__main__":
         dict={}
 
         sampleSize = 1
-        minError = 0.2 #threshold
+        minError = 0.1 #threshold
         pred = 0
         maxPred = 0
 
@@ -790,16 +793,113 @@ if __name__ == "__main__":
 
         plotStuff.plot_curves_with_error_bars(data, x_label='Size of query sample', y_label='F-measure', title='Pairs by sample')
 
+    else:
+        sel = groupbyAtt[0]
+        groupbyAtt = groupbyAtt[1:]
 
 
+        # comparison = false if we don't want empirical error
+        # comparison = True if we want both empirical and Bennet error
+        comparison = False
+        nbpairs = 90
+        paramTested = list(range(nbpairs))
+
+        pairs = dbStuff.generateAllPairs(conn, sel, table, nbpairs)
+        dict = {}
+
+        sampleSize = 1
+        minError = 0.1  # threshold
+        pred = 0
+        maxPred = 0
+
+        mvnames, aggQueries = materializeViews(conn, groupbyAtt, sel, measBase, function, table, percentOfLattice,
+                                               generateIndex)
+
+        # total number of cuboids
+        N = len(aggQueries)
+        print('size of sample according to Bardenet:',
+              int(bounders.sizeOfSampleHoeffdingSerflingFromBardenet(proba, error, N)))
+
+        ratioOfQuerySample = 0.5
+        tabTest = (0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1)
+        # tabTest = (0.8, 0.9, 1)
+
+        dictGT = groundTruth(minError)
+
+        data = []
+        for p in pairs:
+            start_time = time.time()
+
+            meanError, meanPred, meanBennet = tests.testAccuracyQuerySampleSizeDOLAP(tabTest, mvnames, aggQueries,
+                                                                                     nbruns, conn,
+                                                                                     nbAdomVals, p, ratioViolations,
+                                                                                     proba, error, percentOfLattice,
+                                                                                     groupbyAtt, sel,
+                                                                                     measBase, meas, function, table,
+                                                                                     comparison, generateIndex,
+                                                                                     allComparisons, initsampleSize,
+                                                                                     sizeOfR, ratioCuboidOK,
+                                                                                     ratioOfQuerySample, cumulate=True)
+
+            print(p, meanError, meanPred)
+            if meanError != []:
+                print(meanError)
+                e = 0
+                while meanError[e] >= minError and e < len(meanError) - 1:
+                    # print(e)
+                    e = e + 1
+                sampleSizeT = e / 10
+                sampleSizeT = ratioOfQuerySample
+                minErrorT = meanError[e]
+                predT = meanPred[e]
+
+                # if minErrorT < minError and predT > pred and minErrorT < 0.1 and sampleSizeT > 0:
+                if minErrorT < minError:
+                    # minError = minErrorT
+                    # pred = predT
+                    dict[p] = [minErrorT, predT]
+
+                # print("TEST",predT, maxPred, sampleSizeT, minErrorT)
+                # if predT>maxPred and sampleSizeT>0 and minErrorT<0.1 :
+                #    dict["best"]=[p,sampleSizeT,minErrorT,predT]
+                #    maxPred=predT
+
+            end_time = time.time()
+            timings.append(end_time - start_time)
+        #dict = utilities.sort_dict_by_second_entry_desc(dict)
+        #print("Best: ", dict)
+        #print("Number of pairs with error < 0.1 (size of dict):", len(dict))
+
+        #scoreComp = utilities.jaccard_score_first_k_keys(dict, dictGT, 0)
+        #p, r, f = utilities.f_measure_first_k_keys(dict, dictGT, 0)
+        #scoreComp = f
+
+        # if we want the number of pairs
+        # dataPairs.append(len(dict))
+
+        # if we want the comparison with GT
+        #dataPairs.append(scoreComp)
+
+        # TIMINGS
+        timings = utilities.accumulate_numbers(timings)
+        # print(timings)
+        stdevTiming = [0] * nbpairs
+        data = [
+            {'x': paramTested, 'y': timings, 'yerr': stdevTiming, 'label': 'Number of pairs'}
+         ]
 
 
+        plotStuff.plot_curves_with_error_bars(data, x_label='Number of pairs', y_label='Time (s)',title='Times')
 
         #tests.testAccuracyInitSampleSize(conn, nbAdomVals, prefs, ratioViolations, proba, error, percentOfLattice,
         #                           groupbyAtt, sel, measBase, meas, function, table, comparison, generateIndex,
         #                           allComparisons,
         #                           initsampleSize, sizeOfR, nbOfRuns, ratioCuboidOK,
         #                           ratioOfQuerySample, cumulate=False)
+
+
+
+
     #else:
     #    tests.testTimingsQuerySampleSize(nbruns,conn, nbAdomVals, prefs, ratioViolations,proba, error, percentOfLattice, groupbyAtt, sel,
     #                measBase, meas, function,table, comparison, generateIndex,
