@@ -500,7 +500,7 @@ def groundTruthError(minError):
     dict = utilities.sort_dict_by_second_entry_desc(dict)
     return dict
 
-def groundTruthPred(minPred):
+def groundTruthPred(pred):
     dict = {}
     ratioOfQuerySample=1
     initsampleSize=1
@@ -519,7 +519,7 @@ def groundTruthPred(minPred):
 
 
         if meanError != []:
-            print(meanError)
+            #print(meanError)
             e = 0
             while meanError[e] >= minError and e < len(meanError) - 1:
                 # print(e)
@@ -620,7 +620,7 @@ if __name__ == "__main__":
 
     # number of runs
     #nbOfRuns = 1 ## no more used
-    nbruns=1
+    nbruns=5
 
     ###
     ### END OF PARAMETERS
@@ -639,17 +639,13 @@ if __name__ == "__main__":
 
     nbWrongRanking=0
     resultRuns=[]
-    timings=[]
+
 
     if comparison == True:
 
         # todo for on measures
         # todo for testedAtt in groupbyAtt:
-        # todo compare to ground truth
 
-        # size of query sample according to Hoeffding
-        # sizeHoeffding = int(bounders.sizeOfSampleHoeffding(proba, error))
-        # print('size of query sample according to Hoeffding for proba=',proba," and error=",error,": ",sizeHoeffding)
 
         sel = groupbyAtt[0]
         groupbyAtt = groupbyAtt[1:]
@@ -662,118 +658,140 @@ if __name__ == "__main__":
         paramTested = list(range(nbpairs))
 
         pairs = dbStuff.generateAllPairs(conn, sel, table, nbpairs)
-        dict = {}
+        #dict = {}
 
         sampleSize = 1
         minError = 0.1  # threshold
-        pred = 0.7
+        pred = 0.4
         maxPred = 0
 
         mvnames, aggQueries = materializeViews(conn, groupbyAtt, sel, measBase, function, table, percentOfLattice,
                                                generateIndex)
 
-        # total number of cuboids
-        #N = len(aggQueries)
-        #print('size of sample according to Bardenet:',
-        #      int(bounders.sizeOfSampleHoeffdingSerflingFromBardenet(proba, error, N)))
-
-        ratioOfQuerySample = 0.5
+        #ratioOfQuerySample = 0.5
         tabTest = (0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1)
-        #tabTest = (0.7, 0.8, 0.9, 1)
+        #tabTest = (0.8, 0.9, 1)
 
         # do we want GT for error or pred?
         #dictGT = groundTruthError(minError)
         dictGT = groundTruthPred(pred)
 
-        data = []
-        dataErrorsAllPairs=[]
-        for initsampleSize in tabTest:
-            dataPairs = []
-            dataError=[]
-            dataStdevError=[]
-            for ratioOfQuerySample in tabTest:
-                dict = {}
-                # data = []
-                timings = []
-                tabError=[]
-                for p in pairs:
+        dictRuns={}
 
-                    meanError, meanPred, meanBennet = tests.testAccuracyQuerySampleSizeDOLAP(tabTest, mvnames,
-                                                                                             aggQueries, nbruns, conn,
-                                                                                             nbAdomVals, p,
-                                                                                             ratioViolations, proba,
-                                                                                             error, percentOfLattice,
-                                                                                             groupbyAtt, sel,
-                                                                                             measBase, meas, function,
-                                                                                             table, comparison,
-                                                                                             generateIndex,
-                                                                                             allComparisons,
-                                                                                             initsampleSize, sizeOfR,
-                                                                                             ratioCuboidOK,
-                                                                                             ratioOfQuerySample,
-                                                                                             cumulate=True)
+        for nr in range(nbruns):
 
-                    print(p, meanError, meanPred,meanBennet)
-                    #tabError.append(meanError[0])
-                    if meanError != []:
-                        tabError.append(meanError[0])
-                        print(meanError)
-                        e = 0
-                        while meanError[e] >= minError and e < len(meanError) - 1:
-                            # print(e)
-                            e = e + 1
-                        sampleSizeT = e / 10
-                        sampleSizeT = ratioOfQuerySample
-                        minErrorT = meanError[e]
-                        predT = meanPred[e]
+            data = []
+            dataErrorsAllPairs=[]
+            for initsampleSize in tabTest:
+                dataPairs = []
+                dataError=[]
+                dataStdevError=[]
 
-                        if predT>=pred:
-                        #if minErrorT < minError:
-                            # minError = minErrorT
-                            # pred = predT
-                            dict[p] = [minErrorT, predT]
+                for ratioOfQuerySample in tabTest:
+                    dict = {}
+                    # data = []
+                    timings = []
+                    tabError=[]
+                    for p in pairs:
 
-                        # print("TEST",predT, maxPred, sampleSizeT, minErrorT)
-                        # if predT>maxPred and sampleSizeT>0 and minErrorT<0.1 :
-                        #    dict["best"]=[p,sampleSizeT,minErrorT,predT]
-                        #    maxPred=predT
+                        meanError, meanPred, meanBennet = tests.testAccuracyQuerySampleSizeDOLAP(tabTest, mvnames,
+                                                                                                 aggQueries, nbruns, conn,
+                                                                                                 nbAdomVals, p,
+                                                                                                 ratioViolations, proba,
+                                                                                                 error, percentOfLattice,
+                                                                                                 groupbyAtt, sel,
+                                                                                                 measBase, meas, function,
+                                                                                                 table, comparison,
+                                                                                                 generateIndex,
+                                                                                                 allComparisons,
+                                                                                                 initsampleSize, sizeOfR,
+                                                                                                 ratioCuboidOK,
+                                                                                                 ratioOfQuerySample,
+                                                                                                 cumulate=True)
 
+                        print(p, meanError, meanPred,meanBennet)
+                        #tabError.append(meanError[0])
+                        if meanError != []:
+                            tabError.append(meanError[0])
+                            print(meanError)
+                            e = 0
+                            while meanError[e] >= minError and e < len(meanError) - 1:
+                                # print(e)
+                                e = e + 1
+                            sampleSizeT = e / 10
+                            sampleSizeT = ratioOfQuerySample
+                            minErrorT = meanError[e]
+                            predT = meanPred[e]
 
-                dict = utilities.sort_dict_by_second_entry_desc(dict)
-                print("Best: ", dict)
-                print("Number of pairs with error < 0.1 (size of dict):", len(dict))
+                            if predT>=pred:
+                            #if minErrorT < minError:
+                                # minError = minErrorT
+                                # pred = predT
+                                dict[p] = [minErrorT, predT]
 
-                scoreComp = utilities.jaccard_score_first_k_keys(dict, dictGT, 0)
-                p, r, f = utilities.f_measure_first_k_keys(dict, dictGT, 0)
-                scoreComp = f
-
-                # if we want the number of pairs
-                # dataPairs.append(len(dict))
-
-                # if we want the comparison with GT
-                dataPairs.append(scoreComp)
-
-                avgError=statistics.mean(tabError)
-                stdevError=statistics.stdev(tabError)
-                dataError.append(avgError)
-                dataStdevError.append((stdevError))
-
-            # plots number of pairs with error<0.1 by size of query sample
-            stdevPairs = [0] * len(tabTest)
-            # print(dataPairs)
-            # print(tabTest)
-
-            # data = [
-            #    {'x': tabTest, 'y': dataPairs, 'yerr': stdevPairs, 'label': 'Sample size'}
-            # ]
-            data.append({'x': tabTest, 'y': dataPairs, 'yerr': stdevPairs, 'label': initsampleSize})
-            dataErrorsAllPairs.append({'x': tabTest, 'y': dataError, 'yerr': dataStdevError, 'label': initsampleSize})
+                            # print("TEST",predT, maxPred, sampleSizeT, minErrorT)
+                            # if predT>maxPred and sampleSizeT>0 and minErrorT<0.1 :
+                            #    dict["best"]=[p,sampleSizeT,minErrorT,predT]
+                            #    maxPred=predT
 
 
-        plotStuff.plot_curves_with_error_bars(data, x_label='Size of query sample', y_label='F-measure',
+                    dict = utilities.sort_dict_by_second_entry_desc(dict)
+                    print("Best: ", dict)
+                    print("Number of pairs with error < 0.1 (size of dict):", len(dict))
+
+                    scoreComp = utilities.jaccard_score_first_k_keys(dict, dictGT, 0)
+                    p, r, f = utilities.f_measure_first_k_keys(dict, dictGT, 0)
+                    scoreComp = f
+
+                    # if we want the number of pairs
+                    # dataPairs.append(len(dict))
+
+                    # if we want the comparison with GT
+                    dataPairs.append(scoreComp)
+
+                    avgError=statistics.mean(tabError)
+                    stdevError=statistics.stdev(tabError)
+                    dataError.append(avgError)
+                    dataStdevError.append((stdevError))
+
+                # plots number of pairs with error<0.1 by size of query sample
+                stdevPairs = [0] * len(tabTest)
+                # print(dataPairs)
+                # print(tabTest)
+
+                # data = [
+                #    {'x': tabTest, 'y': dataPairs, 'yerr': stdevPairs, 'label': 'Sample size'}
+                # ]
+                data.append({'x': tabTest, 'y': dataPairs, 'yerr': stdevPairs, 'label': initsampleSize})
+                dataErrorsAllPairs.append({'x': tabTest, 'y': dataError, 'yerr': dataStdevError, 'label': initsampleSize})
+
+                if initsampleSize in dictRuns:
+                    dictRuns[initsampleSize].append(dataPairs)
+                else:
+                    dictRuns[initsampleSize]=[dataPairs]
+
+
+            #plotStuff.plot_curves_with_error_bars(data, x_label='Size of query sample', y_label='F-measure',
+            #                                      title='F-measure by sample size')
+            #plotStuff.plot_curves_with_error_bars(dataErrorsAllPairs, x_label='Size of query sample', y_label='Error',
+            #                                      title='Error by sample size')
+        print(dictRuns)
+        dataRuns=[]
+        for t in tabTest:
+            x=dictRuns[t]
+            tabmean = []
+            tabstdev = []
+            for y in range(len(tabTest)):
+                tabtemp = []
+                for r in range(nbruns):
+                    tabtemp.append(x[r][y])
+                #print(tabtemp)
+                tabmean.append(statistics.mean(tabtemp))
+                tabstdev.append(statistics.stdev(tabtemp))
+            #print(tabmean)
+            dataRuns.append({'x': tabTest, 'y': tabmean, 'yerr': tabstdev, 'label': t})
+        plotStuff.plot_curves_with_error_bars(dataRuns, x_label='Size of query sample', y_label='F-measure',
                                               title='F-measure by sample size')
-        plotStuff.plot_curves_with_error_bars(dataErrorsAllPairs, x_label='Size of query sample', y_label='Error',
-                                              title='Error by sample size')
 
     else:
         sel = groupbyAtt[0]
@@ -805,6 +823,7 @@ if __name__ == "__main__":
 
             timings=[]
             for p in pairs:
+
                 start_time = time.time()
 
                 meanError, meanPred, meanBennet = tests.testAccuracyQuerySampleSizeDOLAP(tabTest, mvnames, aggQueries,

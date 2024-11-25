@@ -385,31 +385,31 @@ def testAccuracyQuerySampleSizeDOLAP(tabTest,mvnames, aggQueries, nbruns,conn, n
         # prediction
         if str(i) in dictPred:
             meanPred.append(statistics.mean(dictPred[str(i)]))
-            if nbruns>1:
-                stdevPred.append(statistics.stdev(dictPred[str(i)]))
-            else:
-                stdevPred.append(0)
+ #           if nbruns>1:
+ #               stdevPred.append(statistics.stdev(dictPred[str(i)]))
+ #           else:
+ #               stdevPred.append(0)
         # Bennet
         if str(i) in dictBennet:
             meanBennet.append(statistics.mean(dictBennet[str(i)]))
-            if nbruns > 1:
-                stdevBennet.append(statistics.stdev(dictBennet[str(i)]))
-            else:
-                stdevBennet.append(0)
+#            if nbruns > 1:
+#                stdevBennet.append(statistics.stdev(dictBennet[str(i)]))
+#            else:
+#                stdevBennet.append(0)
         # error
         if str(i) in dictError:
             meanError.append(statistics.mean(dictError[str(i)]))
-            if nbruns > 1:
-                stdevError.append(statistics.stdev(dictError[str(i)]))
-            else:
-                stdevError.append(0)
+#            if nbruns > 1:
+#                stdevError.append(statistics.stdev(dictError[str(i)]))
+#            else:
+#                stdevError.append(0)
         # WR
         if str(i) in dictWR:
             meanWRW.append(statistics.mean(dictWR[str(i)]))
-            if nbruns > 1:
-                stdevWR.append(statistics.stdev(dictWR[str(i)]))
-            else:
-                stdevWR.append(0)
+#            if nbruns > 1:
+#                stdevWR.append(statistics.stdev(dictWR[str(i)]))
+#            else:
+#                stdevWR.append(0)
 
 
     return meanError, meanPred, meanBennet
