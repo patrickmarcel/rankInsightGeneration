@@ -464,7 +464,7 @@ def test(conn, nbAdomVals, prefs, ratioViolations, proba, error, percentOfLattic
             return prediction, bennetError, bennetError, prediction
 
 
-def groundTruth(minError):
+def groundTruthError(minError):
     dict = {}
     ratioOfQuerySample=1
     initsampleSize=1
@@ -500,6 +500,43 @@ def groundTruth(minError):
     dict = utilities.sort_dict_by_second_entry_desc(dict)
     return dict
 
+def groundTruthPred(minPred):
+    dict = {}
+    ratioOfQuerySample=1
+    initsampleSize=1
+    for p in pairs:
+
+        meanError, meanPred, meanBennet = tests.testAccuracyQuerySampleSizeDOLAP(tabTest, mvnames, aggQueries, nbruns,
+                                                                                 conn,
+                                                                                 nbAdomVals, p, ratioViolations, proba,
+                                                                                 error, percentOfLattice,
+                                                                                 groupbyAtt, sel,
+                                                                                 measBase, meas, function, table,
+                                                                                 comparison, generateIndex,
+                                                                                 allComparisons, initsampleSize,
+                                                                                 sizeOfR, ratioCuboidOK,
+                                                                                 ratioOfQuerySample, cumulate=True)
+
+
+        if meanError != []:
+            print(meanError)
+            e = 0
+            while meanError[e] >= minError and e < len(meanError) - 1:
+                # print(e)
+                e = e + 1
+            sampleSizeT = e / 10
+            sampleSizeT = ratioOfQuerySample
+            minErrorT = meanError[e]
+            predT = meanPred[e]
+            # if minErrorT < minError and predT > pred and minErrorT < 0.1 and sampleSizeT > 0:
+
+            if predT >=pred:
+            #if minErrorT < minError:
+                dict[p] = [minErrorT, predT]
+
+
+    dict = utilities.sort_dict_by_second_entry_desc(dict)
+    return dict
 
 
 
@@ -512,8 +549,8 @@ if __name__ == "__main__":
 
     # The DB wee want
     #config.read('configs/flights1923.ini')
-    config.read('configs/flightsquarterDolap.ini')
-    #config.read('configs/flightsDolap.ini')
+    #config.read('configs/flightsquarterDolap.ini')
+    config.read('configs/flightsDolap.ini')
     #config.read('configs/artificial.ini')
     #config.read('configs/ssb.ini')
     # The system this is running on
@@ -573,7 +610,7 @@ if __name__ == "__main__":
     #generateIndex = False
 
     # do we compare to ground truth? Otherwise, efficiency is tested
-    comparison = False
+    comparison = True
 
     # do we generate all comparisons?
     allComparisons = True
@@ -629,22 +666,24 @@ if __name__ == "__main__":
 
         sampleSize = 1
         minError = 0.1  # threshold
-        pred = 0
+        pred = 0.7
         maxPred = 0
 
         mvnames, aggQueries = materializeViews(conn, groupbyAtt, sel, measBase, function, table, percentOfLattice,
                                                generateIndex)
 
         # total number of cuboids
-        N = len(aggQueries)
-        print('size of sample according to Bardenet:',
-              int(bounders.sizeOfSampleHoeffdingSerflingFromBardenet(proba, error, N)))
+        #N = len(aggQueries)
+        #print('size of sample according to Bardenet:',
+        #      int(bounders.sizeOfSampleHoeffdingSerflingFromBardenet(proba, error, N)))
 
         ratioOfQuerySample = 0.5
         tabTest = (0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1)
         #tabTest = (0.7, 0.8, 0.9, 1)
 
-        dictGT = groundTruth(minError)
+        # do we want GT for error or pred?
+        #dictGT = groundTruthError(minError)
+        dictGT = groundTruthPred(pred)
 
         data = []
         dataErrorsAllPairs=[]
@@ -658,7 +697,6 @@ if __name__ == "__main__":
                 timings = []
                 tabError=[]
                 for p in pairs:
-                    start_time = time.time()
 
                     meanError, meanPred, meanBennet = tests.testAccuracyQuerySampleSizeDOLAP(tabTest, mvnames,
                                                                                              aggQueries, nbruns, conn,
@@ -689,8 +727,8 @@ if __name__ == "__main__":
                         minErrorT = meanError[e]
                         predT = meanPred[e]
 
-                        # if minErrorT < minError and predT > pred and minErrorT < 0.1 and sampleSizeT > 0:
-                        if minErrorT < minError:
+                        if predT>=pred:
+                        #if minErrorT < minError:
                             # minError = minErrorT
                             # pred = predT
                             dict[p] = [minErrorT, predT]
@@ -700,8 +738,7 @@ if __name__ == "__main__":
                         #    dict["best"]=[p,sampleSizeT,minErrorT,predT]
                         #    maxPred=predT
 
-                    end_time = time.time()
-                    timings.append(end_time - start_time)
+
                 dict = utilities.sort_dict_by_second_entry_desc(dict)
                 print("Best: ", dict)
                 print("Number of pairs with error < 0.1 (size of dict):", len(dict))
@@ -720,17 +757,6 @@ if __name__ == "__main__":
                 stdevError=statistics.stdev(tabError)
                 dataError.append(avgError)
                 dataStdevError.append((stdevError))
-
-                # TIMINGS
-                timings = utilities.accumulate_numbers(timings)
-                # print(timings)
-                stdevTiming = [0] * nbpairs
-                # data = [
-                #    {'x': paramTested, 'y': timings, 'yerr': stdevTiming, 'label': 'Number of pairs'}
-                # ]
-
-                # uncomment if plot timings
-                # plotStuff.plot_curves_with_error_bars(data, x_label='Number of pairs', y_label='Time (s)',title='Times')
 
             # plots number of pairs with error<0.1 by size of query sample
             stdevPairs = [0] * len(tabTest)
