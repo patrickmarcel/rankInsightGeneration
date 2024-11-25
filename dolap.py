@@ -35,6 +35,49 @@ def  compareHypToGB(hypothesis, conn, measBase,function, sel, vals,mvnames, tabl
 
 
 
+def countViolationsDOLAP(conn,query,hypothesis):
+    #print(query)
+    hyp=[str(a) for (a,b) in hypothesis]
+    print('hyp:',hyp)
+    v=0
+    res=dbStuff.execute_query(conn,query)
+    normalize=0
+    for r in res:
+        print(r)
+        #print('this is s', r[1])
+        s=r[-1].split(",")
+        print('this is s', s)
+        normalize=normalize+(len(s) * ( len(s) -1 ))/2
+        if len(s)==len(hyp):
+
+            tau,pvalue=statStuff.compute_kendall_tau(s,hyp)
+
+            #print('tau:',tau)
+            tau=(tau+1)/2
+            v=v+tau
+        else:
+            # s is smaller
+            hyp2=hyp.copy()
+            #print('hyp2:',hyp2,' and s:',s)
+            for e in hyp:
+                #print('e:',e)
+                if e not in s:
+                    hyp2.remove(e)
+
+            tau,pvalue = statStuff.compute_kendall_tau(s, hyp2)
+
+            #print('tau:',tau)
+            tau = (tau + 1) / 2
+            v = v + tau
+
+    if len(res) >1:
+        ratio=v/normalize
+    else:
+        ratio=0
+    return v,ratio,0
+
+
+
 def countViolations(conn,query,hypothesis):
     #print(query)
     hyp=[str(a) for (a,b) in hypothesis]
@@ -538,6 +581,24 @@ def groundTruthPred(pred):
     dict = utilities.sort_dict_by_second_entry_desc(dict)
     return dict
 
+def plotRuns(dictRuns, tabTest, nbruns, x_label='Size of query sample', y_label='F-measure',
+                                          title='F-measure by sample size'):
+    dataRuns = []
+    for t in tabTest:
+        x = dictRuns[t]
+        tabmean = []
+        tabstdev = []
+        for y in range(len(tabTest)):
+            tabtemp = []
+            for r in range(nbruns):
+                tabtemp.append(x[r][y])
+            # print(tabtemp)
+            tabmean.append(statistics.mean(tabtemp))
+            tabstdev.append(statistics.stdev(tabtemp))
+        # print(tabmean)
+        dataRuns.append({'x': tabTest, 'y': tabmean, 'yerr': tabstdev, 'label': t})
+    plotStuff.plot_curves_with_error_bars(dataRuns, x_label, y_label,
+                                          title)
 
 
 #
@@ -547,10 +608,12 @@ if __name__ == "__main__":
 
     config = configparser.ConfigParser()
 
-    # The DB wee want
-    #config.read('configs/flights1923.ini')
-    #config.read('configs/flightsquarterDolap.ini')
+    # The DB we want
     config.read('configs/flightsDolap.ini')
+    # config.read('configs/flightsquarterDolap.ini')
+    #config.read('configs/ssbDolap.ini')
+    #config.read('configs/flights1923Dolap.ini')
+    #config.read('configs/flights1923.ini')
     #config.read('configs/artificial.ini')
     #config.read('configs/ssb.ini')
     # The system this is running on
@@ -677,6 +740,7 @@ if __name__ == "__main__":
         dictGT = groundTruthPred(pred)
 
         dictRuns={}
+        dictRunsErr={}
 
         for nr in range(nbruns):
 
@@ -723,8 +787,8 @@ if __name__ == "__main__":
                             minErrorT = meanError[e]
                             predT = meanPred[e]
 
-                            if predT>=pred:
-                            #if minErrorT < minError:
+                            #if predT>=pred:
+                            if minErrorT < minError:
                                 # minError = minErrorT
                                 # pred = predT
                                 dict[p] = [minErrorT, predT]
@@ -767,31 +831,20 @@ if __name__ == "__main__":
 
                 if initsampleSize in dictRuns:
                     dictRuns[initsampleSize].append(dataPairs)
+                    dictRunsErr[initsampleSize].append(dataError)
                 else:
                     dictRuns[initsampleSize]=[dataPairs]
+                    dictRunsErr[initsampleSize] = [dataError]
 
 
             #plotStuff.plot_curves_with_error_bars(data, x_label='Size of query sample', y_label='F-measure',
             #                                      title='F-measure by sample size')
             #plotStuff.plot_curves_with_error_bars(dataErrorsAllPairs, x_label='Size of query sample', y_label='Error',
             #                                      title='Error by sample size')
-        print(dictRuns)
-        dataRuns=[]
-        for t in tabTest:
-            x=dictRuns[t]
-            tabmean = []
-            tabstdev = []
-            for y in range(len(tabTest)):
-                tabtemp = []
-                for r in range(nbruns):
-                    tabtemp.append(x[r][y])
-                #print(tabtemp)
-                tabmean.append(statistics.mean(tabtemp))
-                tabstdev.append(statistics.stdev(tabtemp))
-            #print(tabmean)
-            dataRuns.append({'x': tabTest, 'y': tabmean, 'yerr': tabstdev, 'label': t})
-        plotStuff.plot_curves_with_error_bars(dataRuns, x_label='Size of query sample', y_label='F-measure',
-                                              title='F-measure by sample size')
+        #print(dictRuns)
+        plotRuns(dictRuns, tabTest, nbruns)
+        plotRuns(dictRunsErr, tabTest, nbruns, x_label='Size of query sample', y_label='F-measure',
+                 title='F-measure by sample size')
 
     else:
         sel = groupbyAtt[0]
@@ -807,12 +860,13 @@ if __name__ == "__main__":
         # True (create index on sel attribute),
         # False (no index),
         # mc (one multicolumn index, sel first), so far only over views (not fact table)
-        #generateIndex = 'mc'
+        generateIndex = 'mc'
         # generateIndex = False
 
         data=[]
         for generateIndex in [False, True, 'mc']:
-        #for generateIndex in [True]:
+        #for generateIndex in ['mc']:
+        #for percentOfLattice in [0.4,0.5,0.6,0.7]:
 
             mvnames, aggQueries = materializeViews(conn, groupbyAtt, sel, measBase, function, table, percentOfLattice,
                                                    generateIndex)
