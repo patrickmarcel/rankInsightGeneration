@@ -909,7 +909,6 @@ if __name__ == "__main__":
         plotStuff.plot_curves_with_error_bars(data, x_label='Number of pairs', y_label='Time (s)',title='Times')
 
 
-
     # Clean and cose the connection
     dbStuff.dropAllMVs(conn)
     close_connection(conn)
