@@ -14,7 +14,7 @@ def generateAllPairs(conn, sel, table, nbPairs):
         tab.append(r[0])
     res = [(a, b) for idx, a in enumerate(tab) for b in tab[idx + 1:]]
     res=res[:nbPairs]
-    print("res: ",res)
+    #print("res: ",res)
     print("Number of pairs: ",len(res))
     return res
 

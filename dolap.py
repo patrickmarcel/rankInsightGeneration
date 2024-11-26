@@ -621,18 +621,19 @@ def plotRuns(dictRuns, tabTest, nbruns, x_label='Size of query sample', y_label=
                                           title='F-measure by sample size'):
     dataRuns = []
     for t in tabTest:
-        x = dictRuns[t]
-        tabmean = []
-        tabstdev = []
-        for y in range(len(tabTest)):
-            tabtemp = []
-            for r in range(nbruns):
-                tabtemp.append(x[r][y])
-            # print(tabtemp)
-            tabmean.append(statistics.mean(tabtemp))
-            tabstdev.append(statistics.stdev(tabtemp))
-        # print(tabmean)
-        dataRuns.append({'x': tabTest, 'y': tabmean, 'yerr': tabstdev, 'label': t})
+        if t in dictRuns:
+            x = dictRuns[t]
+            tabmean = []
+            tabstdev = []
+            for y in range(len(tabTest)):
+                tabtemp = []
+                for r in range(nbruns):
+                    tabtemp.append(x[r][y])
+                # print(tabtemp)
+                tabmean.append(statistics.mean(tabtemp))
+                tabstdev.append(statistics.stdev(tabtemp))
+            # print(tabmean)
+            dataRuns.append({'x': tabTest, 'y': tabmean, 'yerr': tabstdev, 'label': t})
     plotStuff.plot_curves_with_error_bars(dataRuns, x_label, y_label,
                                           title)
 
@@ -646,7 +647,7 @@ if __name__ == "__main__":
 
     # The DB we want
     config.read('configs/flightsDolap.ini')
-    # config.read('configs/flightsquarterDolap.ini')
+    #config.read('configs/flightsquarterDolap.ini')
     #config.read('configs/ssbDolap.ini')
     #config.read('configs/flights1923Dolap.ini')
     #config.read('configs/flights1923.ini')
@@ -688,7 +689,7 @@ if __name__ == "__main__":
     nbAdomVals = len(prefs)
 
     # for sampling fact table with Postgresql
-    initsampleSize = 0.5
+    initsampleSize = 0.6
     samplingMethod = 'SYSTEM_ROWS'  # or SYSTEM
 
     # ratio max of violations in a cuboid
@@ -698,7 +699,7 @@ if __name__ == "__main__":
     ratioCuboidOK = 0.8
 
     # percentage of the lattice to generate
-    percentOfLattice = 0.4
+    percentOfLattice = 0.1
 
     # do we generate indexes?
     # possible values:
@@ -768,14 +769,12 @@ if __name__ == "__main__":
         tabTest = (0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1)
         #tabTest = (0.9, 1)
 
+        mvnames, aggQueries = materializeViews(conn, groupbyAtt, sel, measBase, function, table, percentOfLattice,generateIndex)
 
         # do we want GT for error/pred or all lattice?
-        #dictGT = groundTruthError(minError)
-        #dictGT = groundTruth(pred,minError)
+        #dictGT = groundTruth( -1,1)
         dictGT = groundTruthAllLatice()
 
-        mvnames, aggQueries = materializeViews(conn, groupbyAtt, sel, measBase, function, table, percentOfLattice,
-                                               generateIndex)
 
         dictRuns={}
         dictRunsErr={}
@@ -785,6 +784,10 @@ if __name__ == "__main__":
             data = []
             dataErrorsAllPairs=[]
             for initsampleSize in tabTest:
+            #for percentOfLattice in tabTest:
+                # comment if not percent of lattice tested
+                #mvnames, aggQueries = materializeViews(conn, groupbyAtt, sel, measBase, function, table,percentOfLattice, generateIndex)
+
                 dataPairs = []
                 dataError=[]
                 dataStdevError=[]
@@ -817,16 +820,15 @@ if __name__ == "__main__":
                             tabError.append(meanError[0])
                             print(meanError)
                             e = 0
-                            #while meanError[e] >= minError and e < len(meanError) - 1:
-                                # print(e)
-                            #    e = e + 1
                             sampleSizeT = e / 10
                             sampleSizeT = ratioOfQuerySample
                             minErrorT = meanError[e]
                             predT = meanPred[e]
 
-                            if predT>=pred:
+                            #limit to pred or error or no limit
+                            #if predT>=pred:
                             #if minErrorT < minError:
+                            if True:
                                 # minError = minErrorT
                                 # pred = predT
                                 dict[p] = [minErrorT, predT]
@@ -858,12 +860,8 @@ if __name__ == "__main__":
 
                 # plots number of pairs with error<0.1 by size of query sample
                 stdevPairs = [0] * len(tabTest)
-                # print(dataPairs)
-                # print(tabTest)
 
-                # data = [
-                #    {'x': tabTest, 'y': dataPairs, 'yerr': stdevPairs, 'label': 'Sample size'}
-                # ]
+                # change percentOfLattice by initsampleSize when changing external for loop
                 data.append({'x': tabTest, 'y': dataPairs, 'yerr': stdevPairs, 'label': initsampleSize})
                 dataErrorsAllPairs.append({'x': tabTest, 'y': dataError, 'yerr': dataStdevError, 'label': initsampleSize})
 
@@ -886,9 +884,13 @@ if __name__ == "__main__":
                  title='Error by sample size')
 
     else:
+
         sel = groupbyAtt[0]
         groupbyAtt = groupbyAtt[1:]
+        #sel ='departure_airport'
+        #groupbyAtt = ['airline', 'date', 'departure_hour', 'flight']
 
+        #41616 for airport, 91 for airline
         nbpairs = 90
 
         paramTested = list(range(nbpairs))
@@ -903,8 +905,8 @@ if __name__ == "__main__":
         # generateIndex = False
 
         data=[]
-        for generateIndex in [False, True, 'mc']:
-        #for generateIndex in ['mc']:
+        #for generateIndex in [False, True, 'mc']:
+        for generateIndex in ['mc']:
         #for percentOfLattice in [0.4,0.5,0.6,0.7]:
 
             mvnames, aggQueries = materializeViews(conn, groupbyAtt, sel, measBase, function, table, percentOfLattice,
@@ -939,6 +941,7 @@ if __name__ == "__main__":
             timings = utilities.accumulate_numbers(timings)
             # print(timings)
             stdevTiming = [0] * nbpairs
+            print()
             data.append(
                 {'x': paramTested, 'y': timings, 'yerr': stdevTiming, 'label': generateIndex}
             )
