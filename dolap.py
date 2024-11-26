@@ -779,16 +779,16 @@ if __name__ == "__main__":
                             tabError.append(meanError[0])
                             print(meanError)
                             e = 0
-                            while meanError[e] >= minError and e < len(meanError) - 1:
+                            #while meanError[e] >= minError and e < len(meanError) - 1:
                                 # print(e)
-                                e = e + 1
+                            #    e = e + 1
                             sampleSizeT = e / 10
                             sampleSizeT = ratioOfQuerySample
                             minErrorT = meanError[e]
                             predT = meanPred[e]
 
-                            #if predT>=pred:
-                            if minErrorT < minError:
+                            if predT>=pred:
+                            #if minErrorT < minError:
                                 # minError = minErrorT
                                 # pred = predT
                                 dict[p] = [minErrorT, predT]
@@ -842,9 +842,10 @@ if __name__ == "__main__":
             #plotStuff.plot_curves_with_error_bars(dataErrorsAllPairs, x_label='Size of query sample', y_label='Error',
             #                                      title='Error by sample size')
         #print(dictRuns)
-        plotRuns(dictRuns, tabTest, nbruns)
-        plotRuns(dictRunsErr, tabTest, nbruns, x_label='Size of query sample', y_label='F-measure',
-                 title='F-measure by sample size')
+        plotRuns(dictRuns, tabTest, nbruns, x_label='Size of query sample', y_label='F-measure',
+                                          title='F-measure by sample size')
+        plotRuns(dictRunsErr, tabTest, nbruns, x_label='Size of query sample', y_label='Error',
+                 title='Error by sample size')
 
     else:
         sel = groupbyAtt[0]
