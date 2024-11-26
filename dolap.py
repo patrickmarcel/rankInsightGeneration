@@ -528,9 +528,9 @@ def groundTruthError(minError):
         if meanError != []:
             print(meanError)
             e = 0
-            while meanError[e] >= minError and e < len(meanError) - 1:
+            #while meanError[e] >= minError and e < len(meanError) - 1:
                 # print(e)
-                e = e + 1
+            #    e = e + 1
             sampleSizeT = e / 10
             sampleSizeT = ratioOfQuerySample
             minErrorT = meanError[e]
@@ -543,10 +543,12 @@ def groundTruthError(minError):
     dict = utilities.sort_dict_by_second_entry_desc(dict)
     return dict
 
-def groundTruthPred(pred):
+
+
+def groundTruth(pred=-1,error=1):
     dict = {}
-    ratioOfQuerySample=1
-    initsampleSize=1
+    #ratioOfQuerySample=1
+    #initsampleSize=1
     for p in pairs:
 
         meanError, meanPred, meanBennet = tests.testAccuracyQuerySampleSizeDOLAP(tabTest, mvnames, aggQueries, nbruns,
@@ -556,30 +558,64 @@ def groundTruthPred(pred):
                                                                                  groupbyAtt, sel,
                                                                                  measBase, meas, function, table,
                                                                                  comparison, generateIndex,
-                                                                                 allComparisons, initsampleSize,
+                                                                                 allComparisons, 1,
                                                                                  sizeOfR, ratioCuboidOK,
-                                                                                 ratioOfQuerySample, cumulate=True)
+                                                                                 1, cumulate=True)
 
 
         if meanError != []:
             #print(meanError)
             e = 0
-            while meanError[e] >= minError and e < len(meanError) - 1:
-                # print(e)
-                e = e + 1
-            sampleSizeT = e / 10
-            sampleSizeT = ratioOfQuerySample
             minErrorT = meanError[e]
             predT = meanPred[e]
-            # if minErrorT < minError and predT > pred and minErrorT < 0.1 and sampleSizeT > 0:
 
-            if predT >=pred:
-            #if minErrorT < minError:
+            if predT >=pred and minErrorT < error:
+                dict[p] = [minErrorT, predT]
+
+    dict = utilities.sort_dict_by_second_entry_desc(dict)
+    return dict
+
+
+# returns the pairs found on all the lattice
+def groundTruthAllLatice(pred=-1,error=1):
+    dict = {}
+    #ratioOfQuerySample=1
+    #initsampleSize=1
+    #percentOfLattice=1
+
+
+    mvnames, aggQueries = materializeViews(conn, groupbyAtt, sel, measBase, function, table, 1,
+                                           generateIndex)
+
+    for p in pairs:
+
+        meanError, meanPred, meanBennet = tests.testAccuracyQuerySampleSizeDOLAP(tabTest, mvnames, aggQueries, nbruns,
+                                                                                 conn,
+                                                                                 nbAdomVals, p, ratioViolations, proba,
+                                                                                 error, 1,
+                                                                                 groupbyAtt, sel,
+                                                                                 measBase, meas, function, table,
+                                                                                 comparison, generateIndex,
+                                                                                 allComparisons, 1,
+                                                                                 sizeOfR, ratioCuboidOK,
+                                                                                 1, cumulate=True)
+
+
+        if meanError != []:
+            #print(meanError)
+            e = 0
+            minErrorT = meanError[e]
+            predT = meanPred[e]
+
+            if predT >=pred and minErrorT < error:
                 dict[p] = [minErrorT, predT]
 
 
     dict = utilities.sort_dict_by_second_entry_desc(dict)
     return dict
+
+
+
 
 def plotRuns(dictRuns, tabTest, nbruns, x_label='Size of query sample', y_label='F-measure',
                                           title='F-measure by sample size'):
@@ -682,7 +718,6 @@ if __name__ == "__main__":
     ratioOfQuerySample = 0.4
 
     # number of runs
-    #nbOfRuns = 1 ## no more used
     nbruns=5
 
     ###
@@ -726,18 +761,21 @@ if __name__ == "__main__":
         sampleSize = 1
         minError = 0.1  # threshold
         pred = 0.4
-        maxPred = 0
+        #maxPred = 0
 
-        mvnames, aggQueries = materializeViews(conn, groupbyAtt, sel, measBase, function, table, percentOfLattice,
-                                               generateIndex)
 
         #ratioOfQuerySample = 0.5
         tabTest = (0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1)
-        #tabTest = (0.8, 0.9, 1)
+        #tabTest = (0.9, 1)
 
-        # do we want GT for error or pred?
+
+        # do we want GT for error/pred or all lattice?
         #dictGT = groundTruthError(minError)
-        dictGT = groundTruthPred(pred)
+        #dictGT = groundTruth(pred,minError)
+        dictGT = groundTruthAllLatice()
+
+        mvnames, aggQueries = materializeViews(conn, groupbyAtt, sel, measBase, function, table, percentOfLattice,
+                                               generateIndex)
 
         dictRuns={}
         dictRunsErr={}
@@ -803,7 +841,7 @@ if __name__ == "__main__":
                     print("Best: ", dict)
                     print("Number of pairs with error < 0.1 (size of dict):", len(dict))
 
-                    scoreComp = utilities.jaccard_score_first_k_keys(dict, dictGT, 0)
+                    #scoreComp = utilities.jaccard_score_first_k_keys(dict, dictGT, 0)
                     p, r, f = utilities.f_measure_first_k_keys(dict, dictGT, 0)
                     scoreComp = f
 
