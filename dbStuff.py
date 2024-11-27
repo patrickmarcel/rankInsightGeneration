@@ -53,6 +53,10 @@ def dropAllIndex(conn, table):
             drop="drop index \"" + r[0] + "\";"
             execute_query(conn, drop)
 
+def dropAllIndexOnMVs(conn,mvnames):
+    for n in mvnames:
+        dropAllIndex(conn, n[0])
+
 def generateHashIndex(conn, table, sel):
     indexname=table+'_'+sel
     query = "create index if not exists \"" + indexname + "\" on \"" + table + "\" using hash(" + sel + ");"

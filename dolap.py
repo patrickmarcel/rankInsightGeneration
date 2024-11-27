@@ -712,7 +712,7 @@ if __name__ == "__main__":
     ratioCuboidOK = 0.8
 
     # percentage of the lattice to generate
-    percentOfLattice = 0.6
+    percentOfLattice = 0.4
 
     # do we generate indexes?
     # possible values:
@@ -921,6 +921,7 @@ if __name__ == "__main__":
         #for percentOfLattice in [0.4,0.5,0.6,0.7]:
 
             #mvnames, aggQueries = materializeViews(conn, groupbyAtt, sel, measBase, function, table, percentOfLattice,generateIndex)
+            dbStuff.dropAllIndexOnMVs(conn,mvnames)
             dbStuff.generateIndexesOnMVs(conn, sel, mvnames, generateIndex)
 
             #ratioOfQuerySample = 0.5
@@ -933,18 +934,7 @@ if __name__ == "__main__":
 
                 start_time = time.time()
 
-                """
-                meanError, meanPred, meanBennet = tests.testAccuracyQuerySampleSizeDOLAP(tabTest, mvnames, aggQueries,
-                                                                                         nbruns, conn,
-                                                                                         nbAdomVals, p, ratioViolations,
-                                                                                         proba, error, percentOfLattice,
-                                                                                         groupbyAtt, sel,
-                                                                                         measBase, meas, function, table,
-                                                                                         comparison, generateIndex,
-                                                                                         allComparisons, initsampleSize,
-                                                                                         sizeOfR, ratioCuboidOK,
-                                                                                         ratioOfQuerySample, cumulate=True)
-                """
+
                 sampleSize = initsampleSize * sizeOfR
 
                 prediction, bennetError, realError, gtratio = test(conn, nbAdomVals, p,
