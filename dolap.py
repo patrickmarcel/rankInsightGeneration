@@ -771,9 +771,9 @@ if __name__ == "__main__":
 
         mvnames, aggQueries = materializeViews(conn, groupbyAtt, sel, measBase, function, table, percentOfLattice,generateIndex)
 
-        # do we want GT for error/pred or all lattice?
-        #dictGT = groundTruth( -1,1)
-        dictGT = groundTruthAllLatice()
+        # do we want GT for error/pred on queries over MVs or all lattice?
+        dictGT = groundTruth( -1,1)
+        #dictGT = groundTruthAllLatice()
 
 
         dictRuns={}
@@ -792,13 +792,17 @@ if __name__ == "__main__":
                 dataError=[]
                 dataStdevError=[]
 
+
                 for ratioOfQuerySample in tabTest:
                     dict = {}
                     # data = []
                     timings = []
                     tabError=[]
+
+
                     for p in pairs:
 
+                        """
                         meanError, meanPred, meanBennet = tests.testAccuracyQuerySampleSizeDOLAP(tabTest, mvnames,
                                                                                                  aggQueries, nbruns, conn,
                                                                                                  nbAdomVals, p,
@@ -813,17 +817,50 @@ if __name__ == "__main__":
                                                                                                  ratioCuboidOK,
                                                                                                  ratioOfQuerySample,
                                                                                                  cumulate=True)
+                        """
 
-                        print(p, meanError, meanPred,meanBennet)
+                        currentSample = {}
+                        sampleSize = initsampleSize * sizeOfR
+
+                        prediction, bennetError, realError, gtratio = test(conn, nbAdomVals, p,
+                                                                                 ratioViolations, proba, error,
+                                                                                 percentOfLattice, groupbyAtt,
+                                                                                 sel, measBase, meas, function, table,
+                                                                                 sampleSize, comparison,
+                                                                                 generateIndex, allComparisons,
+                                                                                 ratioOfQuerySample, mvnames,
+                                                                                 aggQueries, currentSample,
+                                                                                 cumulate=True)
+
+                        meanError=realError
+                        meanPred=prediction
+                        meanBennet=bennetError
+                        print("output of Test: ", p, meanError, meanPred, meanBennet)
+                        minErrorT = meanError
+                        predT = meanPred
+
+                        if meanError != 99:
+                            tabError.append(meanError)
+                            # limit to pred or error or no limit
+                            # if predT>=pred:
+                            # if minErrorT < minError:
+                            if True:
+                                # minError = minErrorT
+                                # pred = predT
+                                dict[p] = [minErrorT, predT]
+
+
+                        """
                         #tabError.append(meanError[0])
                         if meanError != []:
                             tabError.append(meanError[0])
-                            print(meanError)
+                            #print(meanError)
                             e = 0
-                            sampleSizeT = e / 10
+                            #sampleSizeT = e / 10
                             sampleSizeT = ratioOfQuerySample
                             minErrorT = meanError[e]
                             predT = meanPred[e]
+                            
 
                             #limit to pred or error or no limit
                             #if predT>=pred:
@@ -832,11 +869,7 @@ if __name__ == "__main__":
                                 # minError = minErrorT
                                 # pred = predT
                                 dict[p] = [minErrorT, predT]
-
-                            # print("TEST",predT, maxPred, sampleSizeT, minErrorT)
-                            # if predT>maxPred and sampleSizeT>0 and minErrorT<0.1 :
-                            #    dict["best"]=[p,sampleSizeT,minErrorT,predT]
-                            #    maxPred=predT
+                        """
 
 
                     dict = utilities.sort_dict_by_second_entry_desc(dict)
@@ -917,6 +950,7 @@ if __name__ == "__main__":
             # tabTest = (0.8, 0.9, 1)
 
             timings=[]
+            #currentSample = {}
             for p in pairs:
 
                 start_time = time.time()
@@ -931,9 +965,19 @@ if __name__ == "__main__":
                                                                                          allComparisons, initsampleSize,
                                                                                          sizeOfR, ratioCuboidOK,
                                                                                          ratioOfQuerySample, cumulate=True)
+                """
+                sampleSize = initsampleSize * sizeOfR
 
-
-
+                prediction, bennetError, realError, gtratio = test(conn, nbAdomVals, p,
+                                                                   ratioViolations, proba, error,
+                                                                   percentOfLattice, groupbyAtt,
+                                                                   sel, measBase, meas, function, table,
+                                                                   sampleSize, comparison,
+                                                                   generateIndex, allComparisons,
+                                                                   ratioOfQuerySample, mvnames,
+                                                                   aggQueries, currentSample,
+                                                                   cumulate=True)
+                """
                 end_time = time.time()
                 timings.append(end_time - start_time)
 
