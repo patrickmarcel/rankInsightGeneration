@@ -166,6 +166,46 @@ def createMV(conn, attInGB, selAtt, meas, function, table, percentOfLattice,gene
                 generateMulticolIndex(conn, gbs, gbs, selAtt)
     return nbOfMV
 
+def generateIndexesOnMVs(conn,  sel, mvnames, generateIndex):
+    for n  in mvnames:
+        if generateIndex == True:
+            # print('creating index on view')
+
+            generateHashIndex(conn, n[0], sel)
+        if generateIndex == 'mc':
+            # print('creating multicolumn index on view')
+            generateMulticolIndex(conn, n[0], n[0], sel)
+
+
+def createMVWithoutIndex(conn, attInGB, selAtt, meas, function, table, percentOfLattice):
+    existing=getMVnames(conn)
+    pwset2=getCuboidsOfAtt(attInGB, selAtt)
+    # remove last
+    del pwset2[-1]
+
+    nbOfMV=len(pwset2)*percentOfLattice
+    #print(pwset2)
+    #print(int(nbOfMV))
+
+    for i in range(int(nbOfMV)):
+        nb = random.randint(0, len(pwset2) - 1)
+        gb = pwset2[nb]
+        pwset2.remove(gb)
+        gbs=''
+        for s in gb:
+            gbs = gbs + s + ','
+        gbs=gbs[:-1]
+        #query="create materialized view MV" + str(i) + " as select " + gbs + "," + meas + " from " + table + " group by " + gbs +  ";"
+        query="create materialized view \"" + gbs + "\" as select " + gbs + ", " + function + "(" + meas + ") as " + meas + ", count(*) as count  from " + table + " group by " + gbs +  ";"
+        #print(query)
+        if gbs not in existing:
+            execute_query(conn, query)
+    return nbOfMV
+
+
+
+
+
 #returns the group by set of a query (having a single group by)
 def returnGroupby(query):
     tab=query.split("GROUP BY")

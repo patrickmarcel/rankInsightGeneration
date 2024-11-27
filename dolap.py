@@ -283,6 +283,19 @@ def materializeViews(conn, groupbyAtt, sel, measBase, function, table, percentOf
     print("Number of aggregate queries over the MVs: ", len(aggQueries))
     return mvnames,aggQueries
 
+def materializeViewsWithoutIndex(conn, groupbyAtt, sel, measBase, function, table, percentOfLattice):
+    # generate and get all materialized cuboids
+    print("Creating views")
+    dbStuff.dropAllMVs(conn)
+    dbStuff.createMVWithoutIndex(conn, groupbyAtt, sel, measBase, function, table, percentOfLattice)
+    mvnames = dbStuff.getMVnames(conn)
+
+    aggQueries = dbStuff.getAggQueriesOverMV(mvnames, sel)
+    print("Materializing ", len(mvnames), " views: ", mvnames)
+    # print("queries: ",aggQueries)
+    print("Number of aggregate queries over the MVs: ", len(aggQueries))
+    return mvnames,aggQueries
+
 def hypothesisGeneration(conn, prefs, sel, measBase, meas, table, sampleSize, allComparison):
     if allComparison == False:
         # sampling
@@ -646,9 +659,9 @@ if __name__ == "__main__":
     config = configparser.ConfigParser()
 
     # The DB we want
-    config.read('configs/flightsDolap.ini')
+    #config.read('configs/flightsDolap.ini')
     #config.read('configs/flightsquarterDolap.ini')
-    #config.read('configs/ssbDolap.ini')
+    config.read('configs/ssbDolap.ini')
     #config.read('configs/flights1923Dolap.ini')
     #config.read('configs/flights1923.ini')
     #config.read('configs/artificial.ini')
@@ -699,7 +712,7 @@ if __name__ == "__main__":
     ratioCuboidOK = 0.8
 
     # percentage of the lattice to generate
-    percentOfLattice = 0.1
+    percentOfLattice = 0.6
 
     # do we generate indexes?
     # possible values:
@@ -710,7 +723,7 @@ if __name__ == "__main__":
     #generateIndex = False
 
     # do we compare to ground truth? Otherwise, efficiency is tested
-    comparison = True
+    comparison = False
 
     # do we generate all comparisons?
     allComparisons = True
@@ -719,7 +732,7 @@ if __name__ == "__main__":
     ratioOfQuerySample = 0.4
 
     # number of runs
-    nbruns=5
+    nbruns=2
 
     ###
     ### END OF PARAMETERS
@@ -766,8 +779,8 @@ if __name__ == "__main__":
 
 
         #ratioOfQuerySample = 0.5
-        tabTest = (0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1)
-        #tabTest = (0.9, 1)
+        #tabTest = (0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1)
+        tabTest = (0.1,0.6, 1)
 
         mvnames, aggQueries = materializeViews(conn, groupbyAtt, sel, measBase, function, table, percentOfLattice,generateIndex)
 
@@ -792,6 +805,7 @@ if __name__ == "__main__":
                 dataError=[]
                 dataStdevError=[]
 
+                currentSample = {}
 
                 for ratioOfQuerySample in tabTest:
                     dict = {}
@@ -802,24 +816,7 @@ if __name__ == "__main__":
 
                     for p in pairs:
 
-                        """
-                        meanError, meanPred, meanBennet = tests.testAccuracyQuerySampleSizeDOLAP(tabTest, mvnames,
-                                                                                                 aggQueries, nbruns, conn,
-                                                                                                 nbAdomVals, p,
-                                                                                                 ratioViolations, proba,
-                                                                                                 error, percentOfLattice,
-                                                                                                 groupbyAtt, sel,
-                                                                                                 measBase, meas, function,
-                                                                                                 table, comparison,
-                                                                                                 generateIndex,
-                                                                                                 allComparisons,
-                                                                                                 initsampleSize, sizeOfR,
-                                                                                                 ratioCuboidOK,
-                                                                                                 ratioOfQuerySample,
-                                                                                                 cumulate=True)
-                        """
-
-                        currentSample = {}
+                        #currentSample = {}
                         sampleSize = initsampleSize * sizeOfR
 
                         prediction, bennetError, realError, gtratio = test(conn, nbAdomVals, p,
@@ -835,7 +832,7 @@ if __name__ == "__main__":
                         meanError=realError
                         meanPred=prediction
                         meanBennet=bennetError
-                        print("output of Test: ", p, meanError, meanPred, meanBennet)
+                        #print("output of Test: ", p, meanError, meanPred, meanBennet)
                         minErrorT = meanError
                         predT = meanPred
 
@@ -850,31 +847,10 @@ if __name__ == "__main__":
                                 dict[p] = [minErrorT, predT]
 
 
-                        """
-                        #tabError.append(meanError[0])
-                        if meanError != []:
-                            tabError.append(meanError[0])
-                            #print(meanError)
-                            e = 0
-                            #sampleSizeT = e / 10
-                            sampleSizeT = ratioOfQuerySample
-                            minErrorT = meanError[e]
-                            predT = meanPred[e]
-                            
-
-                            #limit to pred or error or no limit
-                            #if predT>=pred:
-                            #if minErrorT < minError:
-                            if True:
-                                # minError = minErrorT
-                                # pred = predT
-                                dict[p] = [minErrorT, predT]
-                        """
-
 
                     dict = utilities.sort_dict_by_second_entry_desc(dict)
-                    print("Best: ", dict)
-                    print("Number of pairs with error < 0.1 (size of dict):", len(dict))
+                    #print("Best: ", dict)
+                    #print("Number of pairs with error < 0.1 (size of dict):", len(dict))
 
                     #scoreComp = utilities.jaccard_score_first_k_keys(dict, dictGT, 0)
                     p, r, f = utilities.f_measure_first_k_keys(dict, dictGT, 0)
@@ -937,24 +913,27 @@ if __name__ == "__main__":
         generateIndex = 'mc'
         # generateIndex = False
 
+        mvnames, aggQueries = materializeViewsWithoutIndex(conn, groupbyAtt, sel, measBase, function, table, percentOfLattice)
+
         data=[]
-        #for generateIndex in [False, True, 'mc']:
-        for generateIndex in ['mc']:
+        for generateIndex in [False, True, 'mc']:
+        #for generateIndex in ['mc']:
         #for percentOfLattice in [0.4,0.5,0.6,0.7]:
 
-            mvnames, aggQueries = materializeViews(conn, groupbyAtt, sel, measBase, function, table, percentOfLattice,
-                                                   generateIndex)
+            #mvnames, aggQueries = materializeViews(conn, groupbyAtt, sel, measBase, function, table, percentOfLattice,generateIndex)
+            dbStuff.generateIndexesOnMVs(conn, sel, mvnames, generateIndex)
 
             #ratioOfQuerySample = 0.5
             tabTest = (0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1)
             # tabTest = (0.8, 0.9, 1)
 
             timings=[]
-            #currentSample = {}
+            currentSample = {}
             for p in pairs:
 
                 start_time = time.time()
 
+                """
                 meanError, meanPred, meanBennet = tests.testAccuracyQuerySampleSizeDOLAP(tabTest, mvnames, aggQueries,
                                                                                          nbruns, conn,
                                                                                          nbAdomVals, p, ratioViolations,
@@ -977,7 +956,7 @@ if __name__ == "__main__":
                                                                    ratioOfQuerySample, mvnames,
                                                                    aggQueries, currentSample,
                                                                    cumulate=True)
-                """
+
                 end_time = time.time()
                 timings.append(end_time - start_time)
 
