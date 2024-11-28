@@ -520,50 +520,16 @@ def test(conn, nbAdomVals, prefs, ratioViolations, proba, error, percentOfLattic
             return prediction, bennetError, bennetError, prediction
 
 
-def groundTruthError(minError):
-    dict = {}
-    ratioOfQuerySample=1
-    initsampleSize=1
-    for p in pairs:
-
-        meanError, meanPred, meanBennet = tests.testAccuracyQuerySampleSizeDOLAP(tabTest, mvnames, aggQueries, nbruns,
-                                                                                 conn,
-                                                                                 nbAdomVals, p, ratioViolations, proba,
-                                                                                 error, percentOfLattice,
-                                                                                 groupbyAtt, sel,
-                                                                                 measBase, meas, function, table,
-                                                                                 comparison, generateIndex,
-                                                                                 allComparisons, initsampleSize,
-                                                                                 sizeOfR, ratioCuboidOK,
-                                                                                 ratioOfQuerySample, cumulate=True)
-
-
-        if meanError != []:
-            print(meanError)
-            e = 0
-            #while meanError[e] >= minError and e < len(meanError) - 1:
-                # print(e)
-            #    e = e + 1
-            sampleSizeT = e / 10
-            sampleSizeT = ratioOfQuerySample
-            minErrorT = meanError[e]
-            predT = meanPred[e]
-            # if minErrorT < minError and predT > pred and minErrorT < 0.1 and sampleSizeT > 0:
-            if minErrorT < minError:
-                dict[p] = [minErrorT, predT]
-
-
-    dict = utilities.sort_dict_by_second_entry_desc(dict)
-    return dict
-
 
 
 def groundTruth(pred=-1,error=1):
     dict = {}
     #ratioOfQuerySample=1
-    #initsampleSize=1
+    initsampleSize=1
+    currentSample={}
+    sampleSize = initsampleSize * sizeOfR
     for p in pairs:
-
+        """
         meanError, meanPred, meanBennet = tests.testAccuracyQuerySampleSizeDOLAP(tabTest, mvnames, aggQueries, nbruns,
                                                                                  conn,
                                                                                  nbAdomVals, p, ratioViolations, proba,
@@ -574,13 +540,23 @@ def groundTruth(pred=-1,error=1):
                                                                                  allComparisons, 1,
                                                                                  sizeOfR, ratioCuboidOK,
                                                                                  1, cumulate=True)
+        """
+        meanError, meanPred, meanBennet, gtratio = test(conn, nbAdomVals, p,
+                                                           ratioViolations, proba, error,
+                                                           percentOfLattice, groupbyAtt,
+                                                           sel, measBase, meas, function, table,
+                                                           sampleSize, comparison,
+                                                           generateIndex, allComparisons,
+                                                           1, mvnames,
+                                                           aggQueries, currentSample,
+                                                           cumulate=True)
 
 
-        if meanError != []:
+        if meanError != 99:
             #print(meanError)
             e = 0
-            minErrorT = meanError[e]
-            predT = meanPred[e]
+            minErrorT = meanError
+            predT = meanPred
 
             if predT >=pred and minErrorT < error:
                 dict[p] = [minErrorT, predT]
@@ -593,32 +569,32 @@ def groundTruth(pred=-1,error=1):
 def groundTruthAllLatice(pred=-1,error=1):
     dict = {}
     #ratioOfQuerySample=1
-    #initsampleSize=1
+    initsampleSize=1
     #percentOfLattice=1
-
+    currentSample = {}
+    sampleSize = initsampleSize * sizeOfR
 
     mvnames, aggQueries = materializeViews(conn, groupbyAtt, sel, measBase, function, table, 1,
                                            generateIndex)
 
     for p in pairs:
 
-        meanError, meanPred, meanBennet = tests.testAccuracyQuerySampleSizeDOLAP(tabTest, mvnames, aggQueries, nbruns,
-                                                                                 conn,
-                                                                                 nbAdomVals, p, ratioViolations, proba,
-                                                                                 error, 1,
-                                                                                 groupbyAtt, sel,
-                                                                                 measBase, meas, function, table,
-                                                                                 comparison, generateIndex,
-                                                                                 allComparisons, 1,
-                                                                                 sizeOfR, ratioCuboidOK,
-                                                                                 1, cumulate=True)
+        meanError, meanPred, meanBennet, gtratio = test(conn, nbAdomVals, p,
+                                                        ratioViolations, proba, error,
+                                                        1, groupbyAtt,
+                                                        sel, measBase, meas, function, table,
+                                                        sampleSize, comparison,
+                                                        generateIndex, allComparisons,
+                                                        1, mvnames,
+                                                        aggQueries, currentSample,
+                                                        cumulate=True)
 
 
-        if meanError != []:
+        if meanError != 99:
             #print(meanError)
             e = 0
-            minErrorT = meanError[e]
-            predT = meanPred[e]
+            minErrorT = meanError
+            predT = meanPred
 
             if predT >=pred and minErrorT < error:
                 dict[p] = [minErrorT, predT]
@@ -659,9 +635,9 @@ if __name__ == "__main__":
     config = configparser.ConfigParser()
 
     # The DB we want
-    #config.read('configs/flightsDolap.ini')
+    config.read('configs/flightsDolap.ini')
     #config.read('configs/flightsquarterDolap.ini')
-    config.read('configs/ssbDolap.ini')
+    #config.read('configs/ssbDolap.ini')
     #config.read('configs/flights1923Dolap.ini')
     #config.read('configs/flights1923.ini')
     #config.read('configs/artificial.ini')
@@ -702,7 +678,7 @@ if __name__ == "__main__":
     nbAdomVals = len(prefs)
 
     # for sampling fact table with Postgresql
-    initsampleSize = 0.6
+    initsampleSize = 0.4
     samplingMethod = 'SYSTEM_ROWS'  # or SYSTEM
 
     # ratio max of violations in a cuboid
@@ -723,7 +699,7 @@ if __name__ == "__main__":
     #generateIndex = False
 
     # do we compare to ground truth? Otherwise, efficiency is tested
-    comparison = False
+    comparison = True
 
     # do we generate all comparisons?
     allComparisons = True
@@ -732,7 +708,7 @@ if __name__ == "__main__":
     ratioOfQuerySample = 0.4
 
     # number of runs
-    nbruns=2
+    nbruns=5
 
     ###
     ### END OF PARAMETERS
@@ -779,8 +755,8 @@ if __name__ == "__main__":
 
 
         #ratioOfQuerySample = 0.5
-        #tabTest = (0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1)
-        tabTest = (0.1,0.6, 1)
+        tabTest = (0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1)
+        #tabTest = (0.1,0.6, 1)
 
         mvnames, aggQueries = materializeViews(conn, groupbyAtt, sel, measBase, function, table, percentOfLattice,generateIndex)
 

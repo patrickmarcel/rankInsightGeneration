@@ -499,3 +499,40 @@ def testTimings(conn, nbAdomVals, prefs, ratioViolations,proba, error, percentOf
         plot_curves_with_error_bars(data, x_label=paramTested, y_label='Error',
                                     title='prediction and errors')
     """
+
+def groundTruthError(minError):
+    dict = {}
+    ratioOfQuerySample=1
+    initsampleSize=1
+    for p in pairs:
+
+        meanError, meanPred, meanBennet = tests.testAccuracyQuerySampleSizeDOLAP(tabTest, mvnames, aggQueries, nbruns,
+                                                                                 conn,
+                                                                                 nbAdomVals, p, ratioViolations, proba,
+                                                                                 error, percentOfLattice,
+                                                                                 groupbyAtt, sel,
+                                                                                 measBase, meas, function, table,
+                                                                                 comparison, generateIndex,
+                                                                                 allComparisons, initsampleSize,
+                                                                                 sizeOfR, ratioCuboidOK,
+                                                                                 ratioOfQuerySample, cumulate=True)
+
+
+        if meanError != 99:
+            print(meanError)
+            e = 0
+            #while meanError[e] >= minError and e < len(meanError) - 1:
+                # print(e)
+            #    e = e + 1
+            sampleSizeT = e / 10
+            sampleSizeT = ratioOfQuerySample
+            minErrorT = meanError[e]
+            predT = meanPred[e]
+            # if minErrorT < minError and predT > pred and minErrorT < 0.1 and sampleSizeT > 0:
+            if minErrorT < minError:
+                dict[p] = [minErrorT, predT]
+
+
+    dict = utilities.sort_dict_by_second_entry_desc(dict)
+    return dict
+
