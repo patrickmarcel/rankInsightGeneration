@@ -6,7 +6,21 @@ import pandas as pd
 import configparser
 import json
 
-def getDensity(conn, table,sel,measbase,groupbyAtt):
+def generateAllPairs(conn, sel, table, nbPairs):
+    query="select distinct(" + sel + ") from " + table + ";"
+    resQ=execute_query(conn,query)
+    tab=[]
+    for r in resQ:
+        tab.append(r[0])
+    res = [(a, b) for idx, a in enumerate(tab) for b in tab[idx + 1:]]
+    res=res[:nbPairs]
+    #print("res: ",res)
+    print("Number of pairs: ",len(res))
+    return res
+
+def getDensity(conn, table,groupbyAtt):
+    query="analyze \"" + table + "\";"
+    execute_query(conn, query)
     #query = "select n_distinct from pg_Stats where tablename= \'" + table + "\' and attname<>\'" + sel + "\' and attname<>\'" + measbase + "\';"
     query = "select n_distinct from pg_Stats where tablename= \'" + table + "\' and attname in " + str(tuple(groupbyAtt)) + " ;"
     print(query)
@@ -38,6 +52,10 @@ def dropAllIndex(conn, table):
         if not r[0].startswith('Key') and not r[0].endswith('_pkey'):
             drop="drop index \"" + r[0] + "\";"
             execute_query(conn, drop)
+
+def dropAllIndexOnMVs(conn,mvnames):
+    for n in mvnames:
+        dropAllIndex(conn, n[0])
 
 def generateHashIndex(conn, table, sel):
     indexname=table+'_'+sel
@@ -151,6 +169,46 @@ def createMV(conn, attInGB, selAtt, meas, function, table, percentOfLattice,gene
                 #print('creating multicolumn index on view')
                 generateMulticolIndex(conn, gbs, gbs, selAtt)
     return nbOfMV
+
+def generateIndexesOnMVs(conn,  sel, mvnames, generateIndex):
+    for n  in mvnames:
+        if generateIndex == True:
+            # print('creating index on view')
+
+            generateHashIndex(conn, n[0], sel)
+        if generateIndex == 'mc':
+            # print('creating multicolumn index on view')
+            generateMulticolIndex(conn, n[0], n[0], sel)
+
+
+def createMVWithoutIndex(conn, attInGB, selAtt, meas, function, table, percentOfLattice):
+    existing=getMVnames(conn)
+    pwset2=getCuboidsOfAtt(attInGB, selAtt)
+    # remove last
+    del pwset2[-1]
+
+    nbOfMV=len(pwset2)*percentOfLattice
+    #print(pwset2)
+    #print(int(nbOfMV))
+
+    for i in range(int(nbOfMV)):
+        nb = random.randint(0, len(pwset2) - 1)
+        gb = pwset2[nb]
+        pwset2.remove(gb)
+        gbs=''
+        for s in gb:
+            gbs = gbs + s + ','
+        gbs=gbs[:-1]
+        #query="create materialized view MV" + str(i) + " as select " + gbs + "," + meas + " from " + table + " group by " + gbs +  ";"
+        query="create materialized view \"" + gbs + "\" as select " + gbs + ", " + function + "(" + meas + ") as " + meas + ", count(*) as count  from " + table + " group by " + gbs +  ";"
+        #print(query)
+        if gbs not in existing:
+            execute_query(conn, query)
+    return nbOfMV
+
+
+
+
 
 #returns the group by set of a query (having a single group by)
 def returnGroupby(query):
@@ -393,12 +451,14 @@ def generateArtificialDataset(conn,num_rows = 50000, nbAtt=10, num_categories_fi
 
     # Create a DataFrame to represent the relational table
     data = {
-        'Attribute_1': first_attribute,
-        'Attribute_2': second_attribute
+        'attribute_1': first_attribute,
+        'attribute_2': second_attribute
     }
 
+    groupAtt=[]
     for i in range(nbAtt):
-        data[f'A_{i+3}'] = other_attributes[i]
+        data[f'a_{i+3}'] = other_attributes[i]
+        groupAtt.append(f'a_{i + 3}')
 
     #print(data)
     df = pd.DataFrame(data)
@@ -428,6 +488,7 @@ def generateArtificialDataset(conn,num_rows = 50000, nbAtt=10, num_categories_fi
     query = "copy " + tablename + " from \'" + path+'relational_table.csv' + "\' (header, format csv);"
     #print(query)
     execute_query(conn, query)
+    return tablename,groupAtt
 
 
 if __name__ == "__main__":
@@ -461,6 +522,6 @@ if __name__ == "__main__":
     conn = connect_to_db(dbname, user, password, host, port)
 
     dropAllMVs(conn)
-    generateArtificialDataset(conn,50,10,10,10,'log')
-#    generateArtificialDataset(conn,500000,10,10,10)
-    print(getDensity(conn,table,sel,measBase,groupbyAtt))
+    #newtable,atts=generateArtificialDataset(conn,10,2,2,10,'log')
+    newtable,atts=generateArtificialDataset(conn,500000,10,10,10,'log')
+    print(getDensity(conn,newtable,atts))
