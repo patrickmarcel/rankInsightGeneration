@@ -359,7 +359,7 @@ def test(conn, nbAdomVals, prefs, ratioViolations, proba, error, percentOfLattic
             currentSample["cuboid"]=cuboid
             currentSample["pset"]=newpset
         else:
-            ranksTemp, queryCountviolationsTemp, queryCountCuboidTemp, cuboidTemp, newpset  = bounders.getMoreRandamQueries(sizeofquerysample,currentSample,
+            ranksTemp, queryCountviolationsTemp, queryCountCuboidTemp, cuboidTemp, newpset  = bounders.getMoreRandomQueries(sizeofquerysample,currentSample,
                                                                                                                             sel, measBase, function,
                                                                                        table, tuple(valsToSelect),
                                                                                        limitedHyp,
