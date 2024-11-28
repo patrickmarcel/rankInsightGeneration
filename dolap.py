@@ -330,12 +330,13 @@ def test(conn, nbAdomVals, prefs, ratioViolations, proba, error, percentOfLattic
     #print("Sample size: ",sampleSize)
 
     hypothesis,hypothesisGenerationTime,samplingTime=hypothesisGeneration(conn, prefs, sel, measBase, meas, table, sampleSize, allComparison)
-    print("Hypothesis predicted: ", hypothesis)
+    #print("Hypothesis predicted: ", hypothesis)
 
     # only ok if hypothesis is a<B or a>b
     if len(hypothesis) <2 or hypothesis[0][1]==hypothesis[1][1]:
         return 99,99,99,99 #ugly
     else:
+        print("Hypothesis predicted: ", hypothesis)
 
         limitedHyp = []
         valsToSelect = []
@@ -354,13 +355,13 @@ def test(conn, nbAdomVals, prefs, ratioViolations, proba, error, percentOfLattic
             sizeofquerysample=1
         #print("ratio: ",ratioOfQuerySample)
         #print("len agg: ",len(aggQueries))
-        print('Size of query sample:', sizeofquerysample)
+        #print('Size of query sample:', sizeofquerysample)
 
 
         pwrset=aggQueries
         #print("pwrset:",pwrset)
 
-        print("Sampling aggregate queries")
+        #print("Sampling aggregate queries")
         if cumulate==False:
             ranks, queryCountviolations, queryCountCuboid, cuboid, newpset = bounders.getSample(pwrset, sel, measBase, function,
                                                                                  table, tuple(valsToSelect), limitedHyp,
@@ -522,12 +523,12 @@ def test(conn, nbAdomVals, prefs, ratioViolations, proba, error, percentOfLattic
 
 
 
-def groundTruth(pred=-1,error=1):
+def groundTruthForQueriesOverMVs(pred=-1,error=1):
     dict = {}
     #ratioOfQuerySample=1
-    initsampleSize=1
+    #initsampleSize=1
     currentSample={}
-    sampleSize = initsampleSize * sizeOfR
+    #sampleSize = initsampleSize * sizeOfR
     for p in pairs:
         """
         meanError, meanPred, meanBennet = tests.testAccuracyQuerySampleSizeDOLAP(tabTest, mvnames, aggQueries, nbruns,
@@ -541,27 +542,29 @@ def groundTruth(pred=-1,error=1):
                                                                                  sizeOfR, ratioCuboidOK,
                                                                                  1, cumulate=True)
         """
-        meanError, meanPred, meanBennet, gtratio = test(conn, nbAdomVals, p,
+
+        predT, bennetError, minErrorT, gtratio = test(conn, nbAdomVals, p,
                                                            ratioViolations, proba, error,
                                                            percentOfLattice, groupbyAtt,
                                                            sel, measBase, meas, function, table,
-                                                           sampleSize, comparison,
+                                                           sizeOfR, comparison,
                                                            generateIndex, allComparisons,
                                                            1, mvnames,
                                                            aggQueries, currentSample,
                                                            cumulate=True)
 
 
-        if meanError != 99:
+        if minErrorT != 99:
             #print(meanError)
-            e = 0
-            minErrorT = meanError
-            predT = meanPred
+            #e = 0
+            #minErrorT = meanError
+            #predT = meanPred
 
-            if predT >=pred and minErrorT < error:
+            if True:
+            #if predT >=pred and minErrorT < error:
                 dict[p] = [minErrorT, predT]
 
-    dict = utilities.sort_dict_by_second_entry_desc(dict)
+    #dict = utilities.sort_dict_by_second_entry_desc(dict)
     return dict
 
 
@@ -569,38 +572,38 @@ def groundTruth(pred=-1,error=1):
 def groundTruthAllLatice(pred=-1,error=1):
     dict = {}
     #ratioOfQuerySample=1
-    initsampleSize=1
+    #initsampleSize=1
     #percentOfLattice=1
     currentSample = {}
-    sampleSize = initsampleSize * sizeOfR
+    #sampleSize = initsampleSize * sizeOfR
 
     mvnames, aggQueries = materializeViews(conn, groupbyAtt, sel, measBase, function, table, 1,
                                            generateIndex)
 
     for p in pairs:
 
-        meanError, meanPred, meanBennet, gtratio = test(conn, nbAdomVals, p,
+        predT, bennetError, minErrorT, gtratio = test(conn, nbAdomVals, p,
                                                         ratioViolations, proba, error,
                                                         1, groupbyAtt,
                                                         sel, measBase, meas, function, table,
-                                                        sampleSize, comparison,
+                                                        sizeOfR, comparison,
                                                         generateIndex, allComparisons,
                                                         1, mvnames,
                                                         aggQueries, currentSample,
                                                         cumulate=True)
 
 
-        if meanError != 99:
+        if minErrorT != 99:
             #print(meanError)
-            e = 0
-            minErrorT = meanError
-            predT = meanPred
+            #e = 0
+            #minErrorT = meanError
+            #predT = meanPred
 
             if predT >=pred and minErrorT < error:
                 dict[p] = [minErrorT, predT]
 
 
-    dict = utilities.sort_dict_by_second_entry_desc(dict)
+    #dict = utilities.sort_dict_by_second_entry_desc(dict)
     return dict
 
 
@@ -756,13 +759,13 @@ if __name__ == "__main__":
 
         #ratioOfQuerySample = 0.5
         tabTest = (0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1)
-        #tabTest = (0.1,0.6, 1)
+        #tabTest = (0.6, 1)
 
         mvnames, aggQueries = materializeViews(conn, groupbyAtt, sel, measBase, function, table, percentOfLattice,generateIndex)
 
         # do we want GT for error/pred on queries over MVs or all lattice?
-        dictGT = groundTruth( -1,1)
-        #dictGT = groundTruthAllLatice()
+        #dictGT = groundTruthForQueriesOverMVs( -1,1)
+        dictGT = groundTruthAllLatice()
 
 
         dictRuns={}
@@ -781,21 +784,21 @@ if __name__ == "__main__":
                 dataError=[]
                 dataStdevError=[]
 
+                sampleSize = initsampleSize * sizeOfR
                 currentSample = {}
 
                 for ratioOfQuerySample in tabTest:
                     dict = {}
                     # data = []
-                    timings = []
+                    #timings = []
                     tabError=[]
 
 
                     for p in pairs:
 
                         #currentSample = {}
-                        sampleSize = initsampleSize * sizeOfR
 
-                        prediction, bennetError, realError, gtratio = test(conn, nbAdomVals, p,
+                        predT, bennetError, minErrorT, gtratio = test(conn, nbAdomVals, p,
                                                                                  ratioViolations, proba, error,
                                                                                  percentOfLattice, groupbyAtt,
                                                                                  sel, measBase, meas, function, table,
@@ -805,15 +808,11 @@ if __name__ == "__main__":
                                                                                  aggQueries, currentSample,
                                                                                  cumulate=True)
 
-                        meanError=realError
-                        meanPred=prediction
-                        meanBennet=bennetError
-                        #print("output of Test: ", p, meanError, meanPred, meanBennet)
-                        minErrorT = meanError
-                        predT = meanPred
 
-                        if meanError != 99:
-                            tabError.append(meanError)
+                        #print("output of Test: ", p, meanError, meanPred, meanBennet)
+
+                        if minErrorT != 99:
+                            tabError.append(minErrorT)
                             # limit to pred or error or no limit
                             # if predT>=pred:
                             # if minErrorT < minError:
@@ -824,7 +823,7 @@ if __name__ == "__main__":
 
 
 
-                    dict = utilities.sort_dict_by_second_entry_desc(dict)
+                    #dict = utilities.sort_dict_by_second_entry_desc(dict)
                     #print("Best: ", dict)
                     #print("Number of pairs with error < 0.1 (size of dict):", len(dict))
 
@@ -901,8 +900,8 @@ if __name__ == "__main__":
             dbStuff.generateIndexesOnMVs(conn, sel, mvnames, generateIndex)
 
             #ratioOfQuerySample = 0.5
-            tabTest = (0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1)
-            # tabTest = (0.8, 0.9, 1)
+            #tabTest = (0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1)
+
 
             timings=[]
             currentSample = {}
