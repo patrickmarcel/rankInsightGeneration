@@ -519,25 +519,13 @@ def test(conn, nbAdomVals, prefs, ratioViolations, proba, error, percentOfLattic
 
 
 
-def groundTruthForQueriesOverMVs(pred=-1,error=1):
+def groundTruthForQueriesOverMVs(pairs,groupbyAtt,pred=-1,error=1):
     dict = {}
     #ratioOfQuerySample=1
     #initsampleSize=1
     currentSample={}
     #sampleSize = initsampleSize * sizeOfR
     for p in pairs:
-        """
-        meanError, meanPred, meanBennet = tests.testAccuracyQuerySampleSizeDOLAP(tabTest, mvnames, aggQueries, nbruns,
-                                                                                 conn,
-                                                                                 nbAdomVals, p, ratioViolations, proba,
-                                                                                 error, percentOfLattice,
-                                                                                 groupbyAtt, sel,
-                                                                                 measBase, meas, function, table,
-                                                                                 comparison, generateIndex,
-                                                                                 allComparisons, 1,
-                                                                                 sizeOfR, ratioCuboidOK,
-                                                                                 1, cumulate=True)
-        """
 
         predT, bennetError, minErrorT, gtratio,currentSample = test(conn, nbAdomVals, p,
                                                            ratioViolations, proba, error,
@@ -548,7 +536,6 @@ def groundTruthForQueriesOverMVs(pred=-1,error=1):
                                                            1, mvnames,
                                                            aggQueries, currentSample,
                                                            cumulate=False)
-
 
         if minErrorT != 99:
             ##print(meanError)
@@ -565,7 +552,7 @@ def groundTruthForQueriesOverMVs(pred=-1,error=1):
 
 
 # returns the pairs found on all the lattice
-def groundTruthAllLatice(pred=-1,error=1):
+def groundTruthAllLatice(pairs,groupbyAtt,pred=-1,error=1):
     dict = {}
     #ratioOfQuerySample=1
     #initsampleSize=1
@@ -627,8 +614,10 @@ def plotRuns(dictRuns, tabTest, nbruns, x_label='Size of query sample', y_label=
                                           title)
 
 
+
 def comparisonToGT(groupbyAtt,allLattice):
     sel = groupbyAtt[0]
+
     groupbyAtt = groupbyAtt[1:]
 
     nbpairs = 90
@@ -636,17 +625,17 @@ def comparisonToGT(groupbyAtt,allLattice):
     pairs = dbStuff.generateAllPairs(conn, sel, table, nbpairs)
 
 
-    tabTest = (0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1)
-    # tabTest = (0.6, 1)
+    #tabTest = (0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1)
+    tabTest = (0.6, 1)
 
     if allLattice:
-        dictGT = groundTruthAllLatice()
+        dictGT = groundTruthAllLatice(pairs,groupbyAtt)
         mvnames, aggQueries = materializeViews(conn, groupbyAtt, sel, measBase, function, table, percentOfLattice,
                                            generateIndex)
     else:
         mvnames, aggQueries = materializeViews(conn, groupbyAtt, sel, measBase, function, table, percentOfLattice,
                                                generateIndex)
-        dictGT = groundTruthForQueriesOverMVs( -1,1)
+        dictGT = groundTruthForQueriesOverMVs(pairs,groupbyAtt, -1,1)
 
 
     column_names = ['Runs', 'Initial Sample', 'Query Sample', 'Pair', 'Error', 'F1', 'Recall', 'Precision', 'Recall@10']
@@ -657,7 +646,7 @@ def comparisonToGT(groupbyAtt,allLattice):
     for nr in tqdm(range(nbruns)):
 
         for initsampleSize in tabTest:
-            print("INIT SAMPLE SIZE: ", initsampleSize)
+            #print("INIT SAMPLE SIZE: ", initsampleSize)
 
             sampleSize = initsampleSize * sizeOfR
 
@@ -767,7 +756,7 @@ if __name__ == "__main__":
     #generateIndex = False
 
     # do we compare to ground truth? Otherwise, efficiency is tested
-    comparison = True
+    comparison = False
 
     # do we generate all comparisons?
     allComparisons = True
@@ -776,7 +765,7 @@ if __name__ == "__main__":
     ratioOfQuerySample = 0.4
 
     # number of runs
-    nbruns=5
+    nbruns=2
 
     ###
     ### END OF PARAMETERS
@@ -798,9 +787,7 @@ if __name__ == "__main__":
 
 
     if comparison == True:
-
-        # todo for on measures
-        # todo for testedAtt in groupbyAtt:
+        #comparisonToGT(groupbyAtt, True)
 
 
         sel = groupbyAtt[0]
@@ -891,23 +878,15 @@ if __name__ == "__main__":
 
                         if minErrorT != 99:
                             tabError.append(minErrorT)
-                            # limit to pred or error or no limit
-                            # if predT>=pred:
-                            # if minErrorT < minError:
-                            if True:
-                                # minError = minErrorT
-                                # pred = predT
-                                dict[p] = [minErrorT, predT]
 
+                            dict[p] = [minErrorT, predT]
 
 
                     dict = utilities.sort_dict_by_second_entry_desc(dict)
-                    ##print("Best: ", dict)
-                    ##print("Number of pairs with error < 0.1 (size of dict):", len(dict))
 
                     #scoreComp = utilities.jaccard_score_first_k_keys(dict, dictGT, 0)
-                    p, r, f = utilities.f_measure_first_k_keys(dict, dictGT, 0)
-                    scoreComp = f
+                    precision, recall, f1 = utilities.f_measure_first_k_keys(dict, dictGT, 0)
+                    scoreComp = f1
 
                     p10, r10, f10 = utilities.f_measure_first_k_keys(dict, dictGT, 10)
                     scoreComp = r10
@@ -924,7 +903,7 @@ if __name__ == "__main__":
                     dataStdevError.append((stdevError))
 
                     #['Runs', 'Initial Sample', 'Query Sample', 'Pair','Error','F1', 'Recall', 'Precision', 'Recall@10']
-                    df.loc[len(df)]=[nr,initsampleSize,ratioOfQuerySample,p,minErrorT,f,r,p,r10]
+                    df.loc[len(df)]=[nr,initsampleSize,ratioOfQuerySample,p,minErrorT,f1,recall,precision,r10]
 
 
 
@@ -943,19 +922,13 @@ if __name__ == "__main__":
                     dictRunsErr[initsampleSize] = [dataError]
 
 
-            #plotStuff.plot_curves_with_error_bars(data, x_label='Size of query sample', y_label='F-measure',
-            #                                      title='F-measure by sample size')
-            #plotStuff.plot_curves_with_error_bars(dataErrorsAllPairs, x_label='Size of query sample', y_label='Error',
-            #                                      title='Error by sample size')
-        ##print(dictRuns)
-        #plotRuns(dictRuns, tabTest, nbruns, x_label='Size of query sample', y_label='F-measure',
-        #                                  title='F-measure by sample size')
         plotRuns(dictRuns, tabTest, nbruns, x_label='Size of query sample', y_label='Recall@10',
                  title='Recall@10 by sample size')
         plotRuns(dictRunsErr, tabTest, nbruns, x_label='Size of query sample', y_label='Error',
                  title='Error by sample size')
 
         df.to_csv(fileResults)
+
 
     else:
 
@@ -1010,7 +983,7 @@ if __name__ == "__main__":
                                                                    generateIndex, allComparisons,
                                                                    ratioOfQuerySample, mvnames,
                                                                    aggQueries, currentSample,
-                                                                   cumulate=True)
+                                                                   cumulate=False)
 
                 end_time = time.time()
                 timings.append(end_time - start_time)
