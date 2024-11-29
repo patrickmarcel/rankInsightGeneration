@@ -252,7 +252,7 @@ def generateHypothesisTest(conn, meas, measBase, table, sel, sampleSize, method,
     resultVals = getSample(conn, measBase, table, sel, sampleSize, method, False, valsToSelect)
     end_time = time.time()
     samplingTime = end_time - start_time
-    print('sampling time:', samplingTime)
+    #print('sampling time:', samplingTime)
 
     #resultVals = getSample(conn, measBase, table, sel, sampleSize, method=method, repeatable=DEBUG_FLAG)
     #print(resultVals)
@@ -320,7 +320,7 @@ def generateHypothesisTest(conn, meas, measBase, table, sel, sampleSize, method,
 
     end_time = time.time()
     hypothesisGenerationTime = end_time - start_time
-    print('Hypothesis generation time:', hypothesisGenerationTime)
+    #print('Hypothesis generation time:', hypothesisGenerationTime)
     return hypothesis, samplingTime, hypothesisGenerationTime
 
 

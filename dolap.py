@@ -16,7 +16,8 @@ from statStuff import permutation_test, compute_skewness, claireStat
 from rankingFromPairwise import computeRanksForAll, generateHypothesisTest
 import bounders
 import tests
-
+from tqdm import tqdm
+import pandas as pd
 
 # ------  Debug ?  ------------
 DEBUG_FLAG = True
@@ -25,48 +26,48 @@ DEBUG_FLAG = True
 def  compareHypToGB(hypothesis, conn, measBase,function, sel, vals,mvnames, table):
     #query="Select " + sel +" from  " + sel + " where " + sel + " in " +  str(vals) + " order by " + measBase + " desc;"
     materialized=bounders.findMV(mvnames,sel,table)
-    #print("MATERIALIZED: ",materialized)
+    ##print("MATERIALIZED: ",materialized)
     query="select 'all',string_agg(" + sel + ",',') from (SELECT " + sel + ", " + function + "(" + measBase + "),  rank () over (  order by " + function + "(" + measBase + ") desc ) as rank FROM \"" + materialized + "\" WHERE " + sel + " in " + str(vals) +" group by " +  sel + " order by rank);"
-    #print(query)
+    ##print(query)
     v,ratio,qtime=countViolations(conn,query,hypothesis)
-    #print(v)
-    print("hypothesis compared to group by ",sel," has ",v," violations")
+    ##print(v)
+    #print("hypothesis compared to group by ",sel," has ",v," violations")
     return v
 
 
 
 def countViolationsDOLAP(conn,query,hypothesis):
-    #print(query)
+    ##print(query)
     hyp=[str(a) for (a,b) in hypothesis]
-    print('hyp:',hyp)
+    #print('hyp:',hyp)
     v=0
     res=dbStuff.execute_query(conn,query)
     normalize=0
     for r in res:
-        print(r)
-        #print('this is s', r[1])
+        #print(r)
+        ##print('this is s', r[1])
         s=r[-1].split(",")
-        print('this is s', s)
+        #print('this is s', s)
         normalize=normalize+(len(s) * ( len(s) -1 ))/2
         if len(s)==len(hyp):
 
             tau,pvalue=statStuff.compute_kendall_tau(s,hyp)
 
-            #print('tau:',tau)
+            ##print('tau:',tau)
             tau=(tau+1)/2
             v=v+tau
         else:
             # s is smaller
             hyp2=hyp.copy()
-            #print('hyp2:',hyp2,' and s:',s)
+            ##print('hyp2:',hyp2,' and s:',s)
             for e in hyp:
-                #print('e:',e)
+                ##print('e:',e)
                 if e not in s:
                     hyp2.remove(e)
 
             tau,pvalue = statStuff.compute_kendall_tau(s, hyp2)
 
-            #print('tau:',tau)
+            ##print('tau:',tau)
             tau = (tau + 1) / 2
             v = v + tau
 
@@ -79,9 +80,9 @@ def countViolationsDOLAP(conn,query,hypothesis):
 
 
 def countViolations(conn,query,hypothesis):
-    #print(query)
+    ##print(query)
     hyp=[str(a) for (a,b) in hypothesis]
-    #print('hyp:',hyp)
+    ##print('hyp:',hyp)
     v=0
     start_time_q = time.time()
     res=dbStuff.execute_query(conn,query)
@@ -89,10 +90,10 @@ def countViolations(conn,query,hypothesis):
     querytime=end_time_q-start_time_q
     normalize=0
     for r in res:
-        #print(r)
-        #print('this is s', r[1])
+        ##print(r)
+        ##print('this is s', r[1])
         s=r[-1].split(",")
-        #print('this is s', s)
+        ##print('this is s', s)
         normalize=normalize+(len(s) * ( len(s) -1 ))/2
         if len(s)==len(hyp):
             #tau=statStuff.compute_kendall_tau(s,hyp)[0]
@@ -102,28 +103,28 @@ def countViolations(conn,query,hypothesis):
 
             tau,pvalue=statStuff.compute_kendall_tau(s,hyp)
 
-            #print('tau:',tau)
+            ##print('tau:',tau)
             tau=(tau+1)/2
             v=v+tau
         else:
             # s is smaller
             hyp2=hyp.copy()
-            #print('hyp2:',hyp2,' and s:',s)
+            ##print('hyp2:',hyp2,' and s:',s)
             for e in hyp:
-                #print('e:',e)
+                ##print('e:',e)
                 if e not in s:
                     hyp2.remove(e)
-            #print('hyp2:',hyp2)
+            ##print('hyp2:',hyp2)
             #tau = statStuff.compute_kendall_tau(s, hyp2)[0]
             #if tau != 1:
             #    v = v + 1
-            #print("s:",s)
-            #print("hyp2:",hyp2)
+            ##print("s:",s)
+            ##print("hyp2:",hyp2)
             #tau = statStuff.normalised_kendall_tau_distance(s, hyp2)
 
             tau,pvalue = statStuff.compute_kendall_tau(s, hyp2)
 
-            #print('tau:',tau)
+            ##print('tau:',tau)
             tau = (tau + 1) / 2
             v = v + tau
     #if len(res)!=0:
@@ -141,13 +142,13 @@ def countViolations(conn,query,hypothesis):
 def getHypothesisAllComparisons(conn, meas, measBase, table, sel,valsToSelect, sampleSize, method='SYSTEM_ROWS'):
     # checking all comparisons
     correctHyp,samplingTime, hypothesisGenerationTime = generateHypothesisTest(conn, meas, measBase, table, sel, sampleSize, method, valsToSelect)
-    #print('all comp. hypothesis:', correctHyp)
+    ##print('all comp. hypothesis:', correctHyp)
     return correctHyp, samplingTime, hypothesisGenerationTime
 
 def get_state_sample(conn, measBase, table, sel, sampleSize, state):
 
     querySample = "SELECT "+sel+", "+measBase+" FROM "+table+" where "+sel+" = '"+str(state)+"' limit "+str(sampleSize)+";"
-    #print('stat query:', querySample)
+    ##print('stat query:', querySample)
     resultVals = execute_query(conn, querySample)
     return resultVals
 
@@ -209,7 +210,7 @@ def getHypothesisCongressionalSampling(adom,congress):
 
     w_comparisons = []
     w_comparisons_rej = []
-    #print(raw_comparisons)
+    ##print(raw_comparisons)
     rejected, corrected = fdrcorrection([x[3] for x in raw_comparisons], alpha=0.05)
     for i in range(len(raw_comparisons)):
         if rejected[i]:
@@ -217,10 +218,10 @@ def getHypothesisCongressionalSampling(adom,congress):
         else:
             w_comparisons.append((raw_comparisons[i][0], raw_comparisons[i][1], raw_comparisons[i][2]))
 
-    print("NB de comparaisons significatives (welch)", len(w_comparisons))
-    # print_comp_list(sorted(w_comparisons, key=lambda x: x[0] + x[1]))
+    #print("NB de comparaisons significatives (welch)", len(w_comparisons))
+    # #print_comp_list(sorted(w_comparisons, key=lambda x: x[0] + x[1]))
     by_prox_to_threshold = sorted(w_comparisons, key=lambda x: abs(0.05 - x[2]), reverse=True)
-    # print(by_prox_to_threshold)
+    # #print(by_prox_to_threshold)
 
     final = by_prox_to_threshold[param_budget:]
     to_redo = by_prox_to_threshold[:param_budget]
@@ -235,20 +236,20 @@ def getHypothesisCongressionalSampling(adom,congress):
             else:
                 final.append((right, left, -1))
 
-    print("NB de comparaisons significatives (welch + X param)", len(final))
-    # print_comp_list(sorted(final, key=lambda x: x[0] + x[1]))
+    #print("NB de comparaisons significatives (welch + X param)", len(final))
+    # #print_comp_list(sorted(final, key=lambda x: x[0] + x[1]))
 
     # borda hypothesis
     patrick_format = [(a, b, 1, None, None) for (a, b, c) in final]
-    #print('alex pairwise:',patrick_format)
+    ##print('alex pairwise:',patrick_format)
     hypothesis = computeRanksForAll(patrick_format, adom).items()
-    #print(hypothesis)
+    ##print(hypothesis)
     hypothesis = sorted(
         hypothesis,
         key=lambda x: x[1],
         reverse=True
     )
-    #print(hypothesis)
+    ##print(hypothesis)
     #hypothesis = [(a, b + 1) for (a, b) in hypothesis]
     correctHyp=[]
     i=1
@@ -266,34 +267,34 @@ def getHypothesisCongressionalSampling(adom,congress):
                 correctHyp.append((a, currentRank))
                 prevb=b
 
-    #print('Alex hypothesis:',correctHyp)
+    ##print('Alex hypothesis:',correctHyp)
     return correctHyp
 
 
 def materializeViews(conn, groupbyAtt, sel, measBase, function, table, percentOfLattice, generateIndex):
     # generate and get all materialized cuboids
-    print("Creating views")
+    #print("Creating views")
     dbStuff.dropAllMVs(conn)
     dbStuff.createMV(conn, groupbyAtt, sel, measBase, function, table, percentOfLattice, generateIndex)
     mvnames = dbStuff.getMVnames(conn)
 
     aggQueries = dbStuff.getAggQueriesOverMV(mvnames, sel)
-    print("Materializing ", len(mvnames), " views: ", mvnames)
-    # print("queries: ",aggQueries)
-    print("Number of aggregate queries over the MVs: ", len(aggQueries))
+    #print("Materializing ", len(mvnames), " views: ", mvnames)
+    # #print("queries: ",aggQueries)
+    #print("Number of aggregate queries over the MVs: ", len(aggQueries))
     return mvnames,aggQueries
 
 def materializeViewsWithoutIndex(conn, groupbyAtt, sel, measBase, function, table, percentOfLattice):
     # generate and get all materialized cuboids
-    print("Creating views")
+    #print("Creating views")
     dbStuff.dropAllMVs(conn)
     dbStuff.createMVWithoutIndex(conn, groupbyAtt, sel, measBase, function, table, percentOfLattice)
     mvnames = dbStuff.getMVnames(conn)
 
     aggQueries = dbStuff.getAggQueriesOverMV(mvnames, sel)
-    print("Materializing ", len(mvnames), " views: ", mvnames)
-    # print("queries: ",aggQueries)
-    print("Number of aggregate queries over the MVs: ", len(aggQueries))
+    #print("Materializing ", len(mvnames), " views: ", mvnames)
+    # #print("queries: ",aggQueries)
+    #print("Number of aggregate queries over the MVs: ", len(aggQueries))
     return mvnames,aggQueries
 
 def hypothesisGeneration(conn, prefs, sel, measBase, meas, table, sampleSize, allComparison):
@@ -303,14 +304,14 @@ def hypothesisGeneration(conn, prefs, sel, measBase, meas, table, sampleSize, al
         adom, congress = fetchCongressionalSample(conn, sel, table, measBase, sampleSize, adom_restr=prefs)
         end_time = time.time()
         samplingTime = end_time - start_time
-        print('sampling time:', samplingTime)
+        #print('sampling time:', samplingTime)
 
         # compute hypothesis
         start_time = time.time()
         hypothesis = getHypothesisCongressionalSampling(adom, congress)
         end_time = time.time()
         hypothesisGenerationTime = end_time - start_time
-        print('Hypothesis generation time:', hypothesisGenerationTime)
+        #print('Hypothesis generation time:', hypothesisGenerationTime)
     else:
         # sampling and hypothesis
         #start_time = time.time()
@@ -319,24 +320,24 @@ def hypothesisGeneration(conn, prefs, sel, measBase, meas, table, sampleSize, al
         #end_time = time.time()
         #samplingTime = end_time - start_time
         #hypothesisGenerationTime = samplingTime
-        # print('sampling time:', samplingTime)
-        #print('Hypothesis generation time:', hypothesisGenerationTime)
+        # #print('sampling time:', samplingTime)
+        ##print('Hypothesis generation time:', hypothesisGenerationTime)
     return hypothesis,hypothesisGenerationTime,samplingTime
 
 
 
 def test(conn, nbAdomVals, prefs, ratioViolations, proba, error, percentOfLattice, groupbyAtt, sel, measBase, meas, function,table,
          sampleSize,comparison,generateIndex,allComparison,ratioOfQuerySample,mvnames,aggQueries,currentSample,cumulate):
-    #print("Sample size: ",sampleSize)
+    ##print("Sample size: ",sampleSize)
 
     hypothesis,hypothesisGenerationTime,samplingTime=hypothesisGeneration(conn, prefs, sel, measBase, meas, table, sampleSize, allComparison)
-    #print("Hypothesis predicted: ", hypothesis)
+    ##print("Hypothesis predicted: ", hypothesis)
 
     # only ok if hypothesis is a<B or a>b
     if len(hypothesis) <2 or hypothesis[0][1]==hypothesis[1][1]:
-        return 99,99,99,99 #ugly
+        return 99,99,99,99,currentSample #ugly
     else:
-        print("Hypothesis predicted: ", hypothesis)
+        #print("Hypothesis predicted: ", hypothesis)
 
         limitedHyp = []
         valsToSelect = []
@@ -353,15 +354,15 @@ def test(conn, nbAdomVals, prefs, ratioViolations, proba, error, percentOfLattic
         sizeofquerysample = int(ratioOfQuerySample * len(aggQueries))
         if sizeofquerysample==0:
             sizeofquerysample=1
-        #print("ratio: ",ratioOfQuerySample)
-        #print("len agg: ",len(aggQueries))
-        #print('Size of query sample:', sizeofquerysample)
+        ##print("ratio: ",ratioOfQuerySample)
+        ##print("len agg: ",len(aggQueries))
+        ##print('Size of query sample:', sizeofquerysample)
 
 
         pwrset=aggQueries
-        #print("pwrset:",pwrset)
+        ##print("pwrset:",pwrset)
 
-        #print("Sampling aggregate queries")
+        ##print("Sampling aggregate queries")
         if cumulate==False:
             ranks, queryCountviolations, queryCountCuboid, cuboid, newpset = bounders.getSample(pwrset, sel, measBase, function,
                                                                                  table, tuple(valsToSelect), limitedHyp,
@@ -381,14 +382,14 @@ def test(conn, nbAdomVals, prefs, ratioViolations, proba, error, percentOfLattic
                 currentSample["cuboid"]=cuboid
                 currentSample["pset"]=newpset
             else:
-                ranksTemp, queryCountviolationsTemp, queryCountCuboidTemp, cuboidTemp, newpset  = bounders.getMoreRandamQueries(sizeofquerysample,currentSample,
+                ranksTemp, queryCountviolationsTemp, queryCountCuboidTemp, cuboidTemp, newpset  = bounders.getMoreRandomQueries(sizeofquerysample,currentSample,
                                                                                                                                 sel, measBase, function,
                                                                                            table, tuple(valsToSelect),
                                                                                            limitedHyp,
                                                                                            mvnames, False, False)
-                #print(ranksTemp)
+                ##print(ranksTemp)
                 currentSample["ranks"].extend(ranksTemp)
-                #print(currentSample["ranks"])
+                ##print(currentSample["ranks"])
                 currentSample["queryCountviolations"].extend(queryCountviolationsTemp)
                 currentSample["queryCountCuboid"].extend(queryCountCuboidTemp)
                 currentSample["cuboid"].extend(cuboidTemp)
@@ -399,7 +400,7 @@ def test(conn, nbAdomVals, prefs, ratioViolations, proba, error, percentOfLattic
                 cuboid= currentSample["cuboid"]
 
 
-        print("Validating: computing violations")
+        #print("Validating: computing violations")
 
         tabRandomVar = []
         nbViewOK = 0
@@ -410,17 +411,12 @@ def test(conn, nbAdomVals, prefs, ratioViolations, proba, error, percentOfLattic
         totalQueryTime=0
 
         for i in range(len(ranks)):
-            #print(len(ranks))
-            #print(i,ranks[i])
+
             v,ratio,qtime=countViolations(conn,ranks[i],hypothesis)
             totalQueryTime=totalQueryTime+qtime
-            #v = dbStuff.execute_query(conn, queryCountviolations[i])[0][0]
             c = dbStuff.execute_query(conn, queryCountCuboid[i])[0][0]
-            # print(v)
-            #print(c)
+
             if c!=0:
-                #OLD print(v/c, " violation rate in cuboid ", cuboid[i], " of size: ", c, ". Number of violations: ", v)
-                #print(ratio, " violation rate in cuboid ", cuboid[i], " of size: ", c, ". Number of violations: ", v)
 
                 if ratio < ratioViolations:
                     tabRandomVar.append(1)
@@ -428,43 +424,42 @@ def test(conn, nbAdomVals, prefs, ratioViolations, proba, error, percentOfLattic
                 else:
                     tabRandomVar.append(0)
             else:
-                #print("inconclusive, not enough tuples in cuboid for select values")
                 sizeofsample = sizeofsample - 1
                 nbInconclusive=nbInconclusive+1
 
 
         end_time = time.time()
         validationTime = end_time - start_time
-        print('Validation time:', validationTime)
+        #print('Validation time:', validationTime)
 
-        print('Number of inconclusive: ',nbInconclusive, ' ratio: ',nbInconclusive/len(queryCountviolations))
+        #print('Number of inconclusive: ',nbInconclusive, ' ratio: ',nbInconclusive/len(queryCountviolations))
 
         variance = np.var(tabRandomVar)
-        # print('variance: ', variance)
+        # #print('variance: ', variance)
         # check if sizeofsample=0!
         if sizeofsample==0:
             prediction = 0
-            print("WARNING: Nothing conclusive")
+            #print("WARNING: Nothing conclusive")
             bennetError=0
         else:
             prediction = nbViewOK / sizeofsample
 
             predictionNbOk = prediction * len(pwrset)
-            print('Number of views ok: ', nbViewOK, 'out of ', sizeofsample, 'views, i.e., rate of:', nbViewOK / sizeofsample)
-            print('Prediction is:', predictionNbOk)
+            #print('Number of views ok: ', nbViewOK, 'out of ', sizeofsample, 'views, i.e., rate of:', nbViewOK / sizeofsample)
+            #print('Prediction is:', predictionNbOk)
 
             #nbErrors = 2
-            #print('probability of making ', nbErrors, ' errors: ', bernstein.bernsteinBound(variance, nbErrors))
-            #print('the error (according to Bernstein) for sum and confidence interval of size', proba, ' is: ',
+            ##print('probability of making ', nbErrors, ' errors: ', bernstein.bernsteinBound(variance, nbErrors))
+            ##print('the error (according to Bernstein) for sum and confidence interval of size', proba, ' is: ',
             #      bernstein.bersteinError(proba, variance))
             bennetError=bounders.bennetErrorOnAvg(proba, variance, sizeofsample)
-            print('The error (according to Bennet) for confidence interval of size', proba, ' is: ',
-                  bounders.bennetErrorOnAvg(proba, variance, sizeofsample))
+            #print('The error (according to Bennet) for confidence interval of size', proba, ' is: ', bounders.bennetErrorOnAvg(proba, variance, sizeofsample))
+
 
 
         if comparison==True:
             # comparison with ground truth
-            print('*** comparison to ground truth ***')
+            #print('*** comparison to ground truth ***')
 
             #dbStuff.dropAllMVs(conn)
             #nbMVs = dbStuff.createMV(conn, groupbyAtt, sel, measBase, function, table, 1,generateIndex)
@@ -476,74 +471,63 @@ def test(conn, nbAdomVals, prefs, ratioViolations, proba, error, percentOfLattic
                                                                                           table, tuple(valsToSelect),
                                                                                           limitedHyp, mvnames)
 
+
             nbInconclusive=0
             tabRandomVar = []
             nbViewOK = 0
             for i in range(len(queryCountviolations)):
-                #print('gt violations:',queryCountviolations[i])
-                #print('gt count:',queryCountCuboid[i])
+                ##print('gt violations:',queryCountviolations[i])
+                ##print('gt count:',queryCountCuboid[i])
                 #v = dbStuff.execute_query(conn, queryCountviolations[i])[0][0]
                 v,ratio,qtime = countViolations(conn, ranks[i], hypothesis)
                 c = dbStuff.execute_query(conn, queryCountCuboid[i])[0][0]
-                # print(v)
-                # print(c)
+                # #print(v)
+                # #print(c)
                 if c != 0:
-                    #OLD print(v / c, " violation rate in cuboid ", cuboid[i], " of size: ", c, ". Number of violations: ", v)
+                    #OLD #print(v / c, " violation rate in cuboid ", cuboid[i], " of size: ", c, ". Number of violations: ", v)
 
-                    #print(ratio, " violation rate in cuboid ", cuboid[i], " of size: ", c, ". Number of violations: ", v)
+                    ##print(ratio, " violation rate in cuboid ", cuboid[i], " of size: ", c, ". Number of violations: ", v)
                     if ratio < ratioViolations:
                         tabRandomVar.append(1)
                         nbViewOK = nbViewOK + 1
                     else:
                         tabRandomVar.append(0)
                 else:
-                    #print("inconclusive, not enough tuples in cuboid for select values")
+                    ##print("inconclusive, not enough tuples in cuboid for select values")
                     nbMVs=nbMVs-1
                     nbInconclusive=nbInconclusive+1
 
-            variance = np.var(tabRandomVar)
-            # print('variance: ', variance)
+            #variance = np.var(tabRandomVar)
+            # #print('variance: ', variance)
 
-            print('number of inconclusive: ', nbInconclusive, ' ratio: ', nbInconclusive / len(queryCountviolations))
+            #print('number of inconclusive: ', nbInconclusive, ' ratio: ', nbInconclusive / len(queryCountviolations))
 
-            print('nb of views ok: ', nbViewOK, 'out of ', nbMVs, 'views, i.e., rate of:', nbViewOK / nbMVs)
+            #print('nb of views ok: ', nbViewOK, 'out of ', nbMVs, 'views, i.e., rate of:', nbViewOK / nbMVs)
             gtratio= nbViewOK / nbMVs
 
             realError=abs(prediction - (nbViewOK / nbMVs))
-            print('Error is: ', abs(prediction - (nbViewOK / nbMVs)))
+            #print('Error is: ', abs(prediction - (nbViewOK / nbMVs)))
 
 
-            return prediction,bennetError,realError,gtratio
+            return prediction,bennetError,realError,gtratio,currentSample
         else:
             #return totalQueryTime, samplingTime, hypothesisGenerationTime, validationTime
 
             #if no comparison only outputs bennet error and prediction
-            return prediction, bennetError, bennetError, prediction
+            return prediction, bennetError, bennetError, prediction, currentSample
 
 
 
 
-def groundTruthForQueriesOverMVs(pred=-1,error=1):
+def groundTruthForQueriesOverMVs(pairs,groupbyAtt,pred=-1,error=1):
     dict = {}
     #ratioOfQuerySample=1
     #initsampleSize=1
     currentSample={}
     #sampleSize = initsampleSize * sizeOfR
     for p in pairs:
-        """
-        meanError, meanPred, meanBennet = tests.testAccuracyQuerySampleSizeDOLAP(tabTest, mvnames, aggQueries, nbruns,
-                                                                                 conn,
-                                                                                 nbAdomVals, p, ratioViolations, proba,
-                                                                                 error, percentOfLattice,
-                                                                                 groupbyAtt, sel,
-                                                                                 measBase, meas, function, table,
-                                                                                 comparison, generateIndex,
-                                                                                 allComparisons, 1,
-                                                                                 sizeOfR, ratioCuboidOK,
-                                                                                 1, cumulate=True)
-        """
 
-        predT, bennetError, minErrorT, gtratio = test(conn, nbAdomVals, p,
+        predT, bennetError, minErrorT, gtratio,currentSample = test(conn, nbAdomVals, p,
                                                            ratioViolations, proba, error,
                                                            percentOfLattice, groupbyAtt,
                                                            sel, measBase, meas, function, table,
@@ -551,11 +535,10 @@ def groundTruthForQueriesOverMVs(pred=-1,error=1):
                                                            generateIndex, allComparisons,
                                                            1, mvnames,
                                                            aggQueries, currentSample,
-                                                           cumulate=True)
-
+                                                           cumulate=False)
 
         if minErrorT != 99:
-            #print(meanError)
+            ##print(meanError)
             #e = 0
             #minErrorT = meanError
             #predT = meanPred
@@ -564,12 +547,12 @@ def groundTruthForQueriesOverMVs(pred=-1,error=1):
             #if predT >=pred and minErrorT < error:
                 dict[p] = [minErrorT, predT]
 
-    #dict = utilities.sort_dict_by_second_entry_desc(dict)
+    dict = utilities.sort_dict_by_second_entry_desc(dict)
     return dict
 
 
 # returns the pairs found on all the lattice
-def groundTruthAllLatice(pred=-1,error=1):
+def groundTruthAllLatice(pairs,groupbyAtt,pred=-1,error=1):
     dict = {}
     #ratioOfQuerySample=1
     #initsampleSize=1
@@ -582,7 +565,7 @@ def groundTruthAllLatice(pred=-1,error=1):
 
     for p in pairs:
 
-        predT, bennetError, minErrorT, gtratio = test(conn, nbAdomVals, p,
+        predT, bennetError, minErrorT, gtratio,currentSample = test(conn, nbAdomVals, p,
                                                         ratioViolations, proba, error,
                                                         1, groupbyAtt,
                                                         sel, measBase, meas, function, table,
@@ -590,11 +573,11 @@ def groundTruthAllLatice(pred=-1,error=1):
                                                         generateIndex, allComparisons,
                                                         1, mvnames,
                                                         aggQueries, currentSample,
-                                                        cumulate=True)
+                                                        cumulate=False)
 
 
         if minErrorT != 99:
-            #print(meanError)
+            ##print(meanError)
             #e = 0
             #minErrorT = meanError
             #predT = meanPred
@@ -603,7 +586,8 @@ def groundTruthAllLatice(pred=-1,error=1):
                 dict[p] = [minErrorT, predT]
 
 
-    #dict = utilities.sort_dict_by_second_entry_desc(dict)
+    dict = utilities.sort_dict_by_second_entry_desc(dict)
+    dbStuff.dropAllMVs(conn)
     return dict
 
 
@@ -621,13 +605,79 @@ def plotRuns(dictRuns, tabTest, nbruns, x_label='Size of query sample', y_label=
                 tabtemp = []
                 for r in range(nbruns):
                     tabtemp.append(x[r][y])
-                # print(tabtemp)
+                # #print(tabtemp)
                 tabmean.append(statistics.mean(tabtemp))
                 tabstdev.append(statistics.stdev(tabtemp))
-            # print(tabmean)
+            # #print(tabmean)
             dataRuns.append({'x': tabTest, 'y': tabmean, 'yerr': tabstdev, 'label': t})
     plotStuff.plot_curves_with_error_bars(dataRuns, x_label, y_label,
                                           title)
+
+
+
+def comparisonToGT(groupbyAtt,allLattice):
+    sel = groupbyAtt[0]
+
+    groupbyAtt = groupbyAtt[1:]
+
+    nbpairs = 90
+
+    pairs = dbStuff.generateAllPairs(conn, sel, table, nbpairs)
+
+
+    #tabTest = (0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1)
+    tabTest = (0.6, 1)
+
+    if allLattice:
+        dictGT = groundTruthAllLatice(pairs,groupbyAtt)
+        mvnames, aggQueries = materializeViews(conn, groupbyAtt, sel, measBase, function, table, percentOfLattice,
+                                           generateIndex)
+    else:
+        mvnames, aggQueries = materializeViews(conn, groupbyAtt, sel, measBase, function, table, percentOfLattice,
+                                               generateIndex)
+        dictGT = groundTruthForQueriesOverMVs(pairs,groupbyAtt, -1,1)
+
+
+    column_names = ['Runs', 'Initial Sample', 'Query Sample', 'Pair', 'Error', 'F1', 'Recall', 'Precision', 'Recall@10']
+
+    # Create an empty DataFrame with the specified columns
+    df = pd.DataFrame(columns=column_names)
+
+    for nr in tqdm(range(nbruns)):
+
+        for initsampleSize in tabTest:
+            #print("INIT SAMPLE SIZE: ", initsampleSize)
+
+            sampleSize = initsampleSize * sizeOfR
+
+            for p in pairs:
+
+                dict={}
+                currentSample = {}
+
+                for ratioOfQuerySample in tabTest:
+
+                    predT, bennetError, minErrorT, gtratio, currentSample = test(conn, nbAdomVals, p,
+                                                                                 ratioViolations, proba, error,
+                                                                                 percentOfLattice, groupbyAtt,
+                                                                                 sel, measBase, meas, function, table,
+                                                                                 sampleSize, comparison,
+                                                                                 generateIndex, allComparisons,
+                                                                                 ratioOfQuerySample, mvnames,
+                                                                                 aggQueries, currentSample,
+                                                                                 cumulate=True)
+                    if minErrorT != 99:
+                            dict[p] = [minErrorT, predT]
+
+                dict = utilities.sort_dict_by_second_entry_desc(dict)
+
+                p, r, f = utilities.f_measure_first_k_keys(dict, dictGT, 0)
+
+                p10, r10, f10 = utilities.f_measure_first_k_keys(dict, dictGT, 30)
+
+                df.loc[len(df)] = [nr, initsampleSize, ratioOfQuerySample, p, minErrorT, f, r, p, r10]
+
+    df.to_csv(fileResults)
 
 
 #
@@ -636,6 +686,10 @@ def plotRuns(dictRuns, tabTest, nbruns, x_label='Size of query sample', y_label=
 if __name__ == "__main__":
 
     config = configparser.ConfigParser()
+
+    current_time=time.localtime()
+    formatted_time = time.strftime("%d-%m-%y:%H:%M:%S", current_time)
+    fileResults='results/res_'+formatted_time+'.csv'
 
     # The DB we want
     config.read('configs/flightsDolap.ini')
@@ -664,7 +718,7 @@ if __name__ == "__main__":
     measBase = config["Common"]['measBase']
     function = config["Common"]['function']
     prefs = json.loads(config.get("Common", "preferred"))
-    #print(tuple(prefs))
+    ##print(tuple(prefs))
     if len(prefs) == 0:
         prefs = None
 
@@ -702,7 +756,7 @@ if __name__ == "__main__":
     #generateIndex = False
 
     # do we compare to ground truth? Otherwise, efficiency is tested
-    comparison = True
+    comparison = False
 
     # do we generate all comparisons?
     allComparisons = True
@@ -711,7 +765,7 @@ if __name__ == "__main__":
     ratioOfQuerySample = 0.4
 
     # number of runs
-    nbruns=5
+    nbruns=2
 
     ###
     ### END OF PARAMETERS
@@ -723,7 +777,7 @@ if __name__ == "__main__":
 
     # get size of fact table
     sizeOfR=dbStuff.getSizeOf(conn,table)
-    #print(sizeOfR)
+    ##print(sizeOfR)
 
     # to always have the same order in group bys, with sel attribute last
     groupbyAtt.sort()
@@ -733,14 +787,12 @@ if __name__ == "__main__":
 
 
     if comparison == True:
-
-        # todo for on measures
-        # todo for testedAtt in groupbyAtt:
+        #comparisonToGT(groupbyAtt, True)
 
 
         sel = groupbyAtt[0]
         groupbyAtt = groupbyAtt[1:]
-        # print(groupbyAtt)
+        # #print(groupbyAtt)
 
         # comparison = false if we don't want empirical error
         # comparison = True if we want both empirical and Bennet error
@@ -761,22 +813,34 @@ if __name__ == "__main__":
         tabTest = (0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1)
         #tabTest = (0.6, 1)
 
-        mvnames, aggQueries = materializeViews(conn, groupbyAtt, sel, measBase, function, table, percentOfLattice,generateIndex)
+
 
         # do we want GT for error/pred on queries over MVs or all lattice?
-        #dictGT = groundTruthForQueriesOverMVs( -1,1)
+
         dictGT = groundTruthAllLatice()
 
+        mvnames, aggQueries = materializeViews(conn, groupbyAtt, sel, measBase, function, table, percentOfLattice,
+                                               generateIndex)
+
+        #dictGT = groundTruthForQueriesOverMVs( -1,1)
 
         dictRuns={}
         dictRunsErr={}
 
-        for nr in range(nbruns):
+        column_names = ['Runs', 'Initial Sample', 'Query Sample', 'Pair','Error','F1', 'Recall', 'Precision', 'Recall@10']
+
+        # Create an empty DataFrame with the specified columns
+        df = pd.DataFrame(columns=column_names)
+
+        for nr in tqdm(range(nbruns)):
+            ##print("RUN: ",nr)
 
             data = []
             dataErrorsAllPairs=[]
+
             for initsampleSize in tabTest:
-            #for percentOfLattice in tabTest:
+
+                #for percentOfLattice in tabTest:
                 # comment if not percent of lattice tested
                 #mvnames, aggQueries = materializeViews(conn, groupbyAtt, sel, measBase, function, table,percentOfLattice, generateIndex)
 
@@ -785,9 +849,10 @@ if __name__ == "__main__":
                 dataStdevError=[]
 
                 sampleSize = initsampleSize * sizeOfR
-                currentSample = {}
+                #currentSample = {}
 
                 for ratioOfQuerySample in tabTest:
+                    print("INIT SAMPLE : ", initsampleSize," QUERY SAMPLE : ", ratioOfQuerySample)
                     dict = {}
                     # data = []
                     #timings = []
@@ -796,9 +861,9 @@ if __name__ == "__main__":
 
                     for p in pairs:
 
-                        #currentSample = {}
+                        currentSample = {}
 
-                        predT, bennetError, minErrorT, gtratio = test(conn, nbAdomVals, p,
+                        predT, bennetError, minErrorT, gtratio,currentSample = test(conn, nbAdomVals, p,
                                                                                  ratioViolations, proba, error,
                                                                                  percentOfLattice, groupbyAtt,
                                                                                  sel, measBase, meas, function, table,
@@ -809,27 +874,22 @@ if __name__ == "__main__":
                                                                                  cumulate=True)
 
 
-                        #print("output of Test: ", p, meanError, meanPred, meanBennet)
+                        ##print("output of Test: ", p, meanError, meanPred, meanBennet)
 
                         if minErrorT != 99:
                             tabError.append(minErrorT)
-                            # limit to pred or error or no limit
-                            # if predT>=pred:
-                            # if minErrorT < minError:
-                            if True:
-                                # minError = minErrorT
-                                # pred = predT
-                                dict[p] = [minErrorT, predT]
+
+                            dict[p] = [minErrorT, predT]
 
 
-
-                    #dict = utilities.sort_dict_by_second_entry_desc(dict)
-                    #print("Best: ", dict)
-                    #print("Number of pairs with error < 0.1 (size of dict):", len(dict))
+                    dict = utilities.sort_dict_by_second_entry_desc(dict)
 
                     #scoreComp = utilities.jaccard_score_first_k_keys(dict, dictGT, 0)
-                    p, r, f = utilities.f_measure_first_k_keys(dict, dictGT, 0)
-                    scoreComp = f
+                    precision, recall, f1 = utilities.f_measure_first_k_keys(dict, dictGT, 0)
+                    scoreComp = f1
+
+                    p10, r10, f10 = utilities.f_measure_first_k_keys(dict, dictGT, 10)
+                    scoreComp = r10
 
                     # if we want the number of pairs
                     # dataPairs.append(len(dict))
@@ -841,6 +901,11 @@ if __name__ == "__main__":
                     stdevError=statistics.stdev(tabError)
                     dataError.append(avgError)
                     dataStdevError.append((stdevError))
+
+                    #['Runs', 'Initial Sample', 'Query Sample', 'Pair','Error','F1', 'Recall', 'Precision', 'Recall@10']
+                    df.loc[len(df)]=[nr,initsampleSize,ratioOfQuerySample,p,minErrorT,f1,recall,precision,r10]
+
+
 
                 # plots number of pairs with error<0.1 by size of query sample
                 stdevPairs = [0] * len(tabTest)
@@ -857,15 +922,13 @@ if __name__ == "__main__":
                     dictRunsErr[initsampleSize] = [dataError]
 
 
-            #plotStuff.plot_curves_with_error_bars(data, x_label='Size of query sample', y_label='F-measure',
-            #                                      title='F-measure by sample size')
-            #plotStuff.plot_curves_with_error_bars(dataErrorsAllPairs, x_label='Size of query sample', y_label='Error',
-            #                                      title='Error by sample size')
-        #print(dictRuns)
-        plotRuns(dictRuns, tabTest, nbruns, x_label='Size of query sample', y_label='F-measure',
-                                          title='F-measure by sample size')
+        plotRuns(dictRuns, tabTest, nbruns, x_label='Size of query sample', y_label='Recall@10',
+                 title='Recall@10 by sample size')
         plotRuns(dictRunsErr, tabTest, nbruns, x_label='Size of query sample', y_label='Error',
                  title='Error by sample size')
+
+        df.to_csv(fileResults)
+
 
     else:
 
@@ -912,7 +975,7 @@ if __name__ == "__main__":
 
                 sampleSize = initsampleSize * sizeOfR
 
-                prediction, bennetError, realError, gtratio = test(conn, nbAdomVals, p,
+                prediction, bennetError, realError, gtratio,currentSample = test(conn, nbAdomVals, p,
                                                                    ratioViolations, proba, error,
                                                                    percentOfLattice, groupbyAtt,
                                                                    sel, measBase, meas, function, table,
@@ -920,16 +983,16 @@ if __name__ == "__main__":
                                                                    generateIndex, allComparisons,
                                                                    ratioOfQuerySample, mvnames,
                                                                    aggQueries, currentSample,
-                                                                   cumulate=True)
+                                                                   cumulate=False)
 
                 end_time = time.time()
                 timings.append(end_time - start_time)
 
             # TIMINGS
             timings = utilities.accumulate_numbers(timings)
-            # print(timings)
+            # #print(timings)
             stdevTiming = [0] * nbpairs
-            print()
+            #print()
             data.append(
                 {'x': paramTested, 'y': timings, 'yerr': stdevTiming, 'label': generateIndex}
             )

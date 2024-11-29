@@ -159,7 +159,7 @@ def getSample(pwrset, sel, meas, function, table, valsToSelect, hypo, mvnames, w
         tabCuboid.append(strgb)
     return tabRanks,tabQuery,tabCount,tabCuboid,pset
 
-def getMoreRandamQueries(sizeofquerysample,currentSample, sel, meas, function,table,valsToSelect,hypo,mvnames, withReplacement=False, withBias=False):
+def getMoreRandomQueries(sizeofquerysample,currentSample, sel, meas, function,table,valsToSelect,hypo,mvnames, withReplacement=False, withBias=False):
     currentsize=len(currentSample["ranks"])
     #print("sizeofquerysample - currentsize:",sizeofquerysample - currentsize)
 
