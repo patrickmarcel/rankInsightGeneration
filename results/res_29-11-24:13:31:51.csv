@@ -1,4 +1,4 @@
-,Runs,Initial Sample,Query Sample,Pair,Error on materialized,Error on lattice,Prediction
+Runs,Initial Sample,Query Sample,Pair,Error on materialized,Error on lattice,Prediction
 0,0,0.1,0.1,"('VX', 'UA')",0.125,0.2222222222222222,0.0
 1,0,0.1,0.1,"('VX', 'NK')",0.4,0.4,0.0
 2,0,0.1,0.1,"('AA', 'AS')",0.125,0.2222222222222222,0.0
