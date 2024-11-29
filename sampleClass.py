@@ -3,7 +3,7 @@ import json
 import random
 import time
 import pandas as pd
-from tqdm import tqdm
+from tqdm import tqdm, trange
 import utilities
 
 from dolap import hypothesisGeneration,countViolations,groundTruthAllLatice,groundTruthForQueriesOverMVs
@@ -234,15 +234,18 @@ if __name__ == "__main__":
 
     #initsampleRatio=0.4
     ratioViolations=0.4
-    nbruns=1
+    nbruns=5
+
+    k = 10
 
     dictGTLattice = s1.getGTallLattice(pairs, sizeOfR,ratioViolations)
     dictGTMC = s1.getGTQueriesOverMC(pairs, sizeOfR,ratioViolations)
 
-    #tabTest = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1]
-    tabTest=[0.1,0.6,1]
+    tabTest = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1]
+    #tabTest=[0.1,0.6,1]
 
     for nr in tqdm(range(nbruns)):
+    #for nr in trange(nbruns, desc='Runs'):
 
         for initsampleRatio in tabTest:
 
@@ -359,7 +362,7 @@ if __name__ == "__main__":
                     dict = utilities.sort_dict_by_second_entry_desc(dict)
                     precisionLattice, recallLattice, f1Lattice = utilities.f_measure_first_k_keys(dict, dictGTLattice, 0)
                     precisionQueries, recallQueries, f1Queries = utilities.f_measure_first_k_keys(dict, dictGTMC, 0)
-                    k=10
+
                     pkL, rkL, fkL = utilities.f_measure_first_k_keys(dict, dictGTLattice, k)
                     pkQ, rkQ, fkQ = utilities.f_measure_first_k_keys(dict, dictGTMC, k)
                     dfF1.loc[len(dfF1)] = [nr, initsampleRatio, inc, precisionLattice, recallLattice, f1Lattice, rkL, precisionQueries, recallQueries, f1Queries, rkQ, k]
