@@ -3,7 +3,7 @@ import json
 import random
 
 from dolap import hypothesisGeneration,countViolations
-from dbStuff import dropAllMVs,getAggQueriesOverMV,createMV,getMVnames,connect_to_db,generateAllPairs,execute_query
+from dbStuff import dropAllMVs,getAggQueriesOverMV,createMV,getMVnames,connect_to_db,generateAllPairs,execute_query,getSizeOf
 from bounders import generateAllqueriesOnMVs
 
 class Sample:
@@ -116,9 +116,9 @@ if __name__ == "__main__":
     s1=Sample(conn, groupbyAtt, sel, measBase, function, table)
     s1.generateRandomMC(0.4)
 
-    sampleSize=0.4
+    initsampleRatio=0.4
     ratioViolations=0.4
-
+    sizeOfR = getSizeOf(conn, table)
 
     for inc in [0.1,0.6,1]:
         s1.increaseSample(inc)
@@ -127,13 +127,20 @@ if __name__ == "__main__":
         for p in pairs:
 
             #generate candidate
-            hypothesis, hypothesisGenerationTime, samplingTime = hypothesisGeneration(conn, prefs, sel, measBase, meas,
+            sampleSize = initsampleRatio * sizeOfR
+            hypothesis, hypothesisGenerationTime, samplingTime = hypothesisGeneration(conn, p, sel, measBase, meas,
                                                                                       table, sampleSize, allComparison=True)
 
             # only ok if hypothesis is a<b or a>b
             if len(hypothesis) == 2 and hypothesis[0][1] != hypothesis[1][1]:
 
-                ranks, queryCountviolations, queryCountCuboid, cuboid, newpset=generateAllqueriesOnMVs()
+                valsToSelect = []
+                j = 0
+                for h in hypothesis:
+                        valsToSelect.append(h[0])
+                        j = j + 1
+
+                ranks, queryCountviolations, queryCountCuboid, cuboid=generateAllqueriesOnMVs(s1.getCurrentSample(), sel, measBase, function, table,tuple(valsToSelect), hypothesis, s1.getMC())
 
                 #compute violations over sample
 

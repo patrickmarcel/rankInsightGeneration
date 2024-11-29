@@ -322,6 +322,7 @@ def hypothesisGeneration(conn, prefs, sel, measBase, meas, table, sampleSize, al
         #hypothesisGenerationTime = samplingTime
         # #print('sampling time:', samplingTime)
         ##print('Hypothesis generation time:', hypothesisGenerationTime)
+    print(hypothesis)
     return hypothesis,hypothesisGenerationTime,samplingTime
 
 
