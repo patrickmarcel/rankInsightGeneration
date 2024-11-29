@@ -1,6 +1,8 @@
 import configparser
 import json
 import random
+import time
+import pandas as pd
 
 from dolap import hypothesisGeneration,countViolations
 from dbStuff import dropAllMVs,getAggQueriesOverMV,createMV,getMVnames,connect_to_db,generateAllPairs,execute_query,getSizeOf
@@ -75,11 +77,26 @@ class Sample:
     def getAggOverMC(self):
         return self.aggOverMC
 
+    def getAggOverAllLattice(self):
+        return self.aggOverMV
+
+    def getAllLattice(self):
+        return self.allMVs
+
     def clean(self):
         dropAllMVs(self.conn)
 
 
 if __name__ == "__main__":
+    # exporting results to csv
+    current_time = time.localtime()
+    formatted_time = time.strftime("%d-%m-%y:%H:%M:%S", current_time)
+    fileResults = 'results/res_' + formatted_time + '.csv'
+    column_names = ['Runs', 'Initial Sample', 'Query Sample', 'Pair', 'Error', 'Prediction']
+
+    # Create an empty DataFrame with the specified columns
+    df = pd.DataFrame(columns=column_names)
+
     config = configparser.ConfigParser()
 
     # The DB we want
@@ -119,6 +136,7 @@ if __name__ == "__main__":
     initsampleRatio=0.4
     ratioViolations=0.4
     sizeOfR = getSizeOf(conn, table)
+    run=1
 
     for inc in [0.1,0.6,1]:
         s1.increaseSample(inc)
@@ -131,6 +149,7 @@ if __name__ == "__main__":
             hypothesis, hypothesisGenerationTime, samplingTime = hypothesisGeneration(conn, p, sel, measBase, meas,
                                                                                       table, sampleSize, allComparison=True)
 
+            # todo when GT, do it for all pairs
             # only ok if hypothesis is a<b or a>b
             if len(hypothesis) == 2 and hypothesis[0][1] != hypothesis[1][1]:
 
@@ -167,6 +186,71 @@ if __name__ == "__main__":
                     prediction = nbViewOK / sizeofsample
 
                 # compute violations over ground truth
+                # first over all queries over MC
+                nbMVs = len(s1.getAggOverMC())
 
+                ranks, queryCountviolations, queryCountCuboid, cuboid = generateAllqueriesOnMVs(s1.getAggOverMC(), sel,
+                                                                                                         measBase,
+                                                                                                         function,
+                                                                                                         table, tuple(valsToSelect),
+                                                                                                         hypothesis,
+                                                                                                         s1.getMC())
+
+                nbInconclusive = 0
+                tabRandomVar = []
+                nbViewOK = 0
+                for i in range(len(queryCountviolations)):
+
+                    v, ratio, qtime = countViolations(conn, ranks[i], hypothesis)
+                    c = execute_query(conn, queryCountCuboid[i])[0][0]
+
+                    if c != 0:
+                        if ratio < ratioViolations:
+                            nbViewOK = nbViewOK + 1
+                        else:
+                            tabRandomVar.append(0)
+                    else:
+                        nbMVs = nbMVs - 1
+                        nbInconclusive = nbInconclusive + 1
+
+                gtratio = nbViewOK / nbMVs
+                realError = abs(prediction - (nbViewOK / nbMVs))
+
+                # then for all lattice
+                nbMVs = len(s1.getAggOverAllLattice())
+
+                ranks, queryCountviolations, queryCountCuboid, cuboid = generateAllqueriesOnMVs(s1.getAggOverAllLattice(), sel,
+                                                                                                measBase,
+                                                                                                function,
+                                                                                                table,
+                                                                                                tuple(valsToSelect),
+                                                                                                hypothesis,
+                                                                                                s1.getAllLattice())
+
+                nbInconclusive = 0
+                tabRandomVar = []
+                nbViewOK = 0
+                for i in range(len(queryCountviolations)):
+
+                    v, ratio, qtime = countViolations(conn, ranks[i], hypothesis)
+                    c = execute_query(conn, queryCountCuboid[i])[0][0]
+
+                    if c != 0:
+                        if ratio < ratioViolations:
+                            nbViewOK = nbViewOK + 1
+                        else:
+                            tabRandomVar.append(0)
+                    else:
+                        nbMVs = nbMVs - 1
+                        nbInconclusive = nbInconclusive + 1
+
+                gtratio = nbViewOK / nbMVs
+                realError = abs(prediction - (nbViewOK / nbMVs))
+
+
+                df.loc[len(df)] = [run,initsampleRatio, inc, p, realError, prediction]
+
+    df.to_csv(fileResults)
+    s1.clean()
 
 
