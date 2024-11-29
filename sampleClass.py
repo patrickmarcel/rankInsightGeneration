@@ -137,14 +137,17 @@ if __name__ == "__main__":
     #initsampleRatio=0.4
     ratioViolations=0.4
     sizeOfR = getSizeOf(conn, table)
-    nbruns=5
+    nbruns=1
 
-    tabTest = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1]
-    #tabTest=[0.1, 0.6, 1]
+    #tabTest = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1]
+    tabTest=[0.1,0.6,1]
 
     for nr in tqdm(range(nbruns)):
 
         for initsampleRatio in tabTest:
+
+            s1 = Sample(conn, groupbyAtt, sel, measBase, function, table)
+            s1.generateRandomMC(0.4)
 
             for inc in tabTest:
                 s1.increaseSample(inc)
@@ -170,9 +173,7 @@ if __name__ == "__main__":
                         ranks, queryCountviolations, queryCountCuboid, cuboid=generateAllqueriesOnMVs(s1.getCurrentSample(), sel, measBase, function, table,tuple(valsToSelect), hypothesis, s1.getMC())
 
                         #compute violations over sample
-
                         nbViewOK = 0
-
                         nbInconclusive = 0
                         sizeofsample = len(s1.getCurrentSample())
 
@@ -193,6 +194,7 @@ if __name__ == "__main__":
                         else:
                             prediction = nbViewOK / sizeofsample
 
+
                         # compute violations over ground truth
                         # first over all queries over MC
                         nbMVs = len(s1.getAggOverMC())
@@ -205,7 +207,6 @@ if __name__ == "__main__":
                                                                                                                  s1.getMC())
 
                         nbInconclusive = 0
-                        tabRandomVar = []
                         nbViewOK = 0
                         for i in range(len(queryCountviolations)):
 
@@ -215,14 +216,13 @@ if __name__ == "__main__":
                             if c != 0:
                                 if ratio < ratioViolations:
                                     nbViewOK = nbViewOK + 1
-                                else:
-                                    tabRandomVar.append(0)
                             else:
                                 nbMVs = nbMVs - 1
                                 nbInconclusive = nbInconclusive + 1
 
                         gtratio = nbViewOK / nbMVs
                         errorOnMC = abs(prediction - (nbViewOK / nbMVs))
+
 
                         # then for all lattice
                         nbMVs = len(s1.getAggOverAllLattice())
@@ -236,7 +236,6 @@ if __name__ == "__main__":
                                                                                                         s1.getAllLattice())
 
                         nbInconclusive = 0
-                        tabRandomVar = []
                         nbViewOK = 0
                         for i in range(len(queryCountviolations)):
 
@@ -246,8 +245,6 @@ if __name__ == "__main__":
                             if c != 0:
                                 if ratio < ratioViolations:
                                     nbViewOK = nbViewOK + 1
-                                else:
-                                    tabRandomVar.append(0)
                             else:
                                 nbMVs = nbMVs - 1
                                 nbInconclusive = nbInconclusive + 1
