@@ -119,6 +119,7 @@ if __name__ == "__main__":
     sampleSize=0.4
     ratioViolations=0.4
 
+
     for inc in [0.1,0.6,1]:
         s1.increaseSample(inc)
         #print(s1.getCurrentSample())
