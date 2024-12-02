@@ -1,4 +1,4 @@
-Runs,Initial Sample,Query Sample,Pair,Error,Prediction
+,Runs,Initial Sample,Query Sample,Pair,Error,Prediction
 0,1,0.4,0.1,"('VX', 'NK')",0.4,0.0
 1,1,0.4,0.1,"('AA', 'UA')",0.6363636363636364,0.0
 2,1,0.4,0.1,"('AA', 'NK')",0.8,0.0
