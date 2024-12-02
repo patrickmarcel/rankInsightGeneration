@@ -3,20 +3,25 @@ import json
 import random
 import time
 import pandas as pd
-from tqdm import tqdm
+from tqdm import tqdm, trange
+import utilities
 
-from dolap import hypothesisGeneration,countViolations
+from dolap import hypothesisGeneration,countViolations,groundTruthAllLatice,groundTruthForQueriesOverMVs
 from dbStuff import dropAllMVs,getAggQueriesOverMV,createMV,getMVnames,connect_to_db,generateAllPairs,execute_query,getSizeOf
 from bounders import generateAllqueriesOnMVs
 
 class Sample:
 
-    def __init__(self, conn,attInGB, selAtt, meas, function, table, generateIndex=False):
+    def __init__(self, conn,attInGB, selAtt, meas, measBase, function, table, generateIndex=False):
         # create all MVs and aggregates for ground truth
         self.conn=conn
         self.sel=selAtt
+        self.meas=meas
+        self.measBase=measBase
+        self.function=function
+        self.table=table
         dropAllMVs(conn)
-        createMV(conn, attInGB, selAtt, meas, function, table, 1, generateIndex)
+        createMV(conn, attInGB, selAtt, measBase, function, table, 1, generateIndex)
         self.allMVs=getMVnames(conn)
         self.aggOverMV = getAggQueriesOverMV(self.allMVs,sel)
         # currentSample is the set of cuboid names in the sample
@@ -87,16 +92,106 @@ class Sample:
     def clean(self):
         dropAllMVs(self.conn)
 
+    def getGTallLattice(self, pairs,sizeOfR,ratioViolations):
+        dictGT={}
+        for p in pairs:
+            sampleSize = sizeOfR
+            hypothesis, hypothesisGenerationTime, samplingTime = hypothesisGeneration(self.conn, p, self.sel, self.measBase, self.meas,
+                                                                                      self.table, sampleSize,
+                                                                                      allComparison=True)
+            valsToSelect = []
+            for h in hypothesis:
+                valsToSelect.append(h[0])
+            nbMVs = len(self.getAggOverAllLattice())
+
+            ranks, queryCountviolations, queryCountCuboid, cuboid = generateAllqueriesOnMVs(self.getAggOverAllLattice(),
+                                                                                            self.sel,
+                                                                                            self.measBase,
+                                                                                            self.function,
+                                                                                            self.table,
+                                                                                            tuple(valsToSelect),
+                                                                                            hypothesis,
+                                                                                            self.getAllLattice())
+
+            nbInconclusive = 0
+            nbViewOK = 0
+            for i in range(len(queryCountviolations)):
+
+                v, ratio, qtime = countViolations(conn, ranks[i], hypothesis)
+                c = execute_query(conn, queryCountCuboid[i])[0][0]
+
+                if c != 0:
+                    if ratio < ratioViolations:
+                        nbViewOK = nbViewOK + 1
+                else:
+                    nbMVs = nbMVs - 1
+                    nbInconclusive = nbInconclusive + 1
+
+            realRatio = nbViewOK / nbMVs
+
+            dictGT[p] = [False, realRatio]
+
+        dictGT = utilities.sort_dict_by_second_entry_desc(dictGT)
+
+        return dictGT
+
+    def getGTQueriesOverMC(self, pairs,sizeOfR,ratioViolations):
+        dictGT={}
+        for p in pairs:
+            sampleSize = sizeOfR
+            hypothesis, hypothesisGenerationTime, samplingTime = hypothesisGeneration(self.conn, p, self.sel, self.measBase, self.meas,
+                                                                                      self.table, sampleSize,
+                                                                                      allComparison=True)
+            valsToSelect = []
+            for h in hypothesis:
+                valsToSelect.append(h[0])
+            nbMVs = len(self.getAggOverMC())
+
+            ranks, queryCountviolations, queryCountCuboid, cuboid = generateAllqueriesOnMVs(self.getAggOverMC(),
+                                                                                            self.sel,
+                                                                                            self.measBase,
+                                                                                            self.function,
+                                                                                            self.table,
+                                                                                            tuple(valsToSelect),
+                                                                                            hypothesis,
+                                                                                            self.getMC())
+
+            nbInconclusive = 0
+            nbViewOK = 0
+            for i in range(len(queryCountviolations)):
+
+                v, ratio, qtime = countViolations(conn, ranks[i], hypothesis)
+                c = execute_query(conn, queryCountCuboid[i])[0][0]
+
+                if c != 0:
+                    if ratio < ratioViolations:
+                        nbViewOK = nbViewOK + 1
+                else:
+                    nbMVs = nbMVs - 1
+                    nbInconclusive = nbInconclusive + 1
+
+            realRatio = nbViewOK / nbMVs
+
+            dictGT[p] = [False, realRatio]
+
+        dictGT = utilities.sort_dict_by_second_entry_desc(dictGT)
+
+        return dictGT
+
 
 if __name__ == "__main__":
     # exporting results to csv
     current_time = time.localtime()
     formatted_time = time.strftime("%d-%m-%y:%H:%M:%S", current_time)
-    fileResults = 'results/res_' + formatted_time + '.csv'
-    column_names = ['Runs', 'Initial Sample', 'Query Sample', 'Pair', 'Error on materialized', 'Error on lattice', 'Prediction']
+    fileResultsError = 'results/error_' + formatted_time + '.csv'
+    column_namesError = ['Runs', 'Initial Sample', 'Query Sample', 'Pair', 'Error on materialized', 'Error on lattice', 'Prediction']
+    fileResultsF1 = 'results/f1-r@k_' + formatted_time + '.csv'
+    column_namesF1 = ['Runs', 'Initial Sample', 'Query Sample', 'Precision on Lattice', 'Recall on Lattice', 'F1 on Lattice', 'Recall@k on Lattice', 'Precision on Queries', 'Recall on Queries', 'F1 on Queries', 'Recall@k on Queries', 'k']
+
 
     # Create an empty DataFrame with the specified columns
-    df = pd.DataFrame(columns=column_names)
+    dfError = pd.DataFrame(columns=column_namesError)
+    dfF1 = pd.DataFrame(columns=column_namesF1)
 
     config = configparser.ConfigParser()
 
@@ -131,24 +226,36 @@ if __name__ == "__main__":
 
     pairs = generateAllPairs(conn, sel, table, nbpairs)
 
-    s1=Sample(conn, groupbyAtt, sel, measBase, function, table)
+    s1=Sample(conn, groupbyAtt, sel, meas, measBase, function, table)
     s1.generateRandomMC(0.4)
+
+    sizeOfR = getSizeOf(conn, table)
+
 
     #initsampleRatio=0.4
     ratioViolations=0.4
-    sizeOfR = getSizeOf(conn, table)
     nbruns=5
 
+    k = 10
+
+    dictGTLattice = s1.getGTallLattice(pairs, sizeOfR,ratioViolations)
+    dictGTMC = s1.getGTQueriesOverMC(pairs, sizeOfR,ratioViolations)
+
     tabTest = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1]
-    #tabTest=[0.1, 0.6, 1]
+    #tabTest=[0.1,0.6,1]
 
     for nr in tqdm(range(nbruns)):
+    #for nr in trange(nbruns, desc='Runs'):
 
         for initsampleRatio in tabTest:
+
+            s1 = Sample(conn, groupbyAtt, sel, meas, measBase, function, table)
+            s1.generateRandomMC(0.4)
 
             for inc in tabTest:
                 s1.increaseSample(inc)
                 #print(s1.getCurrentSample())
+                dict={}
 
                 for p in pairs:
 
@@ -162,17 +269,14 @@ if __name__ == "__main__":
                     if len(hypothesis) == 2 and hypothesis[0][1] != hypothesis[1][1]:
 
                         valsToSelect = []
-                        j = 0
                         for h in hypothesis:
                                 valsToSelect.append(h[0])
-                                j = j + 1
+
 
                         ranks, queryCountviolations, queryCountCuboid, cuboid=generateAllqueriesOnMVs(s1.getCurrentSample(), sel, measBase, function, table,tuple(valsToSelect), hypothesis, s1.getMC())
 
                         #compute violations over sample
-
                         nbViewOK = 0
-
                         nbInconclusive = 0
                         sizeofsample = len(s1.getCurrentSample())
 
@@ -193,6 +297,7 @@ if __name__ == "__main__":
                         else:
                             prediction = nbViewOK / sizeofsample
 
+
                         # compute violations over ground truth
                         # first over all queries over MC
                         nbMVs = len(s1.getAggOverMC())
@@ -205,7 +310,6 @@ if __name__ == "__main__":
                                                                                                                  s1.getMC())
 
                         nbInconclusive = 0
-                        tabRandomVar = []
                         nbViewOK = 0
                         for i in range(len(queryCountviolations)):
 
@@ -215,14 +319,13 @@ if __name__ == "__main__":
                             if c != 0:
                                 if ratio < ratioViolations:
                                     nbViewOK = nbViewOK + 1
-                                else:
-                                    tabRandomVar.append(0)
                             else:
                                 nbMVs = nbMVs - 1
                                 nbInconclusive = nbInconclusive + 1
 
                         gtratio = nbViewOK / nbMVs
                         errorOnMC = abs(prediction - (nbViewOK / nbMVs))
+
 
                         # then for all lattice
                         nbMVs = len(s1.getAggOverAllLattice())
@@ -236,7 +339,6 @@ if __name__ == "__main__":
                                                                                                         s1.getAllLattice())
 
                         nbInconclusive = 0
-                        tabRandomVar = []
                         nbViewOK = 0
                         for i in range(len(queryCountviolations)):
 
@@ -246,8 +348,6 @@ if __name__ == "__main__":
                             if c != 0:
                                 if ratio < ratioViolations:
                                     nbViewOK = nbViewOK + 1
-                                else:
-                                    tabRandomVar.append(0)
                             else:
                                 nbMVs = nbMVs - 1
                                 nbInconclusive = nbInconclusive + 1
@@ -256,9 +356,21 @@ if __name__ == "__main__":
                         errorOnLattice = abs(prediction - (nbViewOK / nbMVs))
 
 
-                        df.loc[len(df)] = [nr,initsampleRatio, inc, p, errorOnMC, errorOnLattice, prediction]
+                        dfError.loc[len(dfError)] = [nr,initsampleRatio, inc, p, errorOnMC, errorOnLattice, prediction]
+                        dict[p]=[errorOnLattice,prediction]
+                    #flush csv
+                    dict = utilities.sort_dict_by_second_entry_desc(dict)
+                    precisionLattice, recallLattice, f1Lattice = utilities.f_measure_first_k_keys(dict, dictGTLattice, 0)
+                    precisionQueries, recallQueries, f1Queries = utilities.f_measure_first_k_keys(dict, dictGTMC, 0)
 
-    df.to_csv(fileResults)
+                    pkL, rkL, fkL = utilities.f_measure_first_k_keys(dict, dictGTLattice, k)
+                    pkQ, rkQ, fkQ = utilities.f_measure_first_k_keys(dict, dictGTMC, k)
+                    dfF1.loc[len(dfF1)] = [nr, initsampleRatio, inc, precisionLattice, recallLattice, f1Lattice, rkL, precisionQueries, recallQueries, f1Queries, rkQ, k]
+
+
+
+    dfError.to_csv(fileResultsError)
+    dfF1.to_csv(fileResultsF1)
     s1.clean()
 
 
