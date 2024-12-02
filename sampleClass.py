@@ -252,7 +252,7 @@ if __name__ == "__main__":
 
         for initsampleRatio in tabTest:
 
-            s1 = Sample(conn, groupbyAtt, sel, meas, measBase, function, table)
+            s1 = Sample(conn, groupbyAtt, sel, meas, measBase, function, table, True)
             s1.generateRandomMC(0.4)
 
             for inc in tabTest:
