@@ -39,7 +39,7 @@ class Sample:
         remaining = self.aggOverMC.copy()
         chosen = []
         for j in range(sizeOfSample):
-            nb = random.randint(0, len(remaining))
+            nb = random.randint(0, len(remaining)-1)
             gb = remaining[nb]
             remaining.remove(gb)
             chosen.append(gb)
@@ -99,37 +99,38 @@ class Sample:
             hypothesis, hypothesisGenerationTime, samplingTime = hypothesisGeneration(self.conn, p, self.sel, self.measBase, self.meas,
                                                                                       self.table, sampleSize,
                                                                                       allComparison=True)
-            valsToSelect = []
-            for h in hypothesis:
-                valsToSelect.append(h[0])
-            nbMVs = len(self.getAggOverAllLattice())
+            if len(hypothesis) == 2:
+                valsToSelect = []
+                for h in hypothesis:
+                    valsToSelect.append(h[0])
+                nbMVs = len(self.getAggOverAllLattice())
 
-            ranks, queryCountviolations, queryCountCuboid, cuboid = generateAllqueriesOnMVs(self.getAggOverAllLattice(),
-                                                                                            self.sel,
-                                                                                            self.measBase,
-                                                                                            self.function,
-                                                                                            self.table,
-                                                                                            tuple(valsToSelect),
-                                                                                            hypothesis,
-                                                                                            self.getAllLattice())
+                ranks, queryCountviolations, queryCountCuboid, cuboid = generateAllqueriesOnMVs(self.getAggOverAllLattice(),
+                                                                                                self.sel,
+                                                                                                self.measBase,
+                                                                                                self.function,
+                                                                                                self.table,
+                                                                                                tuple(valsToSelect),
+                                                                                                hypothesis,
+                                                                                                self.getAllLattice())
 
-            nbInconclusive = 0
-            nbViewOK = 0
-            for i in range(len(queryCountviolations)):
+                nbInconclusive = 0
+                nbViewOK = 0
+                for i in range(len(queryCountviolations)):
 
-                v, ratio, qtime = countViolations(conn, ranks[i], hypothesis)
-                c = execute_query(conn, queryCountCuboid[i])[0][0]
+                    v, ratio, qtime = countViolations(conn, ranks[i], hypothesis)
+                    c = execute_query(conn, queryCountCuboid[i])[0][0]
 
-                if c != 0:
-                    if ratio < ratioViolations:
-                        nbViewOK = nbViewOK + 1
-                else:
-                    nbMVs = nbMVs - 1
-                    nbInconclusive = nbInconclusive + 1
+                    if c != 0:
+                        if ratio < ratioViolations:
+                            nbViewOK = nbViewOK + 1
+                    else:
+                        nbMVs = nbMVs - 1
+                        nbInconclusive = nbInconclusive + 1
 
-            realRatio = nbViewOK / nbMVs
+                realRatio = nbViewOK / nbMVs
 
-            dictGT[p] = [False, realRatio]
+                dictGT[p] = [False, realRatio]
 
         dictGT = utilities.sort_dict_by_second_entry_desc(dictGT)
 
@@ -142,37 +143,38 @@ class Sample:
             hypothesis, hypothesisGenerationTime, samplingTime = hypothesisGeneration(self.conn, p, self.sel, self.measBase, self.meas,
                                                                                       self.table, sampleSize,
                                                                                       allComparison=True)
-            valsToSelect = []
-            for h in hypothesis:
-                valsToSelect.append(h[0])
-            nbMVs = len(self.getAggOverMC())
+            if len(hypothesis) == 2:
+                valsToSelect = []
+                for h in hypothesis:
+                    valsToSelect.append(h[0])
+                nbMVs = len(self.getAggOverMC())
 
-            ranks, queryCountviolations, queryCountCuboid, cuboid = generateAllqueriesOnMVs(self.getAggOverMC(),
-                                                                                            self.sel,
-                                                                                            self.measBase,
-                                                                                            self.function,
-                                                                                            self.table,
-                                                                                            tuple(valsToSelect),
-                                                                                            hypothesis,
-                                                                                            self.getMC())
+                ranks, queryCountviolations, queryCountCuboid, cuboid = generateAllqueriesOnMVs(self.getAggOverMC(),
+                                                                                                self.sel,
+                                                                                                self.measBase,
+                                                                                                self.function,
+                                                                                                self.table,
+                                                                                                tuple(valsToSelect),
+                                                                                                hypothesis,
+                                                                                                self.getMC())
 
-            nbInconclusive = 0
-            nbViewOK = 0
-            for i in range(len(queryCountviolations)):
+                nbInconclusive = 0
+                nbViewOK = 0
+                for i in range(len(queryCountviolations)):
 
-                v, ratio, qtime = countViolations(conn, ranks[i], hypothesis)
-                c = execute_query(conn, queryCountCuboid[i])[0][0]
+                    v, ratio, qtime = countViolations(conn, ranks[i], hypothesis)
+                    c = execute_query(conn, queryCountCuboid[i])[0][0]
 
-                if c != 0:
-                    if ratio < ratioViolations:
-                        nbViewOK = nbViewOK + 1
-                else:
-                    nbMVs = nbMVs - 1
-                    nbInconclusive = nbInconclusive + 1
+                    if c != 0:
+                        if ratio < ratioViolations:
+                            nbViewOK = nbViewOK + 1
+                    else:
+                        nbMVs = nbMVs - 1
+                        nbInconclusive = nbInconclusive + 1
 
-            realRatio = nbViewOK / nbMVs
+                realRatio = nbViewOK / nbMVs
 
-            dictGT[p] = [False, realRatio]
+                dictGT[p] = [False, realRatio]
 
         dictGT = utilities.sort_dict_by_second_entry_desc(dictGT)
 
@@ -236,6 +238,7 @@ if __name__ == "__main__":
     ratioViolations=0.4
     nbruns=5
 
+    # for Recall @ k
     k = 10
 
     dictGTLattice = s1.getGTallLattice(pairs, sizeOfR,ratioViolations)
@@ -253,8 +256,11 @@ if __name__ == "__main__":
             s1.generateRandomMC(0.4)
 
             for inc in tabTest:
+                #if cumulate
                 s1.increaseSample(inc)
-                #print(s1.getCurrentSample())
+                # else
+                #s1.generateSampleOfAggQueries(inc)
+
                 dict={}
 
                 for p in pairs:
@@ -264,9 +270,12 @@ if __name__ == "__main__":
                     hypothesis, hypothesisGenerationTime, samplingTime = hypothesisGeneration(conn, p, sel, measBase, meas,
                                                                                               table, sampleSize, allComparison=True)
 
-                    # todo when GT, do it for all pairs
+
                     # only ok if hypothesis is a<b or a>b
-                    if len(hypothesis) == 2 and hypothesis[0][1] != hypothesis[1][1]:
+                    # turn it off to check if we miss some pairs
+                    #if len(hypothesis) == 2 and hypothesis[0][1] != hypothesis[1][1]:
+                    if len(hypothesis) == 2:
+                    #if True:
 
                         valsToSelect = []
                         for h in hypothesis:
@@ -359,13 +368,13 @@ if __name__ == "__main__":
                         dfError.loc[len(dfError)] = [nr,initsampleRatio, inc, p, errorOnMC, errorOnLattice, prediction]
                         dict[p]=[errorOnLattice,prediction]
                     #flush csv
-                    dict = utilities.sort_dict_by_second_entry_desc(dict)
-                    precisionLattice, recallLattice, f1Lattice = utilities.f_measure_first_k_keys(dict, dictGTLattice, 0)
-                    precisionQueries, recallQueries, f1Queries = utilities.f_measure_first_k_keys(dict, dictGTMC, 0)
+                dict = utilities.sort_dict_by_second_entry_desc(dict)
+                precisionLattice, recallLattice, f1Lattice = utilities.f_measure_first_k_keys(dict, dictGTLattice, 0)
+                precisionQueries, recallQueries, f1Queries = utilities.f_measure_first_k_keys(dict, dictGTMC, 0)
 
-                    pkL, rkL, fkL = utilities.f_measure_first_k_keys(dict, dictGTLattice, k)
-                    pkQ, rkQ, fkQ = utilities.f_measure_first_k_keys(dict, dictGTMC, k)
-                    dfF1.loc[len(dfF1)] = [nr, initsampleRatio, inc, precisionLattice, recallLattice, f1Lattice, rkL, precisionQueries, recallQueries, f1Queries, rkQ, k]
+                pkL, rkL, fkL = utilities.f_measure_first_k_keys(dict, dictGTLattice, k)
+                pkQ, rkQ, fkQ = utilities.f_measure_first_k_keys(dict, dictGTMC, k)
+                dfF1.loc[len(dfF1)] = [nr, initsampleRatio, inc, precisionLattice, recallLattice, f1Lattice, rkL, precisionQueries, recallQueries, f1Queries, rkQ, k]
 
 
 
