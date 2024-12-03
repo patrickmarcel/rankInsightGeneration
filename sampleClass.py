@@ -419,8 +419,8 @@ if __name__ == "__main__":
 
     # The DB we want
     #config.read('configs/flightsDolap.ini')
-    # config.read('configs/flightsquarterDolap.ini')
-    config.read('configs/ssbDolap.ini')
+    config.read('configs/flightsquarterDolap.ini')
+    #config.read('configs/ssbDolap.ini')
     # config.read('configs/flights1923Dolap.ini')
     USER = "PM"
 
