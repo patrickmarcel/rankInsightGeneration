@@ -96,10 +96,10 @@ class Sample:
         dictGT={}
         for p in pairs:
             sampleSize = sizeOfR
-            hypothesis, hypothesisGenerationTime, samplingTime = hypothesisGeneration(self.conn, p, self.sel, self.measBase, self.meas,
+            hypothesis, hypothesisGenerationTime, samplingTime,pvalue = hypothesisGeneration(self.conn, p, self.sel, self.measBase, self.meas,
                                                                                       self.table, sampleSize,
                                                                                       allComparison=True)
-            if len(hypothesis) == 2:
+            if len(hypothesis) == 2 and hypothesis[0][1] != hypothesis[1][1]:
                 valsToSelect = []
                 for h in hypothesis:
                     valsToSelect.append(h[0])
@@ -133,17 +133,17 @@ class Sample:
                 dictGT[p] = [False, realRatio]
 
         dictGT = utilities.sort_dict_by_second_entry_desc(dictGT)
-
+        #print(dictGT)
         return dictGT
 
     def getGTQueriesOverMC(self, pairs,sizeOfR,ratioViolations):
         dictGT={}
         for p in pairs:
             sampleSize = sizeOfR
-            hypothesis, hypothesisGenerationTime, samplingTime = hypothesisGeneration(self.conn, p, self.sel, self.measBase, self.meas,
+            hypothesis, hypothesisGenerationTime, samplingTime,pvalue = hypothesisGeneration(self.conn, p, self.sel, self.measBase, self.meas,
                                                                                       self.table, sampleSize,
                                                                                       allComparison=True)
-            if len(hypothesis) == 2:
+            if len(hypothesis) == 2 and hypothesis[0][1] != hypothesis[1][1]:
                 valsToSelect = []
                 for h in hypothesis:
                     valsToSelect.append(h[0])
@@ -196,7 +196,7 @@ def runComparisons():
 
         for initsampleRatio in tabTest:
 
-            s1 = Sample(conn, groupbyAtt, sel, meas, measBase, function, table, True)
+            s1 = Sample(conn, groupbyAtt, sel, meas, measBase, function, table, 'mc')
             s1.generateRandomMC(0.4)
 
             for inc in tabTest:
@@ -211,7 +211,7 @@ def runComparisons():
 
                     # generate candidate
                     sampleSize = initsampleRatio * sizeOfR
-                    hypothesis, hypothesisGenerationTime, samplingTime = hypothesisGeneration(conn, p, sel, measBase,
+                    hypothesis, hypothesisGenerationTime, samplingTime,pvalue = hypothesisGeneration(conn, p, sel, measBase,
                                                                                               meas,
                                                                                               table, sampleSize,
                                                                                               allComparison=True)
@@ -219,7 +219,9 @@ def runComparisons():
                     # only ok if hypothesis is a<b or a>b
                     # turn it off to check if we miss some pairs
                     # if len(hypothesis) == 2 and hypothesis[0][1] != hypothesis[1][1]:
-                    if len(hypothesis) == 2:
+                    #if len(hypothesis) == 2 and pvalue <0.01
+                    if len(hypothesis) == 2and hypothesis[0][1] != hypothesis[1][1] and pvalue >0.01:
+                        #print(hypothesis,pvalue)
                         # if True:
 
                         valsToSelect = []
@@ -346,7 +348,7 @@ def runTimings():
 
                 # generate candidate
                 sampleSize = initsampleRatio * sizeOfR
-                hypothesis, hypothesisGenerationTime, samplingTime = hypothesisGeneration(conn, p, sel,
+                hypothesis, hypothesisGenerationTime, samplingTime,pvalue = hypothesisGeneration(conn, p, sel,
                                                                                                   measBase,
                                                                                                   meas,
                                                                                                   table, sampleSize,
@@ -418,8 +420,8 @@ if __name__ == "__main__":
     config = configparser.ConfigParser()
 
     # The DB we want
-    #config.read('configs/flightsDolap.ini')
-    config.read('configs/flightsquarterDolap.ini')
+    config.read('configs/flightsDolap.ini')
+    #config.read('configs/flightsquarterDolap.ini')
     #config.read('configs/ssbDolap.ini')
     # config.read('configs/flights1923Dolap.ini')
     USER = "PM"
@@ -467,10 +469,10 @@ if __name__ == "__main__":
     #dictGTLattice = s1.getGTallLattice(pairs, sizeOfR,ratioViolations)
     #dictGTMC = s1.getGTQueriesOverMC(pairs, sizeOfR,ratioViolations)
 
-    #tabTest = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1]
-    tabTest=[0.1,0.6,1]
+    tabTest = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1]
+    #tabTest=[0.6]
 
-    comparison=False
+    comparison=True
 
     if comparison:
         runComparisons()

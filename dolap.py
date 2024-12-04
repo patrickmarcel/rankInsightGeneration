@@ -8,6 +8,7 @@ from statsmodels.stats.multitest import fdrcorrection
 
 import dbStuff
 import plotStuff
+import rankingFromPairwise
 import statStuff
 import utilities
 from plotStuff import plot_curves_with_error_bars
@@ -21,6 +22,87 @@ import pandas as pd
 
 # ------  Debug ?  ------------
 DEBUG_FLAG = True
+
+def generateHypothesisTestDolap(conn, meas, measBase, table, sel, sampleSize, method, valsToSelect=None):
+    # sampling
+    start_time = time.time()
+    resultVals = getSample(conn, measBase, table, sel, sampleSize, method, False, valsToSelect)
+    end_time = time.time()
+    samplingTime = end_time - start_time
+    #print('sampling time:', samplingTime)
+
+    #resultVals = getSample(conn, measBase, table, sel, sampleSize, method=method, repeatable=DEBUG_FLAG)
+    #print(resultVals)
+
+    start_time = time.time()
+
+    # get adom values
+    Sels = list(set([x[0] for x in resultVals]))
+    #print('Sels:',Sels)
+    #analyse sample for each adom value: value, nb of measures, skewness, and tuples
+    S = []
+    for v in Sels:
+
+        data = []
+        for row in resultVals:
+            if row[0] == v:
+                data.append(float(row[1]))
+
+        nvalues = len(data)
+        data = np.array(data)
+        skewness = compute_skewness(data)
+        S.append((v, nvalues, skewness, data))
+
+    #print('S:',S)
+
+    # nlog(n) comparisons enough for recovering the true ranking when comparisons are certain (not noisy)
+    # we should try less
+    #print(len(Sels))
+    #nbOfComparisons = len(Sels) * math.log(len(Sels), 2)
+    #print("Number of comparisons to make: " + str(nbOfComparisons))
+
+    pairwiseComparison=rankingFromPairwise.generateAllComparisons(Sels, S)
+
+    #separation=computeSeparationJMLR18(pairwiseComparison,len(valsToSelect))
+
+    #print("pairwise comparisons:")
+    #for p in pairwiseComparison:
+    #    print("p: ", p)
+
+    #pairwiseComparison = generateComparisonsWithMergeSort(Sels, S)
+
+    # ranking
+    #ranks = balanced_rank_estimation(pairwiseComparison)
+    #print("Balanced Rank Estimation:", ranks)
+    ranks = computeRanksForAll(pairwiseComparison, Sels)
+
+    sorted_items = sorted(ranks.items(), key=lambda item: item[1], reverse=True)
+
+    # Construct a rank from the number of comparison won for each adom values
+    hypothesis = []
+    rank = 0
+    for s in sorted_items:
+        if rank == 0:
+            rank = 1
+            hypothesis.append((s[0], rank))
+            val = s[1]
+        else:
+            if s[1] == val:
+                hypothesis.append((s[0], rank))
+                val = s[1]
+            else:
+                rank = rank + 1
+                hypothesis.append((s[0], rank))
+                val = s[1]
+
+    end_time = time.time()
+    hypothesisGenerationTime = end_time - start_time
+    #print('Hypothesis generation time:', hypothesisGenerationTime)
+    if pairwiseComparison!=[]:
+        pvalue=float(pairwiseComparison[0][4])
+    else:
+        pvalue=1000 #change me
+    return hypothesis, samplingTime, hypothesisGenerationTime,pvalue
 
 
 def  compareHypToGB(hypothesis, conn, measBase,function, sel, vals,mvnames, table):
@@ -141,9 +223,9 @@ def countViolations(conn,query,hypothesis):
 
 def getHypothesisAllComparisons(conn, meas, measBase, table, sel,valsToSelect, sampleSize, method='SYSTEM_ROWS'):
     # checking all comparisons
-    correctHyp,samplingTime, hypothesisGenerationTime = generateHypothesisTest(conn, meas, measBase, table, sel, sampleSize, method, valsToSelect)
+    correctHyp,samplingTime, hypothesisGenerationTime,pvalue = generateHypothesisTestDolap(conn, meas, measBase, table, sel, sampleSize, method, valsToSelect)
     ##print('all comp. hypothesis:', correctHyp)
-    return correctHyp, samplingTime, hypothesisGenerationTime
+    return correctHyp, samplingTime, hypothesisGenerationTime,pvalue
 
 def get_state_sample(conn, measBase, table, sel, sampleSize, state):
 
@@ -315,14 +397,14 @@ def hypothesisGeneration(conn, prefs, sel, measBase, meas, table, sampleSize, al
     else:
         # sampling and hypothesis
         #start_time = time.time()
-        hypothesis,samplingTime, hypothesisGenerationTime = getHypothesisAllComparisons(conn, meas, measBase, table, sel, tuple(prefs), sampleSize,
+        hypothesis,samplingTime, hypothesisGenerationTime,pvalue = getHypothesisAllComparisons(conn, meas, measBase, table, sel, tuple(prefs), sampleSize,
                                                  method='SYSTEM_ROWS')
         #end_time = time.time()
         #samplingTime = end_time - start_time
         #hypothesisGenerationTime = samplingTime
         # #print('sampling time:', samplingTime)
         ##print('Hypothesis generation time:', hypothesisGenerationTime)
-    return hypothesis,hypothesisGenerationTime,samplingTime
+    return hypothesis,hypothesisGenerationTime,samplingTime, pvalue
 
 
 
@@ -330,7 +412,7 @@ def test(conn, nbAdomVals, prefs, ratioViolations, proba, error, percentOfLattic
          sampleSize,comparison,generateIndex,allComparison,ratioOfQuerySample,mvnames,aggQueries,currentSample,cumulate):
     ##print("Sample size: ",sampleSize)
 
-    hypothesis,hypothesisGenerationTime,samplingTime=hypothesisGeneration(conn, prefs, sel, measBase, meas, table, sampleSize, allComparison)
+    hypothesis,hypothesisGenerationTime,samplingTime,pvalue=hypothesisGeneration(conn, prefs, sel, measBase, meas, table, sampleSize, allComparison)
     ##print("Hypothesis predicted: ", hypothesis)
 
     # only ok if hypothesis is a<B or a>b
