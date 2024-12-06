@@ -99,7 +99,8 @@ class Sample:
             hypothesis, hypothesisGenerationTime, samplingTime,pvalue = hypothesisGeneration(self.conn, p, self.sel, self.measBase, self.meas,
                                                                                       self.table, sampleSize,
                                                                                       allComparison=True)
-            if len(hypothesis) == 2 and hypothesis[0][1] != hypothesis[1][1]:
+            #if len(hypothesis) == 2 and hypothesis[0][1] != hypothesis[1][1]:
+            if len(hypothesis) == 2:
                 valsToSelect = []
                 for h in hypothesis:
                     valsToSelect.append(h[0])
@@ -133,7 +134,7 @@ class Sample:
                 dictGT[p] = [False, realRatio]
 
         dictGT = utilities.sort_dict_by_second_entry_desc(dictGT)
-        #print(dictGT)
+        print("Number of comparisons found on lattice:", len(dictGT))
         return dictGT
 
     def getGTQueriesOverMC(self, pairs,sizeOfR,ratioViolations):
@@ -143,7 +144,8 @@ class Sample:
             hypothesis, hypothesisGenerationTime, samplingTime,pvalue = hypothesisGeneration(self.conn, p, self.sel, self.measBase, self.meas,
                                                                                       self.table, sampleSize,
                                                                                       allComparison=True)
-            if len(hypothesis) == 2 and hypothesis[0][1] != hypothesis[1][1]:
+            #if len(hypothesis) == 2 and hypothesis[0][1] != hypothesis[1][1]:
+            if len(hypothesis) == 2:
                 valsToSelect = []
                 for h in hypothesis:
                     valsToSelect.append(h[0])
@@ -177,7 +179,7 @@ class Sample:
                 dictGT[p] = [False, realRatio]
 
         dictGT = utilities.sort_dict_by_second_entry_desc(dictGT)
-
+        print("Number of comparisons found on qeries:",len(dictGT))
         return dictGT
 
 
@@ -220,7 +222,7 @@ def runComparisons():
                     # turn it off to check if we miss some pairs
                     # if len(hypothesis) == 2 and hypothesis[0][1] != hypothesis[1][1]:
                     #if len(hypothesis) == 2 and pvalue <0.01
-                    if len(hypothesis) == 2and hypothesis[0][1] != hypothesis[1][1] and pvalue >0.01:
+                    if len(hypothesis) == 2 and hypothesis[0][1] != hypothesis[1][1]:
                         #print(hypothesis,pvalue)
                         # if True:
 
@@ -322,7 +324,7 @@ def runComparisons():
                 pkL, rkL, fkL = utilities.f_measure_first_k_keys(dict, dictGTLattice, k)
                 pkQ, rkQ, fkQ = utilities.f_measure_first_k_keys(dict, dictGTMC, k)
                 dfF1.loc[len(dfF1)] = [nr, initsampleRatio, inc, precisionLattice, recallLattice, f1Lattice, rkL,
-                                       precisionQueries, recallQueries, f1Queries, rkQ, k]
+                                       precisionQueries, recallQueries, f1Queries, rkQ, k,len(dict)]
 
     dfError.to_csv(fileResultsError)
     dfF1.to_csv(fileResultsF1)
@@ -356,8 +358,8 @@ def runTimings():
 
                 # only ok if hypothesis is a<b or a>b
                 # turn it off to check if we miss some pairs
-                # if len(hypothesis) == 2 and hypothesis[0][1] != hypothesis[1][1]:
-                if len(hypothesis) == 2:
+                if len(hypothesis) == 2 and hypothesis[0][1] != hypothesis[1][1]:
+                #if len(hypothesis) == 2:
                     # if True:
 
                     valsToSelect = []
@@ -407,7 +409,7 @@ if __name__ == "__main__":
     fileResultsError = 'results/error_' + formatted_time + '.csv'
     column_namesError = ['Runs', 'Initial Sample', 'Query Sample', 'Pair', 'Error on materialized', 'Error on lattice', 'Prediction']
     fileResultsF1 = 'results/f1-r@k_' + formatted_time + '.csv'
-    column_namesF1 = ['Runs', 'Initial Sample', 'Query Sample', 'Precision on Lattice', 'Recall on Lattice', 'F1 on Lattice', 'Recall@k on Lattice', 'Precision on Queries', 'Recall on Queries', 'F1 on Queries', 'Recall@k on Queries', 'k']
+    column_namesF1 = ['Runs', 'Initial Sample', 'Query Sample', 'Precision on Lattice', 'Recall on Lattice', 'F1 on Lattice', 'Recall@k on Lattice', 'Precision on Queries', 'Recall on Queries', 'F1 on Queries', 'Recall@k on Queries', 'k','Number of Comparisons']
 
     fileResultsTimes = 'results/times-' + formatted_time + '.csv'
     column_namesTimes = ['Runs', 'Index',  'count', 'Time']
@@ -464,7 +466,7 @@ if __name__ == "__main__":
     nbruns=5
 
     # for Recall @ k
-    k = 10
+    k = 20
 
     #dictGTLattice = s1.getGTallLattice(pairs, sizeOfR,ratioViolations)
     #dictGTMC = s1.getGTQueriesOverMC(pairs, sizeOfR,ratioViolations)
