@@ -1,8 +1,8 @@
 import time
 import numpy as np
-from dbStuff import getSample
-from statStuff import welch_ttest, permutation_test, compute_skewness, benjamini_hochberg, benjamini_hochberg_statmod, claireStat
-from dolap import fetchCongressionalSample, getHypothesisCongressionalSampling, getHypothesisAllComparisons
+from dbStuff import getSample, execute_query
+from statStuff import welch_ttest, permutation_test, compute_skewness, benjamini_hochberg, claireStat
+from statsmodels.stats.multitest import fdrcorrection
 
 
 class Hypothesis:
@@ -10,9 +10,9 @@ class Hypothesis:
         self.nbWelch=0
         self.nbPerm=0
 
-        def getNbWelch():
+    def getNbWelch(self):
             return self.nbWelch
-        def getNbPerm():
+    def getNbPerm(self):
             return self.nbPerm
 
     def computeRanksForAll(self, pairwiseComparison, Sels):
@@ -157,22 +157,233 @@ class Hypothesis:
         if allComparison == False:
             # sampling
             start_time = time.time()
-            adom, congress = fetchCongressionalSample(conn, sel, table, measBase, sampleSize, adom_restr=prefs)
+            adom, congress = self.fetchCongressionalSample(conn, sel, table, measBase, sampleSize, adom_restr=prefs)
             end_time = time.time()
             samplingTime = end_time - start_time
 
             # compute hypothesis
             start_time = time.time()
-            hypothesis = getHypothesisCongressionalSampling(adom, congress)
+            hypothesis = self.getHypothesisCongressionalSampling(adom, congress)
             end_time = time.time()
             hypothesisGenerationTime = end_time - start_time
         else:
             # sampling and hypothesis
-            hypothesis, samplingTime, hypothesisGenerationTime, pvalue = getHypothesisAllComparisons(conn, meas,
+            hypothesis, samplingTime, hypothesisGenerationTime, pvalue = self.getHypothesisAllComparisons(conn, meas,
                                                                                                      measBase, table,
                                                                                                      sel, tuple(prefs),
                                                                                                      sampleSize,
                                                                                                      method='SYSTEM_ROWS')
         return hypothesis, hypothesisGenerationTime, samplingTime, pvalue
 
+    def getHypothesisAllComparisons(self, conn, meas, measBase, table, sel, valsToSelect, sampleSize, method='SYSTEM_ROWS'):
+        # checking all comparisons
+        correctHyp, samplingTime, hypothesisGenerationTime, pvalue = self.generateHypothesisTestDolap(conn, meas, measBase,
+                                                                                                 table, sel, sampleSize,
+                                                                                                 method, valsToSelect)
+        ##print('all comp. hypothesis:', correctHyp)
+        return correctHyp, samplingTime, hypothesisGenerationTime, pvalue
 
+    def get_state_sample(self, conn, measBase, table, sel, sampleSize, state):
+
+        querySample = "SELECT " + sel + ", " + measBase + " FROM " + table + " where " + sel + " = '" + str(
+            state) + "' limit " + str(sampleSize) + ";"
+        ##print('stat query:', querySample)
+        resultVals = execute_query(conn, querySample)
+        return resultVals
+
+    def fetchCongressionalSample(self, conn, sel, table, measBase, sampleSize, adom_restr=None):
+        # fetch the congressional sample
+        if adom_restr:
+            adom = adom_restr
+        else:
+            adom = [x[0] for x in execute_query(conn, "select distinct  " + sel + " from " + table + ";")]
+        table_size = execute_query(conn, "select count(1) from " + table + ";")[0][0]
+
+        sample_size = int(table_size * sampleSize)
+        alpha = 0.10
+        house_size = sample_size * alpha
+        senate_size = sample_size * (1 - alpha)
+
+        house = getSample(conn, measBase, table, sel, house_size, method="SYSTEM_ROWS", repeatable=False)
+
+        senate = []
+        state_sample_size = int(senate_size / len(adom))
+        for state in adom:
+            senate.extend(self.get_state_sample(conn, measBase, table, sel, state_sample_size, state))
+
+        if adom_restr:
+            house = list(filter(lambda x: x[0] in adom_restr, house))
+        congress = house + senate
+        # END - fetch the congressional sample
+        return adom, congress
+
+    def getHypothesisCongressionalSampling(self, adom, congress):
+
+        buckets = {s: [] for s in adom}
+        skews = dict()
+        for item in congress:
+            buckets[item[0]].append(item[1])
+        for k in buckets.keys():
+            skews[k] = compute_skewness(buckets[k])
+
+        # do all welch tests
+        param_budget = 20
+        param_budget = int(param_budget / 2)
+
+        from scipy.stats import ttest_ind
+
+        raw_comparisons = []
+
+        for i in range(len(adom)):
+            for j in range(i + 1, len(adom)):
+                left = adom[i]
+                right = adom[j]
+                res = ttest_ind(buckets[left], buckets[right], equal_var=False)
+                stat_c = claireStat(skews[left], skews[right], len(buckets[left]), len(buckets[right]))
+                if res.statistic < 0:
+                    raw_comparisons.append((left, right, stat_c, res.pvalue))
+                else:
+                    raw_comparisons.append((right, left, stat_c, res.pvalue))
+
+        w_comparisons = []
+        w_comparisons_rej = []
+        ##print(raw_comparisons)
+        rejected, corrected = fdrcorrection([x[3] for x in raw_comparisons], alpha=0.05)
+        for i in range(len(raw_comparisons)):
+            if rejected[i]:
+                w_comparisons_rej.append((raw_comparisons[i][0], raw_comparisons[i][1], raw_comparisons[i][2]))
+            else:
+                w_comparisons.append((raw_comparisons[i][0], raw_comparisons[i][1], raw_comparisons[i][2]))
+
+        # print("NB de comparaisons significatives (welch)", len(w_comparisons))
+        # #print_comp_list(sorted(w_comparisons, key=lambda x: x[0] + x[1]))
+        by_prox_to_threshold = sorted(w_comparisons, key=lambda x: abs(0.05 - x[2]), reverse=True)
+        # #print(by_prox_to_threshold)
+
+        final = by_prox_to_threshold[param_budget:]
+        to_redo = by_prox_to_threshold[:param_budget]
+
+        to_redo.extend(sorted(w_comparisons_rej, key=lambda x: abs(0.05 - x[2]), reverse=True)[:param_budget])
+
+        for left, right, _ in to_redo:
+            res = permutation_test(buckets[left], buckets[right])
+            if res[3].startswith("Reject"):
+                if res[1] > 0:
+                    final.append((left, right, -1))
+                else:
+                    final.append((right, left, -1))
+
+        # print("NB de comparaisons significatives (welch + X param)", len(final))
+        # #print_comp_list(sorted(final, key=lambda x: x[0] + x[1]))
+
+        # borda hypothesis
+        patrick_format = [(a, b, 1, None, None) for (a, b, c) in final]
+        ##print('alex pairwise:',patrick_format)
+        hypothesis = self.computeRanksForAll(patrick_format, adom).items()
+        ##print(hypothesis)
+        hypothesis = sorted(
+            hypothesis,
+            key=lambda x: x[1],
+            reverse=True
+        )
+        ##print(hypothesis)
+        # hypothesis = [(a, b + 1) for (a, b) in hypothesis]
+        correctHyp = []
+        i = 1
+        prevb = -1
+        for (a, b) in hypothesis:
+            if prevb == -1:
+                currentRank = 1
+                correctHyp.append((a, currentRank))
+                prevb = b
+            else:
+                if b == prevb:
+                    correctHyp.append((a, currentRank))
+                else:
+                    currentRank = currentRank + 1
+                    correctHyp.append((a, currentRank))
+                    prevb = b
+
+        ##print('Alex hypothesis:',correctHyp)
+        return correctHyp
+
+    def generateHypothesisTestDolap(self,conn, meas, measBase, table, sel, sampleSize, method, valsToSelect=None):
+        # sampling
+        start_time = time.time()
+        resultVals = getSample(conn, measBase, table, sel, sampleSize, method, False, valsToSelect)
+        end_time = time.time()
+        samplingTime = end_time - start_time
+        # print('sampling time:', samplingTime)
+
+        # resultVals = getSample(conn, measBase, table, sel, sampleSize, method=method, repeatable=DEBUG_FLAG)
+        # print(resultVals)
+
+        start_time = time.time()
+
+        # get adom values
+        Sels = list(set([x[0] for x in resultVals]))
+        # print('Sels:',Sels)
+        # analyse sample for each adom value: value, nb of measures, skewness, and tuples
+        S = []
+        for v in Sels:
+
+            data = []
+            for row in resultVals:
+                if row[0] == v:
+                    data.append(float(row[1]))
+
+            nvalues = len(data)
+            data = np.array(data)
+            skewness = compute_skewness(data)
+            S.append((v, nvalues, skewness, data))
+
+        # print('S:',S)
+
+        # nlog(n) comparisons enough for recovering the true ranking when comparisons are certain (not noisy)
+        # we should try less
+        # print(len(Sels))
+        # nbOfComparisons = len(Sels) * math.log(len(Sels), 2)
+        # print("Number of comparisons to make: " + str(nbOfComparisons))
+
+        pairwiseComparison = self.generateAllComparisons(Sels, S)
+
+        # separation=computeSeparationJMLR18(pairwiseComparison,len(valsToSelect))
+
+        # print("pairwise comparisons:")
+        # for p in pairwiseComparison:
+        #    print("p: ", p)
+
+        # pairwiseComparison = generateComparisonsWithMergeSort(Sels, S)
+
+        # ranking
+        # ranks = balanced_rank_estimation(pairwiseComparison)
+        # print("Balanced Rank Estimation:", ranks)
+        ranks = self.computeRanksForAll(pairwiseComparison, Sels)
+
+        sorted_items = sorted(ranks.items(), key=lambda item: item[1], reverse=True)
+
+        # Construct a rank from the number of comparison won for each adom values
+        hypothesis = []
+        rank = 0
+        for s in sorted_items:
+            if rank == 0:
+                rank = 1
+                hypothesis.append((s[0], rank))
+                val = s[1]
+            else:
+                if s[1] == val:
+                    hypothesis.append((s[0], rank))
+                    val = s[1]
+                else:
+                    rank = rank + 1
+                    hypothesis.append((s[0], rank))
+                    val = s[1]
+
+        end_time = time.time()
+        hypothesisGenerationTime = end_time - start_time
+        # print('Hypothesis generation time:', hypothesisGenerationTime)
+        if pairwiseComparison != []:
+            pvalue = float(pairwiseComparison[0][4])
+        else:
+            pvalue = 1000  # change me
+        return hypothesis, samplingTime, hypothesisGenerationTime, pvalue

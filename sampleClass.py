@@ -346,22 +346,18 @@ def runTimings():
             s1.generateSampleOfAggQueries(initsampleRatio)
             timings = 0
             count=0
+            H = Hypothesis()
             for p in pairs:
                 start_time = time.time()
 
                 # generate candidate
                 sampleSize = initsampleRatio * sizeOfR
-                h=Hypothesis()
-                hypothesis, hypothesisGenerationTime, samplingTime,pvalue = h.hypothesisGeneration(conn, p, sel,
+                #H=Hypothesis()
+                hypothesis, hypothesisGenerationTime, samplingTime,pvalue = H.hypothesisGeneration(conn, p, sel,
                                                                                                   measBase,
                                                                                                   meas,
                                                                                                   table, sampleSize,
                                                                                                   allComparison=True)
-                #hypothesis, hypothesisGenerationTime, samplingTime,pvalue = hypothesisGeneration(conn, p, sel,
-                #                                                                                  measBase,
-                #                                                                                  meas,
-                #                                                                                  table, sampleSize,
-                #                                                                                  allComparison=True)
 
                 # only ok if hypothesis is a<b or a>b
                 # turn it off to check if we miss some pairs
@@ -404,6 +400,7 @@ def runTimings():
                 count=count+1
                 dfTimes.loc[len(dfTimes)] = [nr, generateIndex, count, timings]
 
+            print(H.getNbPerm(),H.getNbWelch())
     dfTimes.to_csv(fileResultsTimes)
     s1.clean()
 
