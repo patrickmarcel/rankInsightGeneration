@@ -2,10 +2,10 @@ import time
 import numpy as np
 from dbStuff import getSample
 from statStuff import welch_ttest, permutation_test, compute_skewness, benjamini_hochberg, benjamini_hochberg_statmod, claireStat
+from dolap import fetchCongressionalSample, getHypothesisCongressionalSampling, getHypothesisAllComparisons
 
 
-
-class hypothesis:
+class Hypothesis:
     def __init__(self ):
         self.nbWelch=0
         self.nbPerm=0
@@ -36,18 +36,11 @@ class hypothesis:
         return ranks
 
     def computeBHcorrection(self, pairwiseComparison, alpha=0.05):
-        # rejected, corrected_p_values = benjamini_hochberg_gpt(tabPValues, alpha)
-        # print("Rejected hypotheses:", rejected)
-        # print("raw p-values:", tabPValues)
-        # print("Corrected p-values (gpt):", corrected_p_values)
         tabPValues = []
         for p in pairwiseComparison:
             tabPValues.append(p[4])
 
         corrected = benjamini_hochberg(tabPValues, alpha)
-        #rejected, corrected2 = benjamini_hochberg_statmod(tabPValues, alpha)
-
-        #print("nb of True in rejected: ", utilities.nbTrueInList(rejected))
 
         pairwiseComp2 = []
         i = 0
@@ -62,10 +55,6 @@ class hypothesis:
                 nbChanges = nbChanges + 1
             pairwiseComp2.append((c[0], c[1], comp, c[2], corrected[i]))
             i = i + 1
-
-        #print("Number of BH corrections: ", nbChanges)
-
-        #print("nb non zeros after corrections: ", utilities.countNonZeros(pairwiseComp2))
 
         return pairwiseComp2
 
@@ -164,6 +153,26 @@ class hypothesis:
         # print('Hypothesis generation time:', hypothesisGenerationTime)
         return hypothesis, samplingTime, hypothesisGenerationTime
 
+    def hypothesisGeneration(self,conn, prefs, sel, measBase, meas, table, sampleSize, allComparison):
+        if allComparison == False:
+            # sampling
+            start_time = time.time()
+            adom, congress = fetchCongressionalSample(conn, sel, table, measBase, sampleSize, adom_restr=prefs)
+            end_time = time.time()
+            samplingTime = end_time - start_time
 
+            # compute hypothesis
+            start_time = time.time()
+            hypothesis = getHypothesisCongressionalSampling(adom, congress)
+            end_time = time.time()
+            hypothesisGenerationTime = end_time - start_time
+        else:
+            # sampling and hypothesis
+            hypothesis, samplingTime, hypothesisGenerationTime, pvalue = getHypothesisAllComparisons(conn, meas,
+                                                                                                     measBase, table,
+                                                                                                     sel, tuple(prefs),
+                                                                                                     sampleSize,
+                                                                                                     method='SYSTEM_ROWS')
+        return hypothesis, hypothesisGenerationTime, samplingTime, pvalue
 
 

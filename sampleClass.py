@@ -9,6 +9,7 @@ import utilities
 from dolap import hypothesisGeneration,countViolations
 from dbStuff import dropAllMVs,getAggQueriesOverMV,createMV,getMVnames,connect_to_db,generateAllPairs,execute_query,getSizeOf,dropAllIndexOnMVs,generateIndexesOnMVs
 from bounders import generateAllqueriesOnMVs
+from  Hypothesis import Hypothesis
 
 class Sample:
 
@@ -350,11 +351,17 @@ def runTimings():
 
                 # generate candidate
                 sampleSize = initsampleRatio * sizeOfR
-                hypothesis, hypothesisGenerationTime, samplingTime,pvalue = hypothesisGeneration(conn, p, sel,
+                h=Hypothesis()
+                hypothesis, hypothesisGenerationTime, samplingTime,pvalue = h.hypothesisGeneration(conn, p, sel,
                                                                                                   measBase,
                                                                                                   meas,
                                                                                                   table, sampleSize,
                                                                                                   allComparison=True)
+                #hypothesis, hypothesisGenerationTime, samplingTime,pvalue = hypothesisGeneration(conn, p, sel,
+                #                                                                                  measBase,
+                #                                                                                  meas,
+                #                                                                                  table, sampleSize,
+                #                                                                                  allComparison=True)
 
                 # only ok if hypothesis is a<b or a>b
                 # turn it off to check if we miss some pairs
@@ -474,7 +481,7 @@ if __name__ == "__main__":
     tabTest = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1]
     #tabTest=[0.6]
 
-    comparison=True
+    comparison=False
 
     if comparison:
         runComparisons()
