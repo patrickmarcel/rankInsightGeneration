@@ -221,11 +221,7 @@ def countViolations(conn,query,hypothesis):
 
 
 
-def getHypothesisAllComparisons(conn, meas, measBase, table, sel,valsToSelect, sampleSize, method='SYSTEM_ROWS'):
-    # checking all comparisons
-    correctHyp,samplingTime, hypothesisGenerationTime,pvalue = generateHypothesisTestDolap(conn, meas, measBase, table, sel, sampleSize, method, valsToSelect)
-    ##print('all comp. hypothesis:', correctHyp)
-    return correctHyp, samplingTime, hypothesisGenerationTime,pvalue
+
 
 def get_state_sample(conn, measBase, table, sel, sampleSize, state):
 

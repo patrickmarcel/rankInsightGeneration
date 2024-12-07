@@ -95,11 +95,16 @@ class Sample:
 
     def getGTallLattice(self, pairs,sizeOfR,ratioViolations):
         dictGT={}
+        H=Hypothesis()
         for p in pairs:
             sampleSize = sizeOfR
-            hypothesis, hypothesisGenerationTime, samplingTime,pvalue = hypothesisGeneration(self.conn, p, self.sel, self.measBase, self.meas,
-                                                                                      self.table, sampleSize,
-                                                                                      allComparison=True)
+            #hypothesis, hypothesisGenerationTime, samplingTime,pvalue = hypothesisGeneration(self.conn, p, self.sel, self.measBase, self.meas,
+            #                                                                          self.table, sampleSize,
+            #                                                                          allComparison=True)
+            hypothesis, hypothesisGenerationTime, samplingTime, pvalue = H.hypothesisGeneration(self.conn, p, self.sel,
+                                                                                              self.measBase, self.meas,
+                                                                                              self.table, sampleSize,
+                                                                                              allComparison=True)
             #if len(hypothesis) == 2 and hypothesis[0][1] != hypothesis[1][1]:
             if len(hypothesis) == 2:
                 valsToSelect = []
@@ -140,9 +145,10 @@ class Sample:
 
     def getGTQueriesOverMC(self, pairs,sizeOfR,ratioViolations):
         dictGT={}
+        H=Hypothesis()
         for p in pairs:
             sampleSize = sizeOfR
-            hypothesis, hypothesisGenerationTime, samplingTime,pvalue = hypothesisGeneration(self.conn, p, self.sel, self.measBase, self.meas,
+            hypothesis, hypothesisGenerationTime, samplingTime,pvalue = H.hypothesisGeneration(self.conn, p, self.sel, self.measBase, self.meas,
                                                                                       self.table, sampleSize,
                                                                                       allComparison=True)
             #if len(hypothesis) == 2 and hypothesis[0][1] != hypothesis[1][1]:
@@ -209,12 +215,12 @@ def runComparisons():
                 # s1.generateSampleOfAggQueries(inc)
 
                 dict = {}
-
+                H=Hypothesis()
                 for p in pairs:
 
                     # generate candidate
                     sampleSize = initsampleRatio * sizeOfR
-                    hypothesis, hypothesisGenerationTime, samplingTime,pvalue = hypothesisGeneration(conn, p, sel, measBase,
+                    hypothesis, hypothesisGenerationTime, samplingTime,pvalue = H.hypothesisGeneration(conn, p, sel, measBase,
                                                                                               meas,
                                                                                               table, sampleSize,
                                                                                               allComparison=True)
@@ -318,6 +324,7 @@ def runComparisons():
                         dfError.loc[len(dfError)] = [nr, initsampleRatio, inc, p, errorOnMC, errorOnLattice, prediction]
                         dict[p] = [errorOnLattice, prediction]
                     # flush csv
+
                 dict = utilities.sort_dict_by_second_entry_desc(dict)
                 precisionLattice, recallLattice, f1Lattice = utilities.f_measure_first_k_keys(dict, dictGTLattice, 0)
                 precisionQueries, recallQueries, f1Queries = utilities.f_measure_first_k_keys(dict, dictGTMC, 0)
@@ -325,7 +332,7 @@ def runComparisons():
                 pkL, rkL, fkL = utilities.f_measure_first_k_keys(dict, dictGTLattice, k)
                 pkQ, rkQ, fkQ = utilities.f_measure_first_k_keys(dict, dictGTMC, k)
                 dfF1.loc[len(dfF1)] = [nr, initsampleRatio, inc, precisionLattice, recallLattice, f1Lattice, rkL,
-                                       precisionQueries, recallQueries, f1Queries, rkQ, k,len(dict)]
+                                       precisionQueries, recallQueries, f1Queries, rkQ, k,len(dict),H.getNbWelch(),H.getNbPerm()]
 
     dfError.to_csv(fileResultsError)
     dfF1.to_csv(fileResultsF1)
@@ -400,7 +407,7 @@ def runTimings():
                 count=count+1
                 dfTimes.loc[len(dfTimes)] = [nr, generateIndex, count, timings]
 
-            print(H.getNbPerm(),H.getNbWelch())
+            #print(H.getNbPerm(),H.getNbWelch())
     dfTimes.to_csv(fileResultsTimes)
     s1.clean()
 
@@ -413,7 +420,7 @@ if __name__ == "__main__":
     fileResultsError = 'results/error_' + formatted_time + '.csv'
     column_namesError = ['Runs', 'Initial Sample', 'Query Sample', 'Pair', 'Error on materialized', 'Error on lattice', 'Prediction']
     fileResultsF1 = 'results/f1-r@k_' + formatted_time + '.csv'
-    column_namesF1 = ['Runs', 'Initial Sample', 'Query Sample', 'Precision on Lattice', 'Recall on Lattice', 'F1 on Lattice', 'Recall@k on Lattice', 'Precision on Queries', 'Recall on Queries', 'F1 on Queries', 'Recall@k on Queries', 'k','Number of Comparisons']
+    column_namesF1 = ['Runs', 'Initial Sample', 'Query Sample', 'Precision on Lattice', 'Recall on Lattice', 'F1 on Lattice', 'Recall@k on Lattice', 'Precision on Queries', 'Recall on Queries', 'F1 on Queries', 'Recall@k on Queries', 'k','Number of Comparisons','Number of Welch','Number of permutation']
 
     fileResultsTimes = 'results/times-' + formatted_time + '.csv'
     column_namesTimes = ['Runs', 'Index',  'count', 'Time']
@@ -470,7 +477,7 @@ if __name__ == "__main__":
     nbruns=5
 
     # for Recall @ k
-    k = 20
+    k = 10
 
     #dictGTLattice = s1.getGTallLattice(pairs, sizeOfR,ratioViolations)
     #dictGTMC = s1.getGTQueriesOverMC(pairs, sizeOfR,ratioViolations)
@@ -478,7 +485,7 @@ if __name__ == "__main__":
     tabTest = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1]
     #tabTest=[0.6]
 
-    comparison=False
+    comparison=True
 
     if comparison:
         runComparisons()
