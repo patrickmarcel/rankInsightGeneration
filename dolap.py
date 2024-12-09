@@ -375,6 +375,14 @@ def materializeViewsWithoutIndex(conn, groupbyAtt, sel, measBase, function, tabl
     #print("Number of aggregate queries over the MVs: ", len(aggQueries))
     return mvnames,aggQueries
 
+def getHypothesisAllComparisons(conn, meas, measBase, table, sel, valsToSelect, sampleSize, method='SYSTEM_ROWS'):
+        # checking all comparisons
+        correctHyp, samplingTime, hypothesisGenerationTime, pvalue = generateHypothesisTestDolap(conn, meas, measBase,
+                                                                                                 table, sel, sampleSize,
+                                                                                                 method, valsToSelect)
+        ##print('all comp. hypothesis:', correctHyp)
+        return correctHyp, samplingTime, hypothesisGenerationTime, pvalue
+
 def hypothesisGeneration(conn, prefs, sel, measBase, meas, table, sampleSize, allComparison):
     if allComparison == False:
         # sampling

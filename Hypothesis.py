@@ -1,6 +1,7 @@
 import time
 import numpy as np
 from dbStuff import getSample, execute_query
+from dolap import countViolations
 from statStuff import welch_ttest, permutation_test, compute_skewness, benjamini_hochberg, claireStat
 from statsmodels.stats.multitest import fdrcorrection
 
@@ -387,3 +388,50 @@ class Hypothesis:
         else:
             pvalue = 1000  # change me
         return hypothesis, samplingTime, hypothesisGenerationTime, pvalue
+
+    def checkViolationsOpt(self, ratioViolations, ratioCuboidOK, conn, ranks, hypothesis, queryCountCuboid,sizeofsample):
+        # cut here
+        #  if ratio is reached, or if sure ratio won't be reached given nb of cuboids remaining, then stop don't test more cuboids
+        nbViewOK = 0
+        nbInconclusive = 0
+        stop = False
+        i = 0
+        while not stop and i < len(ranks):
+            v, ratio, qtime = countViolations(conn, ranks[i], hypothesis)
+            c = execute_query(conn, queryCountCuboid[i])[0][0]
+            if c != 0:
+                if ratio < ratioViolations:
+                    nbViewOK = nbViewOK + 1
+            else:
+                sizeofsample = sizeofsample - 1
+                nbInconclusive = nbInconclusive + 1
+            i = i + 1
+            if sizeofsample != 0:
+                prediction = nbViewOK / sizeofsample
+                if prediction >= ratioCuboidOK or (nbViewOK + len(ranks) - i) / sizeofsample < ratioCuboidOK:
+                    stop = True
+        # cut here
+        return nbViewOK,sizeofsample,nbInconclusive
+
+    def checkViolations(self, ratioViolations, conn, ranks, hypothesis, queryCountCuboid, queryCountviolations, nbMVs):
+        nbInconclusive = 0
+        nbViewOK = 0
+        for i in range(len(queryCountviolations)):
+
+            v, ratio, qtime = countViolations(conn, ranks[i], hypothesis)
+            c = execute_query(conn, queryCountCuboid[i])[0][0]
+
+            if c != 0:
+                if ratio < ratioViolations:
+                    nbViewOK = nbViewOK + 1
+            else:
+                nbMVs = nbMVs - 1
+                nbInconclusive = nbInconclusive + 1
+
+        if nbMVs == 0:
+            prediction = 0
+            # bennetError = 0
+        else:
+            prediction = nbViewOK / nbMVs
+
+        return prediction,nbViewOK,nbMVs,nbInconclusive
