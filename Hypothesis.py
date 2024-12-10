@@ -390,7 +390,6 @@ class Hypothesis:
         return hypothesis, samplingTime, hypothesisGenerationTime, pvalue
 
     def checkViolationsOpt(self, ratioViolations, ratioCuboidOK, conn, ranks, hypothesis, queryCountCuboid,sizeofsample):
-        # cut here
         #  if ratio is reached, or if sure ratio won't be reached given nb of cuboids remaining, then stop don't test more cuboids
         nbViewOK = 0
         nbInconclusive = 0
@@ -410,8 +409,8 @@ class Hypothesis:
                 prediction = nbViewOK / sizeofsample
                 if prediction >= ratioCuboidOK or (nbViewOK + len(ranks) - i) / sizeofsample < ratioCuboidOK:
                     stop = True
-        # cut here
         return nbViewOK,sizeofsample,nbInconclusive
+
 
     def checkViolations(self, ratioViolations, conn, ranks, hypothesis, queryCountCuboid, queryCountviolations, nbMVs):
         nbInconclusive = 0

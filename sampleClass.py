@@ -98,9 +98,7 @@ class Sample:
         H=Hypothesis()
         for p in pairs:
             sampleSize = sizeOfR
-            #hypothesis, hypothesisGenerationTime, samplingTime,pvalue = hypothesisGeneration(self.conn, p, self.sel, self.measBase, self.meas,
-            #                                                                          self.table, sampleSize,
-            #                                                                          allComparison=True)
+
             hypothesis, hypothesisGenerationTime, samplingTime, pvalue = H.hypothesisGeneration(self.conn, p, self.sel,
                                                                                               self.measBase, self.meas,
                                                                                               self.table, sampleSize,
@@ -120,23 +118,7 @@ class Sample:
                                                                                                 tuple(valsToSelect),
                                                                                                 hypothesis,
                                                                                                 self.getAllLattice())
-                """
-                nbInconclusive = 0
-                nbViewOK = 0
-                for i in range(len(queryCountviolations)):
 
-                    v, ratio, qtime = countViolations(conn, ranks[i], hypothesis)
-                    c = execute_query(conn, queryCountCuboid[i])[0][0]
-
-                    if c != 0:
-                        if ratio < ratioViolations:
-                            nbViewOK = nbViewOK + 1
-                    else:
-                        nbMVs = nbMVs - 1
-                        nbInconclusive = nbInconclusive + 1
-
-                realRatio = nbViewOK / nbMVs
-                """
                 realRatio, nbViewOK, sizeofsample, nbInconclusive= H.checkViolations(ratioViolations, conn, ranks, hypothesis, queryCountCuboid, queryCountviolations, nbMVs)
                 dictGT[p] = [nbInconclusive, realRatio]
 
@@ -167,23 +149,6 @@ class Sample:
                                                                                                 tuple(valsToSelect),
                                                                                                 hypothesis,
                                                                                                 self.getMC())
-                """
-                nbInconclusive = 0
-                nbViewOK = 0
-                for i in range(len(queryCountviolations)):
-
-                    v, ratio, qtime = countViolations(conn, ranks[i], hypothesis)
-                    c = execute_query(conn, queryCountCuboid[i])[0][0]
-
-                    if c != 0:
-                        if ratio < ratioViolations:
-                            nbViewOK = nbViewOK + 1
-                    else:
-                        nbMVs = nbMVs - 1
-                        nbInconclusive = nbInconclusive + 1
-
-                realRatio = nbViewOK / nbMVs
-                """
 
                 realRatio, nbViewOK, sizeofsample, nbInconclusive = H.checkViolations(ratioViolations, conn, ranks, hypothesis, queryCountCuboid,
                                                           queryCountviolations, nbMVs)
@@ -246,24 +211,8 @@ def runComparisons():
                             s1.getMC())
 
                         # compute violations over sample
-
                         sizeofsample = len(s1.getCurrentSample())
 
-                        """
-                        nbViewOK = 0
-                        nbInconclusive = 0
-
-                        for i in range(len(ranks)):
-                            v, ratio, qtime = countViolations(conn, ranks[i], hypothesis)
-                            c = execute_query(conn, queryCountCuboid[i])[0][0]
-
-                            if c != 0:
-                                if ratio < ratioViolations:
-                                    nbViewOK = nbViewOK + 1
-                            else:
-                                sizeofsample = sizeofsample - 1
-                                nbInconclusive = nbInconclusive + 1
-                        """
                         prediction, nbViewOK, sizeofsample, nbInconclusive=H.checkViolations(ratioViolations, conn, ranks, hypothesis, queryCountCuboid,queryCountviolations,sizeofsample)
 
 
@@ -278,24 +227,8 @@ def runComparisons():
                             table, tuple(valsToSelect),
                             hypothesis,
                             s1.getMC())
-                        """
-                        nbInconclusive = 0
-                        nbViewOK = 0
-                        for i in range(len(queryCountviolations)):
 
-                            v, ratio, qtime = countViolations(conn, ranks[i], hypothesis)
-                            c = execute_query(conn, queryCountCuboid[i])[0][0]
-
-                            if c != 0:
-                                if ratio < ratioViolations:
-                                    nbViewOK = nbViewOK + 1
-                            else:
-                                nbMVs = nbMVs - 1
-                                nbInconclusive = nbInconclusive + 1
-
-                        gtratio = nbViewOK / nbMVs
-                        """
-                        prediction, nbViewOK, nbMVs, nbInconclusive=H.checkViolations(ratioViolations, conn, ranks, hypothesis, queryCountCuboid,queryCountviolations,nbMVs)
+                        gtratio, nbViewOK, nbMVs, nbInconclusive=H.checkViolations(ratioViolations, conn, ranks, hypothesis, queryCountCuboid,queryCountviolations,nbMVs)
 
                         errorOnMC = abs(prediction - (nbViewOK / nbMVs))
 
@@ -311,23 +244,6 @@ def runComparisons():
                             hypothesis,
                             s1.getAllLattice())
 
-                        """"
-                        nbInconclusive = 0
-                        nbViewOK = 0
-                        for i in range(len(queryCountviolations)):
-
-                            v, ratio, qtime = countViolations(conn, ranks[i], hypothesis)
-                            c = execute_query(conn, queryCountCuboid[i])[0][0]
-
-                            if c != 0:
-                                if ratio < ratioViolations:
-                                    nbViewOK = nbViewOK + 1
-                            else:
-                                nbMVs = nbMVs - 1
-                                nbInconclusive = nbInconclusive + 1
-
-                        gtratio = nbViewOK / nbMVs
-                        """
                         gtratio, nbViewOK, nbMVs, nbInconclusive=H.checkViolations(ratioViolations, conn, ranks, hypothesis, queryCountCuboid,queryCountviolations,nbMVs)
 
                         errorOnLattice = abs(prediction - (nbViewOK / nbMVs))
@@ -358,7 +274,7 @@ def runTimings():
         mvnames = s1.getMC()
 
         for generateIndex in [False, True, 'mc']:
-        #for generateIndex in [True]:
+        #for generateIndex in ['mc']:
             dropAllIndexOnMVs(conn, mvnames)
             generateIndexesOnMVs(conn, sel, mvnames, generateIndex)
 
@@ -411,25 +327,7 @@ def runTimings():
                     #         sizeofsample = sizeofsample - 1
                     #         nbInconclusive = nbInconclusive + 1
 
-                    # cut here
-                    #  if ratio is reached, or if sure ratio won't be reached given nb of cuboids remaining, then stop don't test more cuboids
-                    #stop=False
-                    #i=0
-                    #while not stop and i<len(ranks):
-                        # v, ratio, qtime = countViolations(conn, ranks[i], hypothesis)
-                        # c = execute_query(conn, queryCountCuboid[i])[0][0]
-                        # if c != 0:
-                        #     if ratio < ratioViolations:
-                        #         nbViewOK = nbViewOK + 1
-                        # else:
-                        #     sizeofsample = sizeofsample - 1
-                        #     nbInconclusive = nbInconclusive + 1
-                        # i=i+1
-                        # if sizeofsample != 0:
-                        #     prediction = nbViewOK / sizeofsample
-                        #     if prediction >= ratioCuboidOK or (nbViewOK + len(ranks)-i)/sizeofsample <ratioCuboidOK:
-                        #         stop=True
-                    #cut here
+
                     nbViewOK,sizeofsample,nbInconclusive=H.checkViolationsOpt(ratioViolations, ratioCuboidOK, conn, ranks, hypothesis, queryCountCuboid,sizeofsample)
 
                     if sizeofsample == 0:
@@ -510,16 +408,16 @@ if __name__ == "__main__":
     ratioCuboidOK = 0.4
     ratioViolations=0.4
 
-    nbruns=2
+    nbruns=5
 
     # for Recall @ k
-    k = 5
+    k = 10
 
     #dictGTLattice = s1.getGTallLattice(pairs, sizeOfR,ratioViolations)
     #dictGTMC = s1.getGTQueriesOverMC(pairs, sizeOfR,ratioViolations)
 
-    #tabTest = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1]
-    tabTest=[1]
+    tabTest = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1]
+    #tabTest=[0.1,0.6,1]
 
     comparison=True
 
