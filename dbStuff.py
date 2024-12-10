@@ -56,6 +56,28 @@ def dropAllIndex(conn, table):
 def dropAllIndexOnMVs(conn,mvnames):
     for n in mvnames:
         dropAllIndex(conn, n[0])
+        # also remove clustering if any
+        query = "alter table \"" + n[0] + "\" set without cluster;"
+        execute_query(conn, query)
+
+
+def generateIndexesOnMVs(conn,  sel, mvnames, generateIndex):
+    for n  in mvnames:
+        if generateIndex == True:
+            # print('creating index on view')
+            generateHashIndex(conn, n[0], sel)
+
+        if generateIndex == 'mc':
+            # print('creating multicolumn index on view')
+            generateMulticolIndex(conn, n[0], n[0], sel)
+
+        if generateIndex == 'cl':
+            generateClusteredIndex(conn, n[0], sel)
+
+        #if generateIndex == 'mc-cl':
+        #    generateClusteredIndex(conn, n[0], sel)
+        #    generateMulticolIndex(conn, n[0], n[0], sel)
+
 
 def generateHashIndex(conn, table, sel):
     indexname=table+'_'+sel
@@ -66,6 +88,16 @@ def generateIndex(conn, table, sel):
         indexname = table + '_' + sel
         query = "create index if not exists \"" + indexname + "\" on \"" + table + "\"(" + sel + ");"
         execute_query(conn, query)
+
+# generate a Btree on sel and cluster table on it
+def generateClusteredIndex(conn, table, sel):
+    indexname = table + '_' + sel
+    generateIndex(conn, table, sel)
+    query = "cluster \"" + table + "\" using \"" + indexname +  "\";"
+    execute_query(conn, query)
+    query = "analyze \"" + table +  "\";"
+    execute_query(conn, query)
+
 
 # generate a multicolumn index on table
 def generateMulticolIndex(conn, table, list, selAtt):
@@ -170,15 +202,7 @@ def createMV(conn, attInGB, selAtt, meas, function, table, percentOfLattice,gene
                 generateMulticolIndex(conn, gbs, gbs, selAtt)
     return nbOfMV
 
-def generateIndexesOnMVs(conn,  sel, mvnames, generateIndex):
-    for n  in mvnames:
-        if generateIndex == True:
-            # print('creating index on view')
 
-            generateHashIndex(conn, n[0], sel)
-        if generateIndex == 'mc':
-            # print('creating multicolumn index on view')
-            generateMulticolIndex(conn, n[0], n[0], sel)
 
 
 def createMVWithoutIndex(conn, attInGB, selAtt, meas, function, table, percentOfLattice):
