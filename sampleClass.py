@@ -174,7 +174,7 @@ def runComparisons():
 
         for initsampleRatio in tabTest:
 
-            s1 = Sample(conn, groupbyAtt, sel, meas, measBase, function, table, 'mc')
+            s1 = Sample(conn, groupbyAtt, sel, meas, measBase, function, table, 'cl')
             s1.generateRandomMC(0.4)
 
             for inc in tabTest:
@@ -268,12 +268,14 @@ def runComparisons():
 
 def runTimings():
 
-    for nr in tqdm(range(nbruns)):
+    for nr in tqdm(range(nbruns), desc="runs"):
         s1 = Sample(conn, groupbyAtt, sel, meas, measBase, function, table)
         s1.generateRandomMC(0.4)
         mvnames = s1.getMC()
 
-        for generateIndex in [False, True, 'mc']:
+        #generateIndex='cl'
+        #for ratioCuboidOK in tabTest:
+        for generateIndex in tqdm([False, True, 'mc','cl','mc-cl'], desc="index", leave=False):
         #for generateIndex in ['mc']:
             dropAllIndexOnMVs(conn, mvnames)
             generateIndexesOnMVs(conn, sel, mvnames, generateIndex)
@@ -308,25 +310,8 @@ def runTimings():
                         s1.getCurrentSample(), sel, measBase, function, table, tuple(valsToSelect), hypothesis,
                         s1.getMC())
 
-
                     # compute violations over sample
                     sizeofsample = len(s1.getCurrentSample())
-
-                    #nbViewOK = 0
-                    #nbInconclusive = 0
-
-                    #todo order queries by size of group by set
-                    # for i in range(len(ranks)):
-                    #     v, ratio, qtime = countViolations(conn, ranks[i], hypothesis)
-                    #     c = execute_query(conn, queryCountCuboid[i])[0][0]
-                    #
-                    #     if c != 0:
-                    #         if ratio < ratioViolations:
-                    #             nbViewOK = nbViewOK + 1
-                    #     else:
-                    #         sizeofsample = sizeofsample - 1
-                    #         nbInconclusive = nbInconclusive + 1
-
 
                     nbViewOK,sizeofsample,nbInconclusive=H.checkViolationsOpt(ratioViolations, ratioCuboidOK, conn, ranks, hypothesis, queryCountCuboid,sizeofsample)
 
@@ -338,7 +323,7 @@ def runTimings():
                 end_time = time.time()
                 timings=timings + (end_time - start_time)
                 count=count+1
-                dfTimes.loc[len(dfTimes)] = [nr, generateIndex, count, timings]
+                dfTimes.loc[len(dfTimes)] = [nr, generateIndex, count, timings, ratioCuboidOK]
 
     dfTimes.to_csv(fileResultsTimes)
     s1.clean()
@@ -346,29 +331,35 @@ def runTimings():
 
 
 if __name__ == "__main__":
+    config = configparser.ConfigParser()
+
+    # The DB we want
+    theDB=  'F9K'
+    #theDB = 'SSB'
+    #theDB = 'F600K'
+    match theDB:
+        case 'F9K': config.read('configs/flightsDolap.ini')
+        case 'F600K': config.read('configs/flightsquarterDolap.ini')
+        case 'SSB': config.read('configs/ssbDolap.ini')
+    # config.read('configs/flights1923Dolap.ini')
+
     # exporting results to csv
     current_time = time.localtime()
     formatted_time = time.strftime("%d-%m-%y:%H:%M:%S", current_time)
-    fileResultsError = 'results/error_' + formatted_time + '.csv'
+    fileResultsError = 'results/error_' + formatted_time + '_' + theDB + '.csv'
     column_namesError = ['Runs', 'Initial Sample', 'Query Sample', 'Pair', 'Error on materialized', 'Error on lattice', 'Prediction']
-    fileResultsF1 = 'results/f1-r@k_' + formatted_time + '.csv'
+    fileResultsF1 = 'results/f1-r@k_' + formatted_time + '_' + theDB + '.csv'
     column_namesF1 = ['Runs', 'Initial Sample', 'Query Sample', 'Precision on Lattice', 'Recall on Lattice', 'F1 on Lattice', 'Recall@k on Lattice', 'Precision on Queries', 'Recall on Queries', 'F1 on Queries', 'Recall@k on Queries', 'k','Number of Comparisons','Number of Welch','Number of permutation']
 
-    fileResultsTimes = 'results/times-' + formatted_time + '.csv'
-    column_namesTimes = ['Runs', 'Index',  'count', 'Time']
+    fileResultsTimes = 'results/times-' + formatted_time + '_' + theDB + '.csv'
+    column_namesTimes = ['Runs', 'Index',  'count', 'Time', 'Ratio cuboid']
 
     # Create an empty DataFrame with the specified columns
     dfError = pd.DataFrame(columns=column_namesError)
     dfF1 = pd.DataFrame(columns=column_namesF1)
     dfTimes = pd.DataFrame(columns=column_namesTimes)
 
-    config = configparser.ConfigParser()
 
-    # The DB we want
-    config.read('configs/flightsDolap.ini')
-    #config.read('configs/flightsquarterDolap.ini')
-    #config.read('configs/ssbDolap.ini')
-    # config.read('configs/flights1923Dolap.ini')
     USER = "PM"
 
     # Database connection parameters
@@ -408,7 +399,7 @@ if __name__ == "__main__":
     ratioCuboidOK = 0.4
     ratioViolations=0.4
 
-    nbruns=5
+    nbruns=10
 
     # for Recall @ k
     k = 10
@@ -416,8 +407,8 @@ if __name__ == "__main__":
     #dictGTLattice = s1.getGTallLattice(pairs, sizeOfR,ratioViolations)
     #dictGTMC = s1.getGTQueriesOverMC(pairs, sizeOfR,ratioViolations)
 
-    tabTest = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1]
-    #tabTest=[0.1,0.6,1]
+    #tabTest = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1]
+    tabTest=[0.1,0.6,1]
 
     comparison=True
 

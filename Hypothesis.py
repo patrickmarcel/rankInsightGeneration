@@ -416,7 +416,7 @@ class Hypothesis:
         nbInconclusive = 0
         nbViewOK = 0
         for i in range(len(queryCountviolations)):
-
+            #print(ranks[i])
             v, ratio, qtime = countViolations(conn, ranks[i], hypothesis)
             c = execute_query(conn, queryCountCuboid[i])[0][0]
 

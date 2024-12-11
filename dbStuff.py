@@ -74,9 +74,9 @@ def generateIndexesOnMVs(conn,  sel, mvnames, generateIndex):
         if generateIndex == 'cl':
             generateClusteredIndex(conn, n[0], sel)
 
-        #if generateIndex == 'mc-cl':
-        #    generateClusteredIndex(conn, n[0], sel)
-        #    generateMulticolIndex(conn, n[0], n[0], sel)
+        if generateIndex == 'mc-cl':
+            generateClusteredIndex(conn, n[0], sel)
+            generateMulticolIndex(conn, n[0], n[0], sel)
 
 
 def generateHashIndex(conn, table, sel):
@@ -199,6 +199,12 @@ def createMV(conn, attInGB, selAtt, meas, function, table, percentOfLattice,gene
                 generateHashIndex(conn, gbs, selAtt)
             if generateIndex=='mc':
                 #print('creating multicolumn index on view')
+                generateMulticolIndex(conn, gbs, gbs, selAtt)
+            if generateIndex == 'cl':
+                generateClusteredIndex(conn, gbs, selAtt)
+
+            if generateIndex == 'mc-cl':
+                generateClusteredIndex(conn, gbs, selAtt)
                 generateMulticolIndex(conn, gbs, gbs, selAtt)
     return nbOfMV
 
