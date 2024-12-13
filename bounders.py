@@ -212,6 +212,8 @@ def generateAllqueriesOnMVs(pwrset, sel, meas, function, table, valsToSelect, hy
             queryValidGB = ("select " + gbwithoutsel + " from (SELECT " + strgb + " FROM \"" + str(
                 materialized) + "\"" + " WHERE " + sel + " in " + str(
                 valsToSelect) + " group by " + strgb + " ) t group by " + gbwithoutsel + " having count(*) >1")
+            #queryValidGB = ("select " + gbwithoutsel +  " FROM \"" + str(materialized) + "\"" + " WHERE " + sel + " in " + str(
+             #   valsToSelect) + " group by " + gbwithoutsel + " having count(*) >1")
             q = ("SELECT " + strgb + ", " + function + '(' + meas + "), "
                  + " rank () over ( partition by " + gbwithoutsel + " order by " + function + '(' + meas + ") desc ) as rank" +
                  " FROM \"" + str(materialized) + "\"" +

@@ -22,8 +22,11 @@ class Sample:
         self.function=function
         self.table=table
         dropAllMVs(conn)
+        #create all MVs
+        print("Creating materialized views")
         createMV(conn, attInGB, selAtt, measBase, function, table, 1, generateIndex)
         self.allMVs=getMVnames(conn)
+        #create all aggregate queries
         self.aggOverMV = getAggQueriesOverMV(self.allMVs,sel)
         # currentSample is the set of cuboid names in the sample
         self.currentSample=[]
@@ -38,8 +41,25 @@ class Sample:
     def generateSampleOfAggQueries(self, ratio):
         sizeOfSample = int(ratio*len(self.aggOverMC))
         remaining = self.aggOverMC.copy()
+        pwrset=self.allMVs
+        # if withBias:
+        #     tabNb = []
+        #     tabWeights = []
+        #     sumLength = 0
+        #     for p in pwrset:
+        #         sumLength = sumLength + len(p)
+        #     maxlength = len(pwrset[-1]) + 1
+        #     i = 0
+        #     for p in pwrset:
+        #         w = (maxlength - len(p)) / sumLength
+        #         tabWeights.append(w)
+        #         tabNb.append(i)
+        #         i = i + 1
         chosen = []
         for j in range(sizeOfSample):
+            #if withBias:
+            #    nb = max(random.choices(tabNb, tabWeights))
+            #else:
             nb = random.randint(0, len(remaining)-1)
             gb = remaining[nb]
             remaining.remove(gb)
@@ -94,6 +114,7 @@ class Sample:
         dropAllMVs(self.conn)
 
     def getGTallLattice(self, pairs,sizeOfR,ratioViolations):
+        print("Computing ground truth on all the lattice")
         dictGT={}
         H=Hypothesis()
         for p in pairs:
@@ -123,10 +144,11 @@ class Sample:
                 dictGT[p] = [nbInconclusive, realRatio]
 
         dictGT = utilities.sort_dict_by_second_entry_desc(dictGT)
-        print("Number of comparisons found on lattice:", len(dictGT))
+        print("Number of comparisons found:", len(dictGT))
         return dictGT
 
     def getGTQueriesOverMC(self, pairs,sizeOfR,ratioViolations):
+        print("Computing ground truth on queries over materialzed views")
         dictGT={}
         H=Hypothesis()
         for p in pairs:
@@ -155,7 +177,7 @@ class Sample:
                 dictGT[p] = [nbInconclusive, realRatio]
 
         dictGT = utilities.sort_dict_by_second_entry_desc(dictGT)
-        print("Number of comparisons found on qeries:",len(dictGT))
+        print("Number of comparisons found:",len(dictGT))
         return dictGT
 
 
@@ -163,20 +185,23 @@ class Sample:
 
 def runComparisons():
     s1 = Sample(conn, groupbyAtt, sel, meas, measBase, function, table)
-    s1.generateRandomMC(0.4)
+    #s1.generateRandomMC(0.4)
 
     dictGTLattice = s1.getGTallLattice(pairs, sizeOfR, ratioViolations)
-    dictGTMC = s1.getGTQueriesOverMC(pairs, sizeOfR, ratioViolations)
+    #dictGTMC = s1.getGTQueriesOverMC(pairs, sizeOfR, ratioViolations)
 
 
-    for nr in tqdm(range(nbruns)):
+    for nr in tqdm(range(nbruns), desc='Runs'):
         # for nr in trange(nbruns, desc='Runs'):
 
-        for initsampleRatio in tabTest:
+        for initsampleRatio in tqdm(tabTest, desc='Init sample'):
+        #for initsampleRatio in tqdm([0.01,0.1,1]):
 
             s1 = Sample(conn, groupbyAtt, sel, meas, measBase, function, table, 'cl')
             s1.generateRandomMC(0.4)
+            dictGTMC = s1.getGTQueriesOverMC(pairs, sizeOfR, ratioViolations)
 
+            #for inc in [0.4,0.6,1]:
             for inc in tabTest:
                 # if cumulate
                 s1.increaseSample(inc)
@@ -270,13 +295,17 @@ def runTimings():
 
     for nr in tqdm(range(nbruns), desc="runs"):
         s1 = Sample(conn, groupbyAtt, sel, meas, measBase, function, table)
-        s1.generateRandomMC(0.4)
+        percentOfLattice=0.4
+        s1.generateRandomMC(percentOfLattice)
         mvnames = s1.getMC()
 
         #generateIndex='cl'
         #for ratioCuboidOK in tabTest:
-        for generateIndex in tqdm([False, True, 'mc','cl','mc-cl'], desc="index", leave=False):
-        #for generateIndex in ['mc']:
+        #for percentOfLattice in tqdm(tabTest, desc="lattice", leave=False):
+        #    s1.generateRandomMC(percentOfLattice)
+        #    mvnames = s1.getMC()
+        #for generateIndex in tqdm([False, True, 'mc','cl','mc-cl'], desc="index", leave=False):
+        for generateIndex in ['mc-cl']:
             dropAllIndexOnMVs(conn, mvnames)
             generateIndexesOnMVs(conn, sel, mvnames, generateIndex)
 
@@ -285,6 +314,7 @@ def runTimings():
             count=0
             H = Hypothesis()
             for p in pairs:
+            # for p in tqdm(pairs, desc="pairs", leave=False):
                 start_time = time.time()
 
                 # generate candidate
@@ -310,6 +340,7 @@ def runTimings():
                         s1.getCurrentSample(), sel, measBase, function, table, tuple(valsToSelect), hypothesis,
                         s1.getMC())
 
+                    #print(ranks)
                     # compute violations over sample
                     sizeofsample = len(s1.getCurrentSample())
 
@@ -323,7 +354,7 @@ def runTimings():
                 end_time = time.time()
                 timings=timings + (end_time - start_time)
                 count=count+1
-                dfTimes.loc[len(dfTimes)] = [nr, generateIndex, count, timings, ratioCuboidOK]
+                dfTimes.loc[len(dfTimes)] = [nr, generateIndex, count, timings, ratioCuboidOK,percentOfLattice]
 
     dfTimes.to_csv(fileResultsTimes)
     s1.clean()
@@ -334,14 +365,17 @@ if __name__ == "__main__":
     config = configparser.ConfigParser()
 
     # The DB we want
-    theDB=  'F9K'
-    #theDB = 'SSB'
+    #theDB=  'F9K'
+    theDB = 'F100K'
+    #theDB=  'F3M'
     #theDB = 'F600K'
+    #theDB = 'SSB'
     match theDB:
         case 'F9K': config.read('configs/flightsDolap.ini')
+        case 'F100K': config.read('configs/flights100k.ini')
         case 'F600K': config.read('configs/flightsquarterDolap.ini')
+        case 'F3M' : config.read('configs/flights1923Dolap.ini')
         case 'SSB': config.read('configs/ssbDolap.ini')
-    # config.read('configs/flights1923Dolap.ini')
 
     # exporting results to csv
     current_time = time.localtime()
@@ -352,7 +386,7 @@ if __name__ == "__main__":
     column_namesF1 = ['Runs', 'Initial Sample', 'Query Sample', 'Precision on Lattice', 'Recall on Lattice', 'F1 on Lattice', 'Recall@k on Lattice', 'Precision on Queries', 'Recall on Queries', 'F1 on Queries', 'Recall@k on Queries', 'k','Number of Comparisons','Number of Welch','Number of permutation']
 
     fileResultsTimes = 'results/times-' + formatted_time + '_' + theDB + '.csv'
-    column_namesTimes = ['Runs', 'Index',  'count', 'Time', 'Ratio cuboid']
+    column_namesTimes = ['Runs', 'Index',  'count', 'Time', 'Ratio cuboid','percent of lattice']
 
     # Create an empty DataFrame with the specified columns
     dfError = pd.DataFrame(columns=column_namesError)
@@ -399,7 +433,7 @@ if __name__ == "__main__":
     ratioCuboidOK = 0.4
     ratioViolations=0.4
 
-    nbruns=10
+    nbruns=5
 
     # for Recall @ k
     k = 10
@@ -408,7 +442,8 @@ if __name__ == "__main__":
     #dictGTMC = s1.getGTQueriesOverMC(pairs, sizeOfR,ratioViolations)
 
     #tabTest = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1]
-    tabTest=[0.1,0.6,1]
+    #tabTest=[0.4]
+    tabTest=[0.001,0.01,0.1,0.25,0.5,0.75,1]
 
     comparison=True
 

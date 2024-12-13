@@ -1,4 +1,6 @@
 import psycopg2
+from tqdm import tqdm
+
 from utilities import powerset
 import random
 import numpy as np
@@ -529,8 +531,9 @@ if __name__ == "__main__":
     #config.read('configs/flights1923.ini')
     #config.read('configs/flightsQuarter.ini')
     #config.read('configs/flights.ini')
-    config.read('configs/artificial.ini')
+    #config.read('configs/artificial.ini')
     #config.read('configs/ssb.ini')
+    config.read('configs/flights100k.ini')
     # The system this is running on
     USER = "PM"
 
@@ -553,5 +556,6 @@ if __name__ == "__main__":
 
     dropAllMVs(conn)
     #newtable,atts=generateArtificialDataset(conn,10,2,2,10,'log')
-    newtable,atts=generateArtificialDataset(conn,500000,10,10,10,'log')
-    print(getDensity(conn,newtable,atts))
+    #newtable,atts=generateArtificialDataset(conn,500000,10,10,10,'log')
+    #print(getDensity(conn,newtable,atts))
+    print(getDensity(conn,table,groupbyAtt))

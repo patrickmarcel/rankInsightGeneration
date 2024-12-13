@@ -162,9 +162,9 @@ def countViolationsDOLAP(conn,query,hypothesis):
 
 
 def countViolations(conn,query,hypothesis):
-    ##print(query)
+    #print("query: " ,query)
     hyp=[str(a) for (a,b) in hypothesis]
-    ##print('hyp:',hyp)
+    #print('hyp: ',hyp)
     v=0
     start_time_q = time.time()
     res=dbStuff.execute_query(conn,query)
@@ -217,6 +217,7 @@ def countViolations(conn,query,hypothesis):
         ratio=v/normalize
     else:
         ratio=0
+    #print("ratio: ",ratio)
     return v,ratio,querytime
 
 
