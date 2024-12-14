@@ -10,6 +10,10 @@ class Hypothesis:
     def __init__(self ):
         self.nbWelch=0
         self.nbPerm=0
+        self.test='stat'
+
+    def setTest(self, test):
+        self.test=test
 
     def getNbWelch(self):
             return self.nbWelch
@@ -70,29 +74,53 @@ class Hypothesis:
             for j in range(i, len(S)):
                 b = claireStat(S[i - 1][2], S[j][2], S[i - 1][1], S[j][1])
                 claireTab.append((S[i - 1][0], S[j][0], b, S[i - 1][3], S[j][3]))
+                match self.test:
+                    case 'stat':
+                        if b:
+                            # print("Welch test can be used")
+                            self.nbWelch=self.nbWelch + 1
+                            t_stat, p_value, conclusion = welch_ttest(S[i - 1][3], S[j][3])
 
-                if b:
-                    # print("Welch test can be used")
-                    self.nbWelch=self.nbWelch + 1
-                    t_stat, p_value, conclusion = welch_ttest(S[i - 1][3], S[j][3])
+                            comp = 0  # not significant
+                            if p_value < 0.05 and t_stat < 0:
+                                comp = -1
+                            if p_value < 0.05 and t_stat > 0:
+                                comp = 1
+                            pairwiseComparison.append((S[i - 1][0], S[j][0], comp, t_stat, float(p_value)))
+                        else:
+                            # print("Permutation test is used")
+                            self.nbPerm=self.nbPerm + 1
+                            observed_t_stat, p_value, permuted_t_stats, conclusion = permutation_test(S[i - 1][3], S[j][3])
 
-                    comp = 0  # not significant
-                    if p_value < 0.05 and t_stat < 0:
-                        comp = -1
-                    if p_value < 0.05 and t_stat > 0:
-                        comp = 1
-                    pairwiseComparison.append((S[i - 1][0], S[j][0], comp, t_stat, float(p_value)))
-                else:
-                    # print("Permutation test is used")
-                    self.nbPerm=self.nbPerm + 1
-                    observed_t_stat, p_value, permuted_t_stats, conclusion = permutation_test(S[i - 1][3], S[j][3])
+                            comp = 0  # not significant
+                            if p_value < 0.05 and observed_t_stat < 0:
+                                comp = -1
+                            if p_value < 0.05 and observed_t_stat > 0:
+                                comp = 1
+                            pairwiseComparison.append((S[i - 1][0], S[j][0], comp, observed_t_stat, float(p_value)))
+                    case 'Welch':
+                        # only Welch
+                        self.nbWelch = self.nbWelch + 1
+                        t_stat, p_value, conclusion = welch_ttest(S[i - 1][3], S[j][3])
 
-                    comp = 0  # not significant
-                    if p_value < 0.05 and observed_t_stat < 0:
-                        comp = -1
-                    if p_value < 0.05 and observed_t_stat > 0:
-                        comp = 1
-                    pairwiseComparison.append((S[i - 1][0], S[j][0], comp, observed_t_stat, float(p_value)))
+                        comp = 0  # not significant
+                        if p_value < 0.05 and t_stat < 0:
+                            comp = -1
+                        if p_value < 0.05 and t_stat > 0:
+                            comp = 1
+                        pairwiseComparison.append((S[i - 1][0], S[j][0], comp, t_stat, float(p_value)))
+                    case 'Permutation':
+                        # only permutation
+                        self.nbPerm = self.nbPerm + 1
+                        observed_t_stat, p_value, permuted_t_stats, conclusion = permutation_test(S[i - 1][3], S[j][3])
+
+                        comp = 0  # not significant
+                        if p_value < 0.05 and observed_t_stat < 0:
+                            comp = -1
+                        if p_value < 0.05 and observed_t_stat > 0:
+                            comp = 1
+                        pairwiseComparison.append((S[i - 1][0], S[j][0], comp, observed_t_stat, float(p_value)))
+
 
         pairwiseComparison = self.computeBHcorrection(pairwiseComparison, 0.05)
         # print('paiwise after BH:', pairwiseComparison)
@@ -167,6 +195,7 @@ class Hypothesis:
             hypothesis = self.getHypothesisCongressionalSampling(adom, congress)
             end_time = time.time()
             hypothesisGenerationTime = end_time - start_time
+            pvalue=False
         else:
             # sampling and hypothesis
             hypothesis, samplingTime, hypothesisGenerationTime, pvalue = self.getHypothesisAllComparisons(conn, meas,

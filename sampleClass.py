@@ -299,13 +299,14 @@ def runTimings():
         s1.generateRandomMC(percentOfLattice)
         mvnames = s1.getMC()
 
-        #generateIndex='cl'
+        generateIndex='cl'
+        for test in ['Welch','Permutation']:
         #for ratioCuboidOK in tabTest:
         #for percentOfLattice in tqdm(tabTest, desc="lattice", leave=False):
         #    s1.generateRandomMC(percentOfLattice)
         #    mvnames = s1.getMC()
         #for generateIndex in tqdm([False, True, 'mc','cl','mc-cl'], desc="index", leave=False):
-        for generateIndex in ['mc-cl']:
+        #for generateIndex in ['mc-cl']:
             dropAllIndexOnMVs(conn, mvnames)
             generateIndexesOnMVs(conn, sel, mvnames, generateIndex)
 
@@ -313,6 +314,7 @@ def runTimings():
             timings = 0
             count=0
             H = Hypothesis()
+            H.setTest(test)
             for p in pairs:
             # for p in tqdm(pairs, desc="pairs", leave=False):
                 start_time = time.time()
@@ -354,7 +356,7 @@ def runTimings():
                 end_time = time.time()
                 timings=timings + (end_time - start_time)
                 count=count+1
-                dfTimes.loc[len(dfTimes)] = [nr, generateIndex, count, timings, ratioCuboidOK,percentOfLattice]
+                dfTimes.loc[len(dfTimes)] = [nr, generateIndex, count, timings, ratioCuboidOK,percentOfLattice,test]
 
     dfTimes.to_csv(fileResultsTimes)
     s1.clean()
@@ -386,7 +388,7 @@ if __name__ == "__main__":
     column_namesF1 = ['Runs', 'Initial Sample', 'Query Sample', 'Precision on Lattice', 'Recall on Lattice', 'F1 on Lattice', 'Recall@k on Lattice', 'Precision on Queries', 'Recall on Queries', 'F1 on Queries', 'Recall@k on Queries', 'k','Number of Comparisons','Number of Welch','Number of permutation']
 
     fileResultsTimes = 'results/times-' + formatted_time + '_' + theDB + '.csv'
-    column_namesTimes = ['Runs', 'Index',  'count', 'Time', 'Ratio cuboid','percent of lattice']
+    column_namesTimes = ['Runs', 'Index',  'count', 'Time', 'Ratio cuboid','percent of lattice','Test']
 
     # Create an empty DataFrame with the specified columns
     dfError = pd.DataFrame(columns=column_namesError)
@@ -433,7 +435,7 @@ if __name__ == "__main__":
     ratioCuboidOK = 0.4
     ratioViolations=0.4
 
-    nbruns=5
+    nbruns=1
 
     # for Recall @ k
     k = 10
@@ -445,7 +447,7 @@ if __name__ == "__main__":
     #tabTest=[0.4]
     tabTest=[0.001,0.01,0.1,0.25,0.5,0.75,1]
 
-    comparison=True
+    comparison=False
 
     if comparison:
         runComparisons()
