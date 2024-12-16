@@ -435,8 +435,8 @@ def runTimingsByCuboids():
                                     "sign(c1." + measBase + "- c2." + measBase + ") "
                                     "from \""+ strgb + "\" c1, \"" + strgb + "\" c2 where c1."+sel + " < c2."+sel + cond)
 
-                    queryComputeRatio=("select " + sel +"_1," + sel + "_2, (pos-neg)/(select count(*) from \""+strgb+"\")::float "
-                                    "from (select " + sel +"_1," + sel + "_2, count(*) filter (where sign=1) as pos,count(*) filter(where sign=-1) as neg "
+                    queryComputeRatio=("select " + sel +"_1," + sel + "_2, (pos-neg)/cnt::float "
+                                    "from (select " + sel +"_1," + sel + "_2, count(*) as cnt, count(*) filter (where sign=1) as pos,count(*) filter(where sign=-1) as neg "
                                     "from ("+querySigns + ") r group by " + sel +"_1," + sel + "_2) x")
                     #check validation on airline_code
 
@@ -453,16 +453,16 @@ def runTimingsByCuboids():
                         scoreInC=0
                         queryResult=dictViolations[cuboidName]
                         for r in queryResult:
-                            if (r[0]==h[0] and r[1]==h[1]):
+                            if (r[0]==h[0][0] and r[1]==h[1][0]):
                                 if r[2]>ratioViolations:
                                     nbViewOK=nbViewOK+1
-                            if (r[0]==h[1] and r[1]==h[0]):
+                            if (r[0]==h[1][0] and r[1]==h[0][0]):
                                 if r[2]<-ratioViolations:
                                     nbViewOK=nbViewOK+1
                     dictScore[str(h)]=nbViewOK/len(s1.getCurrentSample())
 
 
-
+                print(dictScore)
                 end_time = time.time()
                 timings = end_time - start_time
                 count = count + 1
@@ -479,8 +479,8 @@ if __name__ == "__main__":
     #theDB=  'F9K'
     #theDB = 'F100K'
     #theDB=  'F3M'
-    theDB = 'F600K'
-    #theDB = 'SSB'
+    #theDB = 'F600K'
+    theDB = 'SSB'
     match theDB:
         case 'F9K': config.read('configs/flightsDolap.ini')
         case 'F100K': config.read('configs/flights100k.ini')
@@ -544,7 +544,7 @@ if __name__ == "__main__":
     ratioCuboidOK = 0.4
     ratioViolations=0.4
 
-    nbruns=1
+    nbruns=2
 
     # for Recall @ k
     k = 10
