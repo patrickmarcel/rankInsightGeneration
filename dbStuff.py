@@ -80,6 +80,9 @@ def generateIndexesOnMVs(conn,  sel, mvnames, generateIndex):
             generateClusteredIndex(conn, n[0], sel)
             generateMulticolIndex(conn, n[0], n[0], sel)
 
+        if generateIndex == 'group':
+            generateGroupIndex(conn, n[0],n[0], sel)
+
 
 def generateHashIndex(conn, table, sel):
     indexname=table+'_'+sel
@@ -111,6 +114,19 @@ def generateMulticolIndex(conn, table, list, selAtt):
     indexname = table + '_' + ind
     query = "create index if not exists \"" + indexname + "\" on \"" + table + "\"(" + ind + ");"
     execute_query(conn, query)
+
+
+# generate a group index on table
+def generateGroupIndex(conn, table, list, selAtt):
+    if table!=selAtt:
+        att=list.split(',')
+        ind=""
+        for l in att[:-1]:
+            ind=ind+str(l)+','
+        ind=ind[:-1]
+        indexname = table + '_' + ind
+        query = "create index if not exists \"" + indexname + "\" on \"" + table + "\"(" + ind + ");"
+        execute_query(conn, query)
 
 def getMVnames(conn):
     return execute_query(conn, "select matviewname from pg_catalog.pg_matviews;")
@@ -278,6 +294,35 @@ def connect_to_db(dbname, user, password, host='localhost', port='5432'):
         print(f"Error connecting to database: {e}")
         return None
 
+
+
+def execute_query_withColumns(conn, query):
+    """
+    Executes a given SQL query using the established connection.
+
+    :param conn: Connection object
+    :param query: SQL query to be executed
+    :return: Query result
+    """
+    try:
+        cursor = conn.cursor()
+        cursor.execute(query)
+        conn.commit()
+        #print("Query executed successfully.")
+
+        column_names = [desc[0] for desc in cursor.description]
+
+        try:
+            result = cursor.fetchall()
+            return column_names,result
+        except psycopg2.ProgrammingError:
+            # If the query does not return any data (like an INSERT or UPDATE)
+            return None
+    except Exception as e:
+        print(f"Error executing query: {e}")
+        return None
+    finally:
+        cursor.close()
 
 def execute_query(conn, query):
     """

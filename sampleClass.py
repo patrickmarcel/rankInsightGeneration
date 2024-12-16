@@ -4,10 +4,16 @@ import random
 import time
 import pandas as pd
 from tqdm import tqdm, trange
+
+import statStuff
 import utilities
+import duckdb
+import sqlite3
+
 
 from dolap import countViolations
-from dbStuff import dropAllMVs,getAggQueriesOverMV,createMV,getMVnames,connect_to_db,generateAllPairs,execute_query,getSizeOf,dropAllIndexOnMVs,generateIndexesOnMVs
+from dbStuff import dropAllMVs, getAggQueriesOverMV, createMV, getMVnames, connect_to_db, generateAllPairs, \
+    execute_query, getSizeOf, dropAllIndexOnMVs, generateIndexesOnMVs, execute_query_withColumns
 from bounders import generateAllqueriesOnMVs
 from  Hypothesis import Hypothesis
 
@@ -299,13 +305,15 @@ def runTimings():
         s1.generateRandomMC(percentOfLattice)
         mvnames = s1.getMC()
 
-        generateIndex='cl'
-        for test in ['Welch','Permutation']:
+        #generateIndex='cl'
+        #for test in ['Welch','Permutation']:
+        # if we want to use Claire statistics (stat), only Welch (Welch) or only permutation (Permutation) tests for generating the hypothesis
+        test='stat'
         #for ratioCuboidOK in tabTest:
         #for percentOfLattice in tqdm(tabTest, desc="lattice", leave=False):
         #    s1.generateRandomMC(percentOfLattice)
         #    mvnames = s1.getMC()
-        #for generateIndex in tqdm([False, True, 'mc','cl','mc-cl'], desc="index", leave=False):
+        for generateIndex in tqdm([False, True, 'mc','cl','mc-cl'], desc="index", leave=False):
         #for generateIndex in ['mc-cl']:
             dropAllIndexOnMVs(conn, mvnames)
             generateIndexesOnMVs(conn, sel, mvnames, generateIndex)
@@ -363,14 +371,115 @@ def runTimings():
 
 
 
+def runTimingsByCuboids():
+    for nr in tqdm(range(nbruns), desc="runs"):
+        s1 = Sample(conn, groupbyAtt, sel, meas, measBase, function, table)
+        #percentOfLattice = 0.4
+        #s1.generateRandomMC(percentOfLattice)
+        #mvnames = s1.getMC()
+
+        generateIndex='group'
+        test = 'stat'
+
+        sampleRatio=0.4
+        #for percentOfLattice in tqdm(tabTest, desc="percent of lattice", leave=False):
+        #for generateIndex in tqdm([False, 'group'], desc="index", leave=False):
+        for sampleRatio in tqdm(tabTest, desc="sample ratio", leave=False):
+
+                s1.generateRandomMC(0.4)
+                mvnames = s1.getMC()
+                dropAllIndexOnMVs(conn, mvnames)
+                generateIndexesOnMVs(conn, sel, mvnames, generateIndex)
+
+                s1.generateSampleOfAggQueries(sampleRatio)
+                timings = 0
+                count = 0
+                H = Hypothesis()
+                H.setTest(test)
+
+                start_time = time.time()
+
+                # generate all hypothesis
+                sampleSize = initsampleRatio * sizeOfR
+
+                # generate the query for the hypothesis
+                tabHypotheses=[]
+                print("Generating all hypotheses")
+                for p in pairs:
+                    hypothesis, hypothesisGenerationTime, samplingTime, pvalue = H.hypothesisGeneration(conn, p, sel,
+                                                                                                        measBase,
+                                                                                                        meas,
+                                                                                                        table, sampleSize,
+                                                                                                        allComparison=True)
+
+                    if len(hypothesis) == 2 and hypothesis[0][1] != hypothesis[1][1]:
+                        tabHypotheses.append(hypothesis)
+
+                #nb of queries to send=size of sample
+                dictViolations={}
+                for cuboidName in s1.getCurrentSample():
+                    print("Validating on ", cuboidName)
+
+                    # compute violations over current query
+                    strgb = ""
+                    for i in range(len(cuboidName)):
+                        strgb = strgb + str(cuboidName[i])
+                        if i != len(cuboidName) - 1:
+                            strgb = strgb + ","
+                    proj=""
+                    cond=""
+                    for g in cuboidName[:-1]:
+                        proj=proj+"c1."+str(g)+","
+                        cond=cond+" and c1."+str(g) + "=c2."+str(g)
+                    querySigns=("select "+proj+ " c1." + sel + " as " + sel +"_1, c2." + sel + " as " + sel + "_2, "
+                                    "sign(c1." + measBase + "- c2." + measBase + ") "
+                                    "from \""+ strgb + "\" c1, \"" + strgb + "\" c2 where c1."+sel + " < c2."+sel + cond)
+
+                    queryComputeRatio=("select " + sel +"_1," + sel + "_2, (pos-neg)/(select count(*) from \""+strgb+"\")::float "
+                                    "from (select " + sel +"_1," + sel + "_2, count(*) filter (where sign=1) as pos,count(*) filter(where sign=-1) as neg "
+                                    "from ("+querySigns + ") r group by " + sel +"_1," + sel + "_2) x")
+                    #check validation on airline_code
+
+
+                    queryResult=execute_query(conn, queryComputeRatio)
+                    dictViolations[cuboidName]=queryResult
+
+                #compute the scores
+
+                dictScore={}
+                for h in tabHypotheses:
+                    nbViewOK = 0
+                    for cuboidName in s1.getCurrentSample():
+                        scoreInC=0
+                        queryResult=dictViolations[cuboidName]
+                        for r in queryResult:
+                            if (r[0]==h[0] and r[1]==h[1]):
+                                if r[2]>ratioViolations:
+                                    nbViewOK=nbViewOK+1
+                            if (r[0]==h[1] and r[1]==h[0]):
+                                if r[2]<-ratioViolations:
+                                    nbViewOK=nbViewOK+1
+                    dictScore[str(h)]=nbViewOK/len(s1.getCurrentSample())
+
+
+
+                end_time = time.time()
+                timings = end_time - start_time
+                count = count + 1
+                dfTimes.loc[len(dfTimes)] = [nr, generateIndex, count, timings, ratioCuboidOK, sampleRatio, test]
+
+    dfTimes.to_csv(fileResultsTimes)
+    s1.clean()
+
+
 if __name__ == "__main__":
     config = configparser.ConfigParser()
 
     # The DB we want
     #theDB=  'F9K'
-    theDB = 'F100K'
+    #theDB = 'F100K'
     #theDB=  'F3M'
-    #theDB = 'F600K'
+    theDB = 'F600K'
     #theDB = 'SSB'
     match theDB:
         case 'F9K': config.read('configs/flightsDolap.ini')
@@ -388,7 +497,7 @@ if __name__ == "__main__":
     column_namesF1 = ['Runs', 'Initial Sample', 'Query Sample', 'Precision on Lattice', 'Recall on Lattice', 'F1 on Lattice', 'Recall@k on Lattice', 'Precision on Queries', 'Recall on Queries', 'F1 on Queries', 'Recall@k on Queries', 'k','Number of Comparisons','Number of Welch','Number of permutation']
 
     fileResultsTimes = 'results/times-' + formatted_time + '_' + theDB + '.csv'
-    column_namesTimes = ['Runs', 'Index',  'count', 'Time', 'Ratio cuboid','percent of lattice','Test']
+    column_namesTimes = ['Runs', 'Index',  'count', 'Time', 'Ratio cuboid','sample ratio','Test']
 
     # Create an empty DataFrame with the specified columns
     dfError = pd.DataFrame(columns=column_namesError)
@@ -444,12 +553,13 @@ if __name__ == "__main__":
     #dictGTMC = s1.getGTQueriesOverMC(pairs, sizeOfR,ratioViolations)
 
     #tabTest = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1]
-    #tabTest=[0.4]
-    tabTest=[0.001,0.01,0.1,0.25,0.5,0.75,1]
+    tabTest=[0.1,0.25,0.5,0.75,1]
+    #tabTest=[0.001,0.01,0.1,0.25,0.5,0.75,1]
 
     comparison=False
 
     if comparison:
         runComparisons()
     else:
-        runTimings()
+        #runTimings()
+        runTimingsByCuboids()
