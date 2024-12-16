@@ -13,8 +13,8 @@ import sqlite3
 
 from dolap import countViolations
 from dbStuff import dropAllMVs, getAggQueriesOverMV, createMV, getMVnames, connect_to_db, generateAllPairs, \
-    execute_query, getSizeOf, dropAllIndexOnMVs, generateIndexesOnMVs, execute_query_withColumns
-from bounders import generateAllqueriesOnMVs
+    execute_query, getSizeOf, dropAllIndexOnMVs, generateIndexesOnMVs
+from bounders import generateAllqueriesOnMVs, findMV
 from  Hypothesis import Hypothesis
 
 class Sample:
@@ -383,8 +383,8 @@ def runTimingsByCuboids():
 
         sampleRatio=0.4
         #for percentOfLattice in tqdm(tabTest, desc="percent of lattice", leave=False):
-        #for generateIndex in tqdm([False, 'group'], desc="index", leave=False):
-        for sampleRatio in tqdm(tabTest, desc="sample ratio", leave=False):
+        for generateIndex in tqdm([False, 'group'], desc="index", leave=False):
+            for sampleRatio in tqdm(tabTest, desc="sample ratio", leave=False):
 
                 s1.generateRandomMC(0.4)
                 mvnames = s1.getMC()
@@ -420,20 +420,23 @@ def runTimingsByCuboids():
                 for cuboidName in s1.getCurrentSample():
                     print("Validating on ", cuboidName)
 
+
                     # compute violations over current query
                     strgb = ""
                     for i in range(len(cuboidName)):
                         strgb = strgb + str(cuboidName[i])
                         if i != len(cuboidName) - 1:
                             strgb = strgb + ","
+                    materialized = findMV(s1.getMC(), strgb, table)
                     proj=""
                     cond=""
                     for g in cuboidName[:-1]:
                         proj=proj+"c1."+str(g)+","
                         cond=cond+" and c1."+str(g) + "=c2."+str(g)
+                    queryMat = ("select " +strgb+ ", "+ meas + "as " +measBase + " from \"" + materialized + "\" group by " + strgb)
                     querySigns=("select "+proj+ " c1." + sel + " as " + sel +"_1, c2." + sel + " as " + sel + "_2, "
                                     "sign(c1." + measBase + "- c2." + measBase + ") "
-                                    "from \""+ strgb + "\" c1, \"" + strgb + "\" c2 where c1."+sel + " < c2."+sel + cond)
+                                    "from ("+ queryMat + ") c1, (" + queryMat + ") c2 where c1."+sel + " < c2."+sel + cond)
 
                     queryComputeRatio=("select " + sel +"_1," + sel + "_2, (pos-neg)/cnt::float "
                                     "from (select " + sel +"_1," + sel + "_2, count(*) as cnt, count(*) filter (where sign=1) as pos,count(*) filter(where sign=-1) as neg "
@@ -462,7 +465,7 @@ def runTimingsByCuboids():
                     dictScore[str(h)]=nbViewOK/len(s1.getCurrentSample())
 
 
-                print(dictScore)
+                #print(dictScore)
                 end_time = time.time()
                 timings = end_time - start_time
                 count = count + 1
@@ -479,8 +482,8 @@ if __name__ == "__main__":
     #theDB=  'F9K'
     #theDB = 'F100K'
     #theDB=  'F3M'
-    #theDB = 'F600K'
-    theDB = 'SSB'
+    theDB = 'F600K'
+    #theDB = 'SSB'
     match theDB:
         case 'F9K': config.read('configs/flightsDolap.ini')
         case 'F100K': config.read('configs/flights100k.ini')
@@ -544,7 +547,7 @@ if __name__ == "__main__":
     ratioCuboidOK = 0.4
     ratioViolations=0.4
 
-    nbruns=2
+    nbruns=5
 
     # for Recall @ k
     k = 10
