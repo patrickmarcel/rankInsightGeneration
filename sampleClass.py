@@ -292,8 +292,8 @@ def runComparisons():
                 dfF1.loc[len(dfF1)] = [nr, initsampleRatio, inc, precisionLattice, recallLattice, f1Lattice, rkL,
                                        precisionQueries, recallQueries, f1Queries, rkQ, k,len(dict),H.getNbWelch(),H.getNbPerm()]
 
-    dfError.to_csv(fileResultsError)
-    dfF1.to_csv(fileResultsF1)
+        dfError.to_csv(fileResultsError,mode='a')
+        dfF1.to_csv(fileResultsF1,mode='a')
     s1.clean()
 
 
@@ -366,7 +366,7 @@ def runTimings():
                 count=count+1
                 dfTimes.loc[len(dfTimes)] = [nr, generateIndex, count, timings, ratioCuboidOK,percentOfLattice,test]
 
-    dfTimes.to_csv(fileResultsTimes)
+        dfTimes.to_csv(fileResultsTimes,mode='a')
     s1.clean()
 
 
@@ -385,6 +385,7 @@ def runTimingsByCuboids():
         #for percentOfLattice in tqdm(tabTest, desc="percent of lattice", leave=False):
         for generateIndex in tqdm([False, 'group'], desc="index", leave=False):
             for sampleRatio in tqdm(tabTest, desc="sample ratio", leave=False):
+        #for test in ['Welch','Permutation']:
 
                 s1.generateRandomMC(0.4)
                 mvnames = s1.getMC()
@@ -428,21 +429,27 @@ def runTimingsByCuboids():
                         if i != len(cuboidName) - 1:
                             strgb = strgb + ","
                     materialized = findMV(s1.getMC(), strgb, table)
+
                     proj=""
                     cond=""
                     for g in cuboidName[:-1]:
                         proj=proj+"c1."+str(g)+","
                         cond=cond+" and c1."+str(g) + "=c2."+str(g)
+
                     queryMat = ("select " +strgb+ ", "+ meas + "as " +measBase + " from \"" + materialized + "\" group by " + strgb)
-                    querySigns=("select "+proj+ " c1." + sel + " as " + sel +"_1, c2." + sel + " as " + sel + "_2, "
+                    if materialized != strgb:
+                        querySigns=("select "+proj+ " c1." + sel + " as " + sel +"_1, c2." + sel + " as " + sel + "_2, "
                                     "sign(c1." + measBase + "- c2." + measBase + ") "
                                     "from ("+ queryMat + ") c1, (" + queryMat + ") c2 where c1."+sel + " < c2."+sel + cond)
+                    else:
+                        querySigns = ("select " + proj + " c1." + sel + " as " + sel + "_1, c2." + sel + " as " + sel + "_2, "
+                                      "sign(c1." + measBase + "- c2." + measBase + ") "
+                                      "from \"" + strgb + "\" c1, \"" + strgb + "\" c2 where c1." + sel + " < c2." + sel + cond)
 
                     queryComputeRatio=("select " + sel +"_1," + sel + "_2, (pos-neg)/cnt::float "
                                     "from (select " + sel +"_1," + sel + "_2, count(*) as cnt, count(*) filter (where sign=1) as pos,count(*) filter(where sign=-1) as neg "
                                     "from ("+querySigns + ") r group by " + sel +"_1," + sel + "_2) x")
                     #check validation on airline_code
-
 
                     queryResult=execute_query(conn, queryComputeRatio)
                     dictViolations[cuboidName]=queryResult
@@ -471,7 +478,7 @@ def runTimingsByCuboids():
                 count = count + 1
                 dfTimes.loc[len(dfTimes)] = [nr, generateIndex, count, timings, ratioCuboidOK, sampleRatio, test]
 
-    dfTimes.to_csv(fileResultsTimes)
+        dfTimes.to_csv(fileResultsTimes,mode='a')
     s1.clean()
 
 
@@ -482,8 +489,8 @@ if __name__ == "__main__":
     #theDB=  'F9K'
     #theDB = 'F100K'
     #theDB=  'F3M'
-    theDB = 'F600K'
-    #theDB = 'SSB'
+    #theDB = 'F600K'
+    theDB = 'SSB'
     match theDB:
         case 'F9K': config.read('configs/flightsDolap.ini')
         case 'F100K': config.read('configs/flights100k.ini')
@@ -556,7 +563,8 @@ if __name__ == "__main__":
     #dictGTMC = s1.getGTQueriesOverMC(pairs, sizeOfR,ratioViolations)
 
     #tabTest = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1]
-    tabTest=[0.1,0.25,0.5,0.75,1]
+    #tabTest=[0.1,0.25,0.5,0.75,1]
+    tabTest = [0.1, 0.25, 0.5]
     #tabTest=[0.001,0.01,0.1,0.25,0.5,0.75,1]
 
     comparison=False
