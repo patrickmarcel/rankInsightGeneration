@@ -67,6 +67,8 @@ class Sample:
             #    nb = max(random.choices(tabNb, tabWeights))
             #else:
             nb = random.randint(0, len(remaining)-1)
+            if nb==0:
+                nb=1
             gb = remaining[nb]
             remaining.remove(gb)
             chosen.append(gb)
@@ -190,6 +192,8 @@ class Sample:
 
 
 def runComparisons():
+    dfError.to_csv(fileResultsError)
+    dfF1.to_csv(fileResultsF1)
     s1 = Sample(conn, groupbyAtt, sel, meas, measBase, function, table)
     #s1.generateRandomMC(0.4)
 
@@ -292,13 +296,13 @@ def runComparisons():
                 dfF1.loc[len(dfF1)] = [nr, initsampleRatio, inc, precisionLattice, recallLattice, f1Lattice, rkL,
                                        precisionQueries, recallQueries, f1Queries, rkQ, k,len(dict),H.getNbWelch(),H.getNbPerm()]
 
-        dfError.to_csv(fileResultsError,mode='a')
-        dfF1.to_csv(fileResultsF1,mode='a')
+        dfError.to_csv(fileResultsError,mode='a',header=False)
+        dfF1.to_csv(fileResultsF1,mode='a',header=False)
     s1.clean()
 
 
 def runTimings():
-
+    dfTimes.to_csv(fileResultsTimes)
     for nr in tqdm(range(nbruns), desc="runs"):
         s1 = Sample(conn, groupbyAtt, sel, meas, measBase, function, table)
         percentOfLattice=0.4
@@ -366,12 +370,13 @@ def runTimings():
                 count=count+1
                 dfTimes.loc[len(dfTimes)] = [nr, generateIndex, count, timings, ratioCuboidOK,percentOfLattice,test]
 
-        dfTimes.to_csv(fileResultsTimes,mode='a')
+        dfTimes.to_csv(fileResultsTimes,mode='a',header=False)
     s1.clean()
 
 
 
 def runTimingsByCuboids():
+    dfTimes.to_csv(fileResultsTimes)
     for nr in tqdm(range(nbruns), desc="runs"):
         s1 = Sample(conn, groupbyAtt, sel, meas, measBase, function, table)
         #percentOfLattice = 0.4
@@ -478,7 +483,7 @@ def runTimingsByCuboids():
                 count = count + 1
                 dfTimes.loc[len(dfTimes)] = [nr, generateIndex, count, timings, ratioCuboidOK, sampleRatio, test]
 
-        dfTimes.to_csv(fileResultsTimes,mode='a')
+        dfTimes.to_csv(fileResultsTimes,mode='a',header=False)
     s1.clean()
 
 
