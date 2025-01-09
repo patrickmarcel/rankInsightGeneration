@@ -1,4 +1,6 @@
 from Config import Config
+from Lattice import Lattice
+
 import random
 import time
 import pandas as pd
@@ -492,9 +494,10 @@ if __name__ == "__main__":
     # The user
     USER = "AC"
     # The DB we want
-    theDB = 'SSB'
+    theDB = 'FDEBUG'
     match theDB:
         case 'F9K': config = Config('configs/flightsDolap.ini', USER)
+        case 'FDEBUG': config = Config('configs/flights.ini', "AC")
         case 'F100K': config = Config('configs/flights100k.ini', USER)
         case 'F600K': config = Config('configs/flightsquarterDolap.ini', USER)
         case 'F3M' : config = Config('configs/flights1923Dolap.ini', USER)
@@ -516,11 +519,6 @@ if __name__ == "__main__":
     dfF1 = pd.DataFrame(columns=column_namesF1)
     dfTimes = pd.DataFrame(columns=column_namesTimes)
 
-
-
-
-
-
     conn = connect_to_db(config.dbname, config.user, config.password, config.host, config.port)
 
     sel = config.groupbyAtt[0]
@@ -533,6 +531,17 @@ if __name__ == "__main__":
 
     #s1=Sample(conn, groupbyAtt, sel, meas, measBase, function, table)
     #s1.generateRandomMC(0.4)
+
+    # Demo code for running pairwise comparison on sample
+    """
+    from dbStuff import getSample_new
+    #conn, measBase, table, sel, sampleSize,
+    stest = getSample_new(conn, 1000)
+    l = Lattice(stest)
+    testing = l.pairwise(["departure_airport", "date"], "UA", "DL", "sum")
+    print(testing)
+    exit()
+    """
 
     sizeOfR = getSizeOf(conn, config.table)
 
