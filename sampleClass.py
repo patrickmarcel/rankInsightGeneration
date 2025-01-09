@@ -1,5 +1,4 @@
-import configparser
-import json
+from Config import Config
 import random
 import time
 import pandas as pd
@@ -194,7 +193,8 @@ class Sample:
 def runComparisons():
     dfError.to_csv(fileResultsError)
     dfF1.to_csv(fileResultsF1)
-    s1 = Sample(conn, groupbyAtt, sel, meas, measBase, function, table)
+    config = Config()
+    s1 = Sample(conn, groupbyAtt, sel, config.meas, config.measBase, config.function, config.table)
     #s1.generateRandomMC(0.4)
 
     dictGTLattice = s1.getGTallLattice(pairs, sizeOfR, ratioViolations)
@@ -207,7 +207,7 @@ def runComparisons():
         for initsampleRatio in tqdm(tabTest, desc='Init sample'):
         #for initsampleRatio in tqdm([0.01,0.1,1]):
 
-            s1 = Sample(conn, groupbyAtt, sel, meas, measBase, function, table, 'cl')
+            s1 = Sample(conn, groupbyAtt, sel, config.meas, config.measBase, config.function, config.table, 'cl')
             s1.generateRandomMC(0.4)
             dictGTMC = s1.getGTQueriesOverMC(pairs, sizeOfR, ratioViolations)
 
@@ -224,9 +224,9 @@ def runComparisons():
 
                     # generate candidate
                     sampleSize = initsampleRatio * sizeOfR
-                    hypothesis, hypothesisGenerationTime, samplingTime,pvalue = H.hypothesisGeneration(conn, p, sel, measBase,
-                                                                                              meas,
-                                                                                              table, sampleSize,
+                    hypothesis, hypothesisGenerationTime, samplingTime,pvalue = H.hypothesisGeneration(conn, p, sel, config.measBase,
+                                                                                              config.meas,
+                                                                                              config.table, sampleSize,
                                                                                               allComparison=True)
 
                     # only ok if hypothesis is a<b or a>b
@@ -242,7 +242,7 @@ def runComparisons():
                             valsToSelect.append(h[0])
 
                         ranks, queryCountviolations, queryCountCuboid, cuboid = generateAllqueriesOnMVs(
-                            s1.getCurrentSample(), sel, measBase, function, table, tuple(valsToSelect), hypothesis,
+                            s1.getCurrentSample(), sel, config.measBase, config.function, config.table, tuple(valsToSelect), hypothesis,
                             s1.getMC())
 
                         # compute violations over sample
@@ -257,9 +257,9 @@ def runComparisons():
 
                         ranks, queryCountviolations, queryCountCuboid, cuboid = generateAllqueriesOnMVs(
                             s1.getAggOverMC(), sel,
-                            measBase,
-                            function,
-                            table, tuple(valsToSelect),
+                            config.measBase,
+                            config.function,
+                            config.table, tuple(valsToSelect),
                             hypothesis,
                             s1.getMC())
 
@@ -272,9 +272,9 @@ def runComparisons():
 
                         ranks, queryCountviolations, queryCountCuboid, cuboid = generateAllqueriesOnMVs(
                             s1.getAggOverAllLattice(), sel,
-                            measBase,
-                            function,
-                            table,
+                            config.measBase,
+                            config.function,
+                            config.table,
                             tuple(valsToSelect),
                             hypothesis,
                             s1.getAllLattice())
@@ -304,7 +304,7 @@ def runComparisons():
 def runTimings():
     dfTimes.to_csv(fileResultsTimes)
     for nr in tqdm(range(nbruns), desc="runs"):
-        s1 = Sample(conn, groupbyAtt, sel, meas, measBase, function, table)
+        s1 = Sample(conn, groupbyAtt, sel, config.meas, config.measBase, config.function, config.table)
         percentOfLattice=0.4
         s1.generateRandomMC(percentOfLattice)
         mvnames = s1.getMC()
@@ -335,9 +335,9 @@ def runTimings():
                 sampleSize = initsampleRatio * sizeOfR
                 #H=Hypothesis()
                 hypothesis, hypothesisGenerationTime, samplingTime,pvalue = H.hypothesisGeneration(conn, p, sel,
-                                                                                                  measBase,
-                                                                                                  meas,
-                                                                                                  table, sampleSize,
+                                                                                                  config.measBase,
+                                                                                                  config.meas,
+                                                                                                  config.table, sampleSize,
                                                                                                   allComparison=True)
 
                 # only ok if hypothesis is a<b or a>b
@@ -351,7 +351,7 @@ def runTimings():
                         valsToSelect.append(h[0])
 
                     ranks, queryCountviolations, queryCountCuboid, cuboid = generateAllqueriesOnMVs(
-                        s1.getCurrentSample(), sel, measBase, function, table, tuple(valsToSelect), hypothesis,
+                        s1.getCurrentSample(), sel, config.measBase, config.function, config.table, tuple(valsToSelect), hypothesis,
                         s1.getMC())
 
                     #print(ranks)
@@ -378,7 +378,7 @@ def runTimings():
 def runTimingsByCuboids():
     dfTimes.to_csv(fileResultsTimes)
     for nr in tqdm(range(nbruns), desc="runs"):
-        s1 = Sample(conn, groupbyAtt, sel, meas, measBase, function, table)
+        s1 = Sample(conn, groupbyAtt, sel, config.meas, config.measBase, config.function, config.table)
         #percentOfLattice = 0.4
         #s1.generateRandomMC(percentOfLattice)
         #mvnames = s1.getMC()
@@ -413,9 +413,9 @@ def runTimingsByCuboids():
                 print("Generating all hypotheses")
                 for p in pairs:
                     hypothesis, hypothesisGenerationTime, samplingTime, pvalue = H.hypothesisGeneration(conn, p, sel,
-                                                                                                        measBase,
-                                                                                                        meas,
-                                                                                                        table, sampleSize,
+                                                                                                        config.measBase,
+                                                                                                        config.meas,
+                                                                                                        config.table, sampleSize,
                                                                                                         allComparison=True)
 
                     if len(hypothesis) == 2 and hypothesis[0][1] != hypothesis[1][1]:
@@ -433,7 +433,7 @@ def runTimingsByCuboids():
                         strgb = strgb + str(cuboidName[i])
                         if i != len(cuboidName) - 1:
                             strgb = strgb + ","
-                    materialized = findMV(s1.getMC(), strgb, table)
+                    materialized = findMV(s1.getMC(), strgb, config.table)
 
                     proj=""
                     cond=""
@@ -441,14 +441,14 @@ def runTimingsByCuboids():
                         proj=proj+"c1."+str(g)+","
                         cond=cond+" and c1."+str(g) + "=c2."+str(g)
 
-                    queryMat = ("select " +strgb+ ", "+ meas + "as " +measBase + " from \"" + materialized + "\" group by " + strgb)
+                    queryMat = ("select " +strgb+ ", "+ config.meas + "as " +config.measBase + " from \"" + materialized + "\" group by " + strgb)
                     if materialized != strgb:
                         querySigns=("select "+proj+ " c1." + sel + " as " + sel +"_1, c2." + sel + " as " + sel + "_2, "
-                                    "sign(c1." + measBase + "- c2." + measBase + ") "
+                                    "sign(c1." + config.measBase + "- c2." + config.measBase + ") "
                                     "from ("+ queryMat + ") c1, (" + queryMat + ") c2 where c1."+sel + " < c2."+sel + cond)
                     else:
                         querySigns = ("select " + proj + " c1." + sel + " as " + sel + "_1, c2." + sel + " as " + sel + "_2, "
-                                      "sign(c1." + measBase + "- c2." + measBase + ") "
+                                      "sign(c1." + config.measBase + "- c2." + config.measBase + ") "
                                       "from \"" + strgb + "\" c1, \"" + strgb + "\" c2 where c1." + sel + " < c2." + sel + cond)
 
                     queryComputeRatio=("select " + sel +"_1," + sel + "_2, (pos-neg)/cnt::float "
@@ -488,20 +488,17 @@ def runTimingsByCuboids():
 
 
 if __name__ == "__main__":
-    config = configparser.ConfigParser()
 
+    # The user
+    USER = "AC"
     # The DB we want
-    #theDB=  'F9K'
-    #theDB = 'F100K'
-    #theDB=  'F3M'
-    #theDB = 'F600K'
     theDB = 'SSB'
     match theDB:
-        case 'F9K': config.read('configs/flightsDolap.ini')
-        case 'F100K': config.read('configs/flights100k.ini')
-        case 'F600K': config.read('configs/flightsquarterDolap.ini')
-        case 'F3M' : config.read('configs/flights1923Dolap.ini')
-        case 'SSB': config.read('configs/ssbDolap.ini')
+        case 'F9K': config = Config('configs/flightsDolap.ini', USER)
+        case 'F100K': config = Config('configs/flights100k.ini', USER)
+        case 'F600K': config = Config('configs/flightsquarterDolap.ini', USER)
+        case 'F3M' : config = Config('configs/flights1923Dolap.ini', USER)
+        case 'SSB': config = Config('configs/ssbDolap.ini', USER)
 
     # exporting results to csv
     current_time = time.localtime()
@@ -520,39 +517,24 @@ if __name__ == "__main__":
     dfTimes = pd.DataFrame(columns=column_namesTimes)
 
 
-    USER = "PM"
 
-    # Database connection parameters
-    dbname = config[USER]['dbname']
-    user = config[USER]['user']
-    password = config[USER]['password']
-    host = config[USER]['host']
-    port = int(config[USER]['port'])
 
-    # Cube info
-    table = config["Common"]['table']
-    measures = json.loads(config.get("Common", "measures"))
-    groupbyAtt = json.loads(config.get("Common", "groupbyAtt"))
-    sel = config["Common"]['sel']
-    meas = config["Common"]['meas']
-    measBase = config["Common"]['measBase']
-    function = config["Common"]['function']
-    prefs = json.loads(config.get("Common", "preferred"))
 
-    conn = connect_to_db(dbname, user, password, host, port)
 
-    sel = groupbyAtt[0]
-    groupbyAtt = groupbyAtt[1:]
+    conn = connect_to_db(config.dbname, config.user, config.password, config.host, config.port)
+
+    sel = config.groupbyAtt[0]
+    groupbyAtt = config.groupbyAtt[1:]
 
     nbpairs = 90
     paramTested = list(range(nbpairs))
 
-    pairs = generateAllPairs(conn, sel, table, nbpairs)
+    pairs = generateAllPairs(conn, sel, config.table, nbpairs)
 
     #s1=Sample(conn, groupbyAtt, sel, meas, measBase, function, table)
     #s1.generateRandomMC(0.4)
 
-    sizeOfR = getSizeOf(conn, table)
+    sizeOfR = getSizeOf(conn, config.table)
 
     initsampleRatio=0.4
 
