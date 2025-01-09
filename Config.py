@@ -13,10 +13,11 @@ class Config:
             cls._instance = super(Config, cls).__new__(cls)
         return cls._instance
 
-    def __init__(self, fpath, USER):  # Constructor with a parameter
+    def __init__(self, *args):  # Constructor with a parameter
         if not hasattr(self, 'initialized'):
             config = configparser.ConfigParser()
-            self.fpath = fpath
+            self.fpath = args[0]
+            USER = args[1]
             config.read(self.fpath)
 
             # Database connection parameters
