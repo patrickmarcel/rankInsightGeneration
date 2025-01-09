@@ -45,8 +45,10 @@ class Sample:
 
     def generateSampleOfAggQueries(self, ratio):
         sizeOfSample = int(ratio*len(self.aggOverMC))
+        if sizeOfSample==0:
+            sizeOfSample=1
         remaining = self.aggOverMC.copy()
-        pwrset=self.allMVs
+        #pwrset=self.allMVs
         # if withBias:
         #     tabNb = []
         #     tabWeights = []
@@ -472,7 +474,7 @@ def runTimingsByCuboids():
                                 if r[2]>ratioViolations:
                                     nbViewOK=nbViewOK+1
                             if (r[0]==h[1][0] and r[1]==h[0][0]):
-                                if r[2]<-ratioViolations:
+                                if r[2]<(-ratioViolations):
                                     nbViewOK=nbViewOK+1
                     dictScore[str(h)]=nbViewOK/len(s1.getCurrentSample())
 

@@ -536,3 +536,69 @@ def groundTruthError(minError):
     dict = utilities.sort_dict_by_second_entry_desc(dict)
     return dict
 
+# simulates running 1 query for all pairs
+def countViolationsHypothesis(cuboidName, queryResult, columns_names, hypothesis):
+    #print(hypothesis)
+    #print(queryResult)
+    valsToSelect = []
+    for h in hypothesis:
+        valsToSelect.append(h[0])
+    ranks, queryCountviolations, queryCountCuboid, cuboid = generateAllqueriesOnMVs(
+        [cuboidName], sel, measBase, function, table, tuple(valsToSelect), hypothesis,
+        [])
+    #put result in dataframe
+
+    df = pd.DataFrame(queryResult,columns=columns_names)
+    #query it with duckdb
+    sqliteConn=sqlite3.connect(":memory:")
+    sqliteTable=str(cuboidName)
+    #duckQuery = ranks[0].replace("FROM \"airline_code\"", "FROM \""+sqliteTable+"\"")
+    duckQuery = ranks[0].replace("flight100k", sqliteTable)
+    duckQuery = duckQuery.replace("string_agg(airline_code::text", "group_concat(cast(airline_code as text)")
+    #start=time.time()
+    df.to_sql(sqliteTable,sqliteConn,if_exists='replace',index=False)
+    cur=sqliteConn.cursor()
+    cur.execute("create index i1 on cuboid(airline_code)")
+    res= pd.read_sql_query(duckQuery, sqliteConn)
+    res=list(res.itertuples(index=False, name=None))
+    cur.close()
+    #end=time.time()
+    #print("sqlite and pandas done in:",end-start)
+    #duckQuery="SELECT fl_date,airline_code, avg(dep_delay),  rank () over ( partition by fl_date order by avg(dep_delay) desc ) as rank FROM \"pandas_df\" WHERE airline_code in ('AA', 'F9') group by fl_date,airline_code"
+    #print(duckQuery)
+    #res=duckdb.sql(duckQuery)
+
+    hyp = [str(a) for (a, b) in hypothesis]
+    v = 0
+    normalize = 0
+    for r in res:
+        s = r[-1].split(",")
+        normalize = normalize + (len(s) * (len(s) - 1)) / 2
+        if len(s) == len(hyp):
+            tau, pvalue = statStuff.compute_kendall_tau(s, hyp)
+
+            ##print('tau:',tau)
+            tau = (tau + 1) / 2
+            v = v + tau
+        else:
+            # s is smaller
+            hyp2 = hyp.copy()
+            for e in hyp:
+                if e not in s:
+                    hyp2.remove(e)
+            tau, pvalue = statStuff.compute_kendall_tau(s, hyp2)
+            tau = (tau + 1) / 2
+            v = v + tau
+    if len(res) > 1:
+        ratio = v / normalize
+    else:
+        ratio = 0
+    return v, ratio
+
+
+def countViolationsBycuboid(cuboidName,queryResult, column_names, tabHypotheses):
+    dictViolations={}
+    for ht in tabHypotheses:
+        v,ratio = countViolationsHypothesis(cuboidName, queryResult, column_names, ht)
+        dictViolations[str(ht)]=[v,ratio]
+
