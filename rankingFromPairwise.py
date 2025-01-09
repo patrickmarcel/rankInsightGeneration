@@ -1,14 +1,117 @@
 import math
 import time
-
+from scipy.sparse import dok_matrix
 import numpy as np
-import utilities
+from utilities import sort_dict_descending
 from dbStuff import getSample
 from statStuff import welch_ttest, permutation_test, compute_skewness, benjamini_hochberg, benjamini_hochberg_statmod, claireStat
 
 # global variable
 pairwiseComparison = []
 
+def get_rp(a,b):
+    # r=128 #nb of trials = nb of cuboids
+    # p=.3 #pb of each trial eg 70% of non nulls
+    return 128,.3
+
+#return 0 if no comparison, 1 if a>b, -1 if b>a
+def compare(a,b):
+    return 1
+
+class rankingFromPairwise:
+    #values: tab of values to rank
+    def __init__(self, values):
+        self.values = values
+        self.n=len(values)
+        self.M = dok_matrix((self.n, self.n),dtype=np.float32)
+        self.tau=dict()
+        self.delta=[]
+        self.F=[]
+        #initialize N
+        self.N=dict()
+        for i in range(len(self.values)):
+            a=self.values[i]
+            self.N[a]=0
+
+
+    #val is empirical probabilty that a beats b
+    def updateM(self,a,b,val):
+        i=self.values.index(a)
+        j=self.values.index(b)
+        self.M[i,j]=val
+
+    def computeTau(self):
+        self.tau=1/self.n * self.M.sum(axis=1)
+
+    def binomialForPair(self,r,p):
+        return np.random.binomial(r,p)
+
+    def performComparisons(self, nb, a,b):
+        nbWon=0
+        nbLost=0
+        nbZeros=0
+        proba=0
+        for i in range(nb):
+            res=compare(a,b)
+            if res==1:
+                nbWins=nbWon+1
+            if res==0:
+                nbZeros=nbZeros+1
+            if res==-1:
+                nbLost=nbLost+1
+        self.N[a]=self.N[a]+nbWon
+        self.N[b] = self.N[b] + nbLost
+        if nbZeros==nb:
+            self.updateM(a, b, .5)
+        else:
+            self.updateM(a,b,nbWins/(nb-nbZeros))
+
+    def run(self):
+        #for each pair in self.values:
+        for i in range(len(self.values)):
+            for j in range(i+1,len(self.values)):
+                a,b=self.values(i),self.values(j)
+                # get r and p
+                r,p=get_rp(a,b)
+                # draw number of comparison to make for each pair
+                nbOfComp=self.binomialForPair(r,p)
+                # make comparison and update M, N
+                self.performComparisons(nbOfComp,a,b)
+        # compute tau
+        self.computeTau()
+        # compute deltak
+        self.computeTau()
+        #check lowest k for which theorem 1 holds
+
+    def computeDeltak(self):
+        #order N desc
+        orderedN=sort_dict_descending(self.N)
+        for k in range(len(orderedN.keys())-1):
+            indexk=self.values.index(k)
+            indexNext=self.values.index(k+1)
+            tauk=self.tau[0][indexk]
+            tauNext = self.tau[0][indexNext]
+            self.delta[k]=tauk-tauNext
+        self.checkGoodk()
+
+    def checkGoodk(self):
+        r, p = get_rp()
+        for k in range(self.delta):
+            if self.delta[k] >= 8 * math.sqrt(math.log( self.n )/ (self.n*p*r)):
+                self.F=True
+            else:
+                self.F=False
+
+
+if __name__ == '__main__':
+    test=rankingFromPairwise(['a','b','c','d','e','f'])
+    test.updateM('a','b',1)
+    test.updateM('a', 'c', 1)
+    test.updateM('e', 'b', 1)
+    print(test.M)
+    test.computeTau()
+    print(test.tau)
+    print(test.binomialForPair('a','b'))
 
 def computeRanksForAll(pairwiseComparison, Sels):
     """

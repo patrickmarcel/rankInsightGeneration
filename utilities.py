@@ -62,6 +62,24 @@ def jaccard_score_first_k_keys(dict1, dict2, k):
     return jaccard
 
 
+def sort_dict_descending(input_dict):
+    """
+    Sorts a dictionary in decreasing order by its values.
+
+    Args:
+        input_dict (dict): The dictionary to be sorted.
+
+    Returns:
+        dict: A new dictionary sorted in descending order of values.
+    """
+    # Sort the dictionary by its values in descending order
+    sorted_items = sorted(input_dict.items(), key=lambda item: item[1], reverse=True)
+
+    # Convert the sorted items back into a dictionary
+    sorted_dict = dict(sorted_items)
+
+    return sorted_dict
+
 def sort_dict_by_second_entry_desc(input_dict):
     """
     Sort a dictionary by the second entry of the list contained at each key in descending order.
