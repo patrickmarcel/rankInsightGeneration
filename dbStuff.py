@@ -1,6 +1,7 @@
 import psycopg2
 from tqdm import tqdm
 
+import Config
 from utilities import powerset
 import random
 import numpy as np
@@ -410,6 +411,36 @@ def getSample(conn, measBase, table, sel, sampleSize, method="SYSTEM_ROWS", repe
     #print("Sample size in tuples: ", len(resultVals))
     return resultVals
 
+def getSample_new(conn, sampleSize, method="SYSTEM_ROWS", repeatable=False, valsToSelect=None):
+    # sampling using postgresql: https://www.postgresql.org/docs/current/sql-select.html#SQL-FROM
+    # system (faster) is block based, bernouili (slower) is row based
+
+    cfg = Config.Config()
+
+    if repeatable:
+        is_repeatable = 'REPEATABLE(42)'
+    else:
+        is_repeatable = ''
+
+    gbs = ''
+    for s in cfg.groupbyAtt:
+        gbs = gbs + s + ','
+    gbs = gbs[:-1]
+
+    if valsToSelect==None:
+        querySample = (
+            "SELECT " + gbs + ", " + cfg.measBase + " FROM " + cfg.table + " TABLESAMPLE " + method + " (" + str(
+        sampleSize) + ")" + is_repeatable + ";")
+    else:
+        querySample = (
+                "SELECT " + gbs + ", " + cfg.measBase + " FROM " + cfg.table + " TABLESAMPLE " + method + " (" + str(
+            sampleSize) + ")" + is_repeatable + " WHERE " + cfg.sel + " in " + str(valsToSelect) +";")
+
+    #print('getsample query:', querySample)
+    resultVals = execute_query(conn, querySample)
+    #print(resultVals)
+    #print("Sample size in tuples: ", len(resultVals))
+    return resultVals
 
 def emptyGB(conn, nb_of_adom_vals, table, sel, meas):
     #queryEmptyGb = ("SELECT " + sel + ","
