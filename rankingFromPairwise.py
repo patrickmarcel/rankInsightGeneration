@@ -12,7 +12,7 @@ pairwiseComparison = []
 def get_rp(a,b):
     # r=128 #nb of trials = nb of cuboids
     # p=.3 #pb of each trial eg 70% of non nulls
-    return 128,.3
+    return 16,.3
 
 #return 0 if no comparison, 1 if a>b, -1 if b>a
 def compare(a,b):
@@ -54,7 +54,7 @@ class rankingFromPairwise:
         for i in range(nb):
             res=compare(a,b)
             if res==1:
-                nbWins=nbWon+1
+                nbWon=nbWon+1
             if res==0:
                 nbZeros=nbZeros+1
             if res==-1:
@@ -64,13 +64,13 @@ class rankingFromPairwise:
         if nbZeros==nb:
             self.updateM(a, b, .5)
         else:
-            self.updateM(a,b,nbWins/(nb-nbZeros))
+            self.updateM(a,b,nbWon/(nb-nbZeros))
 
     def run(self):
         #for each pair in self.values:
         for i in range(len(self.values)):
             for j in range(i+1,len(self.values)):
-                a,b=self.values(i),self.values(j)
+                a,b=self.values[i],self.values[j]
                 # get r and p
                 r,p=get_rp(a,b)
                 # draw number of comparison to make for each pair
@@ -80,38 +80,42 @@ class rankingFromPairwise:
         # compute tau
         self.computeTau()
         # compute deltak
-        self.computeTau()
+        self.computeDeltak()
         #check lowest k for which theorem 1 holds
 
     def computeDeltak(self):
         #order N desc
         orderedN=sort_dict_descending(self.N)
         for k in range(len(orderedN.keys())-1):
-            indexk=self.values.index(k)
-            indexNext=self.values.index(k+1)
-            tauk=self.tau[0][indexk]
-            tauNext = self.tau[0][indexNext]
-            self.delta[k]=tauk-tauNext
+            valk=list(orderedN.keys())[k]
+            valNext=list(orderedN.keys())[k+1]
+            indexkintau=self.values.index(valk)
+            indexnextintaux=self.values.index(valNext)
+            tauk=self.tau[indexkintau][0]
+            tauNext = self.tau[indexnextintaux][0]
+            self.delta.append(tauk-tauNext)
         self.checkGoodk()
 
     def checkGoodk(self):
-        r, p = get_rp()
-        for k in range(self.delta):
+        r, p = get_rp(0,0)
+        for k in range(len(self.delta)):
             if self.delta[k] >= 8 * math.sqrt(math.log( self.n )/ (self.n*p*r)):
-                self.F=True
+                self.F.append(True)
             else:
-                self.F=False
+                self.F.append(False)
 
 
 if __name__ == '__main__':
     test=rankingFromPairwise(['a','b','c','d','e','f'])
-    test.updateM('a','b',1)
-    test.updateM('a', 'c', 1)
-    test.updateM('e', 'b', 1)
+
+    test.run()
+
     print(test.M)
-    test.computeTau()
     print(test.tau)
-    print(test.binomialForPair('a','b'))
+    print(test.N)
+    print(test.delta)
+    print(test.F)
+
 
 def computeRanksForAll(pairwiseComparison, Sels):
     """
