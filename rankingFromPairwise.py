@@ -10,13 +10,19 @@ from statStuff import welch_ttest, permutation_test, compute_skewness, benjamini
 pairwiseComparison = []
 
 def get_rp(a,b):
-    # r=128 #nb of trials = nb of cuboids
-    # p=.3 #pb of each trial eg 70% of non nulls
-    return 16,.3
+    # r=128 #nb of trials = nb of cuboids?
+    # p=.8 #pb of each trial
+    return 64,.8
 
 #return 0 if no comparison, 1 if a>b, -1 if b>a
 def compare(a,b):
-    return 1
+    if a=='a':
+        return 1
+    elif b=='e':
+        return -1
+    else:
+        return 0
+
 
 class rankingFromPairwise:
     #values: tab of values to rank
@@ -86,6 +92,7 @@ class rankingFromPairwise:
     def computeDeltak(self):
         #order N desc
         orderedN=sort_dict_descending(self.N)
+        print(orderedN)
         for k in range(len(orderedN.keys())-1):
             valk=list(orderedN.keys())[k]
             valNext=list(orderedN.keys())[k+1]
@@ -98,6 +105,7 @@ class rankingFromPairwise:
 
     def checkGoodk(self):
         r, p = get_rp(0,0)
+        print('threshold:',8 * math.sqrt(math.log( self.n )/ (self.n*p*r)))
         for k in range(len(self.delta)):
             if self.delta[k] >= 8 * math.sqrt(math.log( self.n )/ (self.n*p*r)):
                 self.F.append(True)
