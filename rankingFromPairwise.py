@@ -9,10 +9,6 @@ from statStuff import welch_ttest, permutation_test, compute_skewness, benjamini
 # global variable
 pairwiseComparison = []
 
-def get_rp(a,b):
-    # r=128 #nb of trials = nb of cuboids?
-    # p=.8 #pb of each trial
-    return 64,.8
 
 #return 0 if no comparison, 1 if a>b, -1 if b>a
 def compare(a,b):
@@ -25,9 +21,12 @@ def compare(a,b):
 
 
 class rankingFromPairwise:
+
     #values: tab of values to rank
-    def __init__(self, values):
+    def __init__(self, values, r, p):
         self.values = values
+        self.r=r
+        self.p=p
         self.n=len(values)
         self.M = dok_matrix((self.n, self.n),dtype=np.float32)
         self.tau=dict()
@@ -39,6 +38,11 @@ class rankingFromPairwise:
             a=self.values[i]
             self.N[a]=0
 
+    def get_rp(self):
+        # r= nb of trials = nb of cuboids?
+        # p= probability of each trial
+        return self.r,self.p
+        return 64, 1
 
     #val is empirical probabilty that a beats b
     def updateM(self,a,b,val):
@@ -78,7 +82,7 @@ class rankingFromPairwise:
             for j in range(i+1,len(self.values)):
                 a,b=self.values[i],self.values[j]
                 # get r and p
-                r,p=get_rp(a,b)
+                r,p=self.get_rp()
                 # draw number of comparison to make for each pair
                 nbOfComp=self.binomialForPair(r,p)
                 # make comparison and update M, N
@@ -104,7 +108,7 @@ class rankingFromPairwise:
         self.checkGoodk()
 
     def checkGoodk(self):
-        r, p = get_rp(0,0)
+        r, p = self.get_rp()
         print('threshold:',8 * math.sqrt(math.log( self.n )/ (self.n*p*r)))
         for k in range(len(self.delta)):
             if self.delta[k] >= 8 * math.sqrt(math.log( self.n )/ (self.n*p*r)):
@@ -123,6 +127,8 @@ if __name__ == '__main__':
     print(test.N)
     print(test.delta)
     print(test.F)
+
+
 
 
 def computeRanksForAll(pairwiseComparison, Sels):
