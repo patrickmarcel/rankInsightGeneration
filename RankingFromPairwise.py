@@ -5,22 +5,16 @@ import numpy as np
 from utilities import sort_dict_descending
 from dbStuff import getSample
 from statStuff import welch_ttest, permutation_test, compute_skewness, benjamini_hochberg, benjamini_hochberg_statmod, claireStat
+from Lattice import Lattice
 
 # global variable
 pairwiseComparison = []
 
 
-#return 0 if no comparison, 1 if a>b, -1 if b>a
-def compare(a,b):
-    if a=='a':
-        return 1
-    elif b=='e':
-        return -1
-    else:
-        return 0
 
 
-class rankingFromPairwise:
+
+class RankingFromPairwise:
 
     #values: tab of values to rank
     def __init__(self, values, r, p):
@@ -38,11 +32,15 @@ class rankingFromPairwise:
             a=self.values[i]
             self.N[a]=0
 
+    # return 0 if no comparison, 1 if a>b, -1 if b>a
+    def compare(a, b):
+        return Lattice.compare(a, b)
+
     def get_rp(self):
         # r= nb of trials = nb of cuboids?
         # p= probability of each trial
         return self.r,self.p
-        return 64, 1
+        #return 64, 1
 
     #val is empirical probabilty that a beats b
     def updateM(self,a,b,val):
@@ -56,13 +54,14 @@ class rankingFromPairwise:
     def binomialForPair(self,r,p):
         return np.random.binomial(r,p)
 
-    def performComparisons(self, nb, a,b):
+    def performComparisons(self, L,nb, a,b):
         nbWon=0
         nbLost=0
         nbZeros=0
         proba=0
         for i in range(nb):
-            res=compare(a,b)
+            res=L.compare(a,b)
+            print(a,b,res)
             if res==1:
                 nbWon=nbWon+1
             if res==0:
@@ -76,7 +75,7 @@ class rankingFromPairwise:
         else:
             self.updateM(a,b,nbWon/(nb-nbZeros))
 
-    def run(self):
+    def run(self,L):
         #for each pair in self.values:
         for i in range(len(self.values)):
             for j in range(i+1,len(self.values)):
@@ -86,7 +85,7 @@ class rankingFromPairwise:
                 # draw number of comparison to make for each pair
                 nbOfComp=self.binomialForPair(r,p)
                 # make comparison and update M, N
-                self.performComparisons(nbOfComp,a,b)
+                self.performComparisons(L,nbOfComp,a,b)
         # compute tau
         self.computeTau()
         # compute deltak
@@ -118,7 +117,7 @@ class rankingFromPairwise:
 
 
 if __name__ == '__main__':
-    test=rankingFromPairwise(['a','b','c','d','e','f'])
+    test=RankingFromPairwise(['a', 'b', 'c', 'd', 'e', 'f'])
 
     test.run()
 
@@ -213,8 +212,8 @@ def findTuple(a, b, claireTab):
             return c
 
 
-def compare(a, b, claireTab):
-    cl = findTuple(a, b, claireTab)
+def compare(a, b):
+    cl = findTuple(a, b)
 
     if tuple[2]:
         # print("Welch test can be used")

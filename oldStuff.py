@@ -5,7 +5,7 @@ import statistics
 import numpy as np
 
 import dbStuff
-import rankingFromPairwise
+import RankingFromPairwise
 import utilities
 from utilities import powerset
 from plotStuff import plot_curves, plot_curves_with_error_bars
@@ -13,7 +13,7 @@ from dbStuff import execute_query, connect_to_db, close_connection, getSample, e
 from statStuff import welch_ttest, permutation_test, compute_skewness, compute_kendall_tau, benjamini_hochberg, \
     benjamini_hochberg_statmod, claireStat
 import time
-from rankingFromPairwise import computeRanksForAll, merge_sort
+from RankingFromPairwise import computeRanksForAll, merge_sort
 
 from statsmodels.stats.multitest import fdrcorrection
 

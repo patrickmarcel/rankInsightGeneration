@@ -8,13 +8,13 @@ from statsmodels.stats.multitest import fdrcorrection
 
 import dbStuff
 import plotStuff
-import rankingFromPairwise
+import RankingFromPairwise
 import statStuff
 import utilities
 from plotStuff import plot_curves_with_error_bars
 from dbStuff import execute_query, connect_to_db, close_connection, getSample
 from statStuff import permutation_test, compute_skewness, claireStat
-from rankingFromPairwise import computeRanksForAll, generateHypothesisTest
+from RankingFromPairwise import computeRanksForAll, generateHypothesisTest
 import bounders
 import tests
 from tqdm import tqdm

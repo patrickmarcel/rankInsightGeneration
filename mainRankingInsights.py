@@ -2,7 +2,7 @@ from dbStuff import getSample_new, connect_to_db
 import Config
 from Lattice import Lattice
 from DataSampler import DataSampler
-import rankingFromPairwise
+from RankingFromPairwise import RankingFromPairwise
 
 # Demo code for running pairwise comparison on sample
 """
@@ -21,5 +21,14 @@ if __name__ == '__main__':
     ds=DataSampler(conn, cfg)
     sample=ds.getSample(1000,samplingMethod = 'naive')
     l = Lattice(sample)
-    testing = l.pairwise(["departure_airport", "date"], "UA", "DL", "sum")
-    print(testing)
+    #testing = l.pairwise(["departure_airport", "date"], "UA", "DL", "sum")
+    #print(testing)
+    #print(l.getVal('DL',cfg.measBase))
+    #print(testing.columns)
+    #valA=testing[(testing['airline'] == 'DL')]
+    #print(valA)
+
+    r=len(cfg.groupbyAtt)-1
+    p=1
+    ranking=RankingFromPairwise(cfg.prefs, r,p)
+    ranking.run(l)

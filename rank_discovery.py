@@ -4,7 +4,7 @@ import numpy as np
 from copy import copy
 
 import dbStuff
-import rankingFromPairwise
+import RankingFromPairwise
 import utilities
 from utilities import powerset
 from plotStuff import plot_curves
@@ -12,7 +12,7 @@ from dbStuff import execute_query, connect_to_db, close_connection, getSample, e
 from statStuff import welch_ttest, permutation_test, compute_skewness, compute_kendall_tau, benjamini_hochberg, \
     benjamini_hochberg_statmod, claireStat
 import time
-from rankingFromPairwise import computeRanksForAll
+from RankingFromPairwise import computeRanksForAll
 
 from main import generateComparisonsWithMergeSort
 
