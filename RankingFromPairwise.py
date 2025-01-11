@@ -61,8 +61,11 @@ class RankingFromPairwise:
         nbLost=0
         nbZeros=0
         setOfCuboidsOnSample=L.getCuboids().copy()
+        remaining=len(setOfCuboidsOnSample)-1
+
         for i in range(nb):
-            nb = random.randint(0, len(setOfCuboidsOnSample) - 1)
+            nb = random.randint(0, remaining)
+            remaining = remaining - 1
             gb = setOfCuboidsOnSample[nb]
             setOfCuboidsOnSample.remove(gb)
             res=L.compare(a,b,gb)

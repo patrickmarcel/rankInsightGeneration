@@ -1,4 +1,6 @@
-from dbStuff import getSample_new, connect_to_db, execute_query
+import math
+
+from dbStuff import getSample_new, connect_to_db, execute_query, getCuboidsOfAtt
 import Config
 from Lattice import Lattice
 from DataSampler import DataSampler
@@ -32,7 +34,7 @@ if __name__ == '__main__':
     #valA=testing[(testing['airline'] == 'DL')]
     #print(valA)
 
-    r=len(cfg.groupbyAtt)-1
+    r=int(math.pow(2,len(cfg.groupbyAtt)-1))
     p=1
     #ranking=RankingFromPairwise(cfg.prefs, r,p)
     ranking=RankingFromPairwise(adom, r,p)
