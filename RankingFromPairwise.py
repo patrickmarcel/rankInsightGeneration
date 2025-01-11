@@ -1,5 +1,7 @@
 import math
 import time
+import random
+
 from scipy.sparse import dok_matrix
 import numpy as np
 from utilities import sort_dict_descending
@@ -58,10 +60,13 @@ class RankingFromPairwise:
         nbWon=0
         nbLost=0
         nbZeros=0
-        proba=0
+        setOfCuboidsOnSample=L.getCuboids().copy()
         for i in range(nb):
-            res=L.compare(a,b)
-            print(a,b,res)
+            nb = random.randint(0, len(setOfCuboidsOnSample) - 1)
+            gb = setOfCuboidsOnSample[nb]
+            setOfCuboidsOnSample.remove(gb)
+            res=L.compare(a,b,gb)
+            #print(a,b,res)
             if res==1:
                 nbWon=nbWon+1
             if res==0:
@@ -95,7 +100,7 @@ class RankingFromPairwise:
     def computeDeltak(self):
         #order N desc
         orderedN=sort_dict_descending(self.N)
-        print(orderedN)
+        print("ordered N", orderedN)
         for k in range(len(orderedN.keys())-1):
             valk=list(orderedN.keys())[k]
             valNext=list(orderedN.keys())[k+1]

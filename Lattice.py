@@ -25,12 +25,22 @@ class Lattice:
         self.colNames.extend(cfg.groupbyAtt)
         self.colNames.append(cfg.measBase)
 
+        self.function=cfg.function
+
         self.measure = cfg.measBase
         self.selection = cfg.groupbyAtt[0]
 
+        groupbyAtt = cfg.groupbyAtt[1:]
+        pwset2 = getCuboidsOfAtt(groupbyAtt, cfg.sel)
+        # remove last
+        #self.cuboids= pwset2[:-1]
+        self.cuboids = pwset2
         self.data = DataFrame(sample, columns=self.colNames)
 
-        print(self.data)
+        #print(self.data)
+
+    def getCuboids(self):
+        return self.cuboids
 
     def agg(self, gb_set, function):
         return self.data.groupby([self.selection] + gb_set).agg({self.measure: function})
@@ -41,12 +51,23 @@ class Lattice:
     def getVal(self,val1,meas):
         return self.data[(self.data[self.selection] == val1)].loc[:,meas]
 
+    def getValInGb(self,val1,meas,gb):
+        cuboid=self.data[(self.data[self.selection] == val1)]
+        #print(cuboid)
+        cuboid=cuboid.groupby(list(gb),group_keys=True).agg({self.measure: 'sum'})
+        #print(gb)
+        #print(cuboid)
+        return cuboid.loc[:,meas]
+
+
     # return 0 if no comparison, 1 if a>b, -1 if b>a
-    def compare(self, a, b, test ='stat'):
+    def compare(self, a, b, gb, test ='stat'):
 
         S = []
-        valsA=np.array(self.getVal(a,self.measure))
-        valsB=np.array(self.getVal(b,self.measure))
+        #valsA=np.array(self.getVal(a,self.measure))
+        #valsB=np.array(self.getVal(b,self.measure))
+        valsA = np.array(self.getValInGb(a, self.measure,gb))
+        valsB = np.array(self.getValInGb(b, self.measure,gb))
         nA = len(valsA)
         nB = len(valsB)
         skewA = compute_skewness(valsA)
@@ -55,6 +76,7 @@ class Lattice:
         S.append((b, nB, skewB, valsB))
         return self.comparison(S,test)
 
+    # legacy code
     def comparison(self,S,test='stat'):
         b = claireStat(S[0][2], S[1][2], S[0][1], S[1][1])
         pairwiseComparison = []

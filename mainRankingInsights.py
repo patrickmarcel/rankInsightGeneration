@@ -1,4 +1,4 @@
-from dbStuff import getSample_new, connect_to_db
+from dbStuff import getSample_new, connect_to_db, execute_query
 import Config
 from Lattice import Lattice
 from DataSampler import DataSampler
@@ -16,8 +16,12 @@ exit()
 """
 
 if __name__ == '__main__':
-    cfg = Config.Config('configs/flights.ini','PM')
+    cfg = Config.Config('configs/flights100k.ini','PM')
     conn = connect_to_db(cfg.dbname, cfg.user, cfg.password, cfg.host, cfg.port)
+
+    adom = [x[0] for x in execute_query(conn, "select distinct  " + cfg.sel + " from " + cfg.table + ";")]
+    #table_size = execute_query(conn, "select count(1) from " + cfg.table + ";")[0][0]
+
     ds=DataSampler(conn, cfg)
     sample=ds.getSample(1000,samplingMethod = 'naive')
     l = Lattice(sample)
@@ -30,5 +34,9 @@ if __name__ == '__main__':
 
     r=len(cfg.groupbyAtt)-1
     p=1
-    ranking=RankingFromPairwise(cfg.prefs, r,p)
+    #ranking=RankingFromPairwise(cfg.prefs, r,p)
+    ranking=RankingFromPairwise(adom, r,p)
     ranking.run(l)
+    print(ranking.delta)
+    print(ranking.F)
+
