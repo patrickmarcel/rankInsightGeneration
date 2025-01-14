@@ -39,6 +39,8 @@ if __name__ == '__main__':
     #ranking=RankingFromPairwise(cfg.prefs, r,p)
     ranking=RankingFromPairwise(adom, r,p)
     ranking.run(l)
-    print(ranking.delta)
-    print(ranking.F)
+    print('Tau:',ranking.tau)
+    print('Detla:',ranking.delta)
+    print('F:',ranking.F)
+    print('M',ranking.M)
 

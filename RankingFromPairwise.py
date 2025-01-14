@@ -34,10 +34,6 @@ class RankingFromPairwise:
             a=self.values[i]
             self.N[a]=0
 
-    # return 0 if no comparison, 1 if a>b, -1 if b>a
-    def compare(a, b):
-        return Lattice.compare(a, b)
-
     def get_rp(self):
         # r= nb of trials = nb of cuboids?
         # p= probability of each trial
@@ -64,11 +60,11 @@ class RankingFromPairwise:
         remaining=len(setOfCuboidsOnSample)-1
 
         for i in range(nb):
-            nb = random.randint(0, remaining)
+            nbr = random.randint(0, remaining)
             remaining = remaining - 1
-            gb = setOfCuboidsOnSample[nb]
+            gb = setOfCuboidsOnSample[nbr]
             setOfCuboidsOnSample.remove(gb)
-            res=L.compare(a,b,gb)
+            res=L.compare(a,b,gb) #,'Welch'
             #print(a,b,res)
             if res==1:
                 nbWon=nbWon+1
@@ -76,7 +72,7 @@ class RankingFromPairwise:
                 nbZeros=nbZeros+1
             if res==-1:
                 nbLost=nbLost+1
-        self.N[a]=self.N[a]+nbWon
+        self.N[a] = self.N[a] + nbWon
         self.N[b] = self.N[b] + nbLost
         if nbZeros==nb:
             self.updateM(a, b, .5)
