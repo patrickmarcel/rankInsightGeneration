@@ -48,6 +48,13 @@ class RankingFromPairwise:
 
     def computeTau(self):
         self.tau=1/self.n * self.M.sum(axis=1)
+        taudict={}
+        for v in self.values:
+            indexintau = self.values.index(v)
+            tauv = self.tau[indexintau][0]
+            taudict[v] = tauv
+        orderedTau = sort_dict_descending(taudict)
+        print('Ordered Tau:',orderedTau)
 
     def binomialForPair(self,r,p):
         return np.random.binomial(r,p)
@@ -61,10 +68,11 @@ class RankingFromPairwise:
 
         for i in range(nb):
             nbr = random.randint(0, remaining)
-            remaining = remaining - 1
             gb = setOfCuboidsOnSample[nbr]
-            setOfCuboidsOnSample.remove(gb)
-            res=L.compare(a,b,gb) #,'Welch'
+            # uncomment below if without replacement
+            #remaining = remaining - 1
+            #setOfCuboidsOnSample.remove(gb)
+            res=L.compare(a,b,gb,'Welch') #,'Welch'
             #print(a,b,res)
             if res==1:
                 nbWon=nbWon+1
@@ -100,6 +108,7 @@ class RankingFromPairwise:
         #order N desc
         orderedN=sort_dict_descending(self.N)
         print("ordered N", orderedN)
+        #print("ordered keys", orderedN.keys())
         for k in range(len(orderedN.keys())-1):
             valk=list(orderedN.keys())[k]
             valNext=list(orderedN.keys())[k+1]

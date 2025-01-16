@@ -25,7 +25,7 @@ if __name__ == '__main__':
     #table_size = execute_query(conn, "select count(1) from " + cfg.table + ";")[0][0]
 
     ds=DataSampler(conn, cfg)
-    sample=ds.getSample(1000,samplingMethod = 'naive')
+    sample=ds.getSample(10000,samplingMethod = 'naive')
     l = Lattice(sample)
     #testing = l.pairwise(["departure_airport", "date"], "UA", "DL", "sum")
     #print(testing)
@@ -35,12 +35,14 @@ if __name__ == '__main__':
     #print(valA)
 
     r=int(math.pow(2,len(cfg.groupbyAtt)-1))
+    #to increase the chances of gaps in deltak, enabling drawing with replacement
+    r=r*4
     p=1
     #ranking=RankingFromPairwise(cfg.prefs, r,p)
     ranking=RankingFromPairwise(adom, r,p)
     ranking.run(l)
-    print('Tau:',ranking.tau)
+    #print('Tau:',ranking.tau)
     print('Detla:',ranking.delta)
     print('F:',ranking.F)
-    print('M',ranking.M)
+    #print('M',ranking.M)
 
