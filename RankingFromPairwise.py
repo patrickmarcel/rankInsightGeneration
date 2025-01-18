@@ -19,12 +19,16 @@ pairwiseComparison = []
 class RankingFromPairwise:
 
     #values: tab of values to rank
-    def __init__(self, values, r, p):
+    def __init__(self, values, r, p, test='Welch', replacement=True):
         self.values = values
         self.r=r
         self.p=p
+        self.test=test
+        self.replacement=replacement
         self.n=len(values)
         self.M = dok_matrix((self.n, self.n),dtype=np.float32)
+        for i in range(self.n):
+            self.M[i,i]=1/2
         self.tau=dict()
         self.delta=[]
         self.F=[]
@@ -47,19 +51,21 @@ class RankingFromPairwise:
         self.M[i,j]=val
 
     def computeTau(self):
-        self.tau=1/self.n * self.M.sum(axis=1)
+        self.tau=(1/self.n) * self.M.sum(axis=1)
         taudict={}
         for v in self.values:
             indexintau = self.values.index(v)
             tauv = self.tau[indexintau][0]
             taudict[v] = tauv
         orderedTau = sort_dict_descending(taudict)
+        self.orderedTau = orderedTau
         print('Ordered Tau:',orderedTau)
 
     def binomialForPair(self,r,p):
         return np.random.binomial(r,p)
+        #return r
 
-    def performComparisons(self, L,nb, a,b):
+    def performComparisons(self, L, nb, a,b):
         nbWon=0
         nbLost=0
         nbZeros=0
@@ -69,10 +75,10 @@ class RankingFromPairwise:
         for i in range(nb):
             nbr = random.randint(0, remaining)
             gb = setOfCuboidsOnSample[nbr]
-            # uncomment below if without replacement
-            #remaining = remaining - 1
-            #setOfCuboidsOnSample.remove(gb)
-            res=L.compare(a,b,gb,'Welch') #,'Welch'
+            if not self.replacement:
+                remaining = remaining - 1
+                setOfCuboidsOnSample.remove(gb)
+            res=L.compare(a,b,gb,self.test)
             #print(a,b,res)
             if res==1:
                 nbWon=nbWon+1
@@ -108,6 +114,7 @@ class RankingFromPairwise:
         #order N desc
         orderedN=sort_dict_descending(self.N)
         print("ordered N", orderedN)
+        # orderedN=self.orderedTau
         #print("ordered keys", orderedN.keys())
         for k in range(len(orderedN.keys())-1):
             valk=list(orderedN.keys())[k]

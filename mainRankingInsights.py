@@ -39,10 +39,10 @@ if __name__ == '__main__':
     r=r*4
     p=1
     #ranking=RankingFromPairwise(cfg.prefs, r,p)
-    ranking=RankingFromPairwise(adom, r,p)
+    ranking=RankingFromPairwise(adom, r,p, 'Welch', True)
     ranking.run(l)
-    #print('Tau:',ranking.tau)
     print('Detla:',ranking.delta)
     print('F:',ranking.F)
+    #print('Tau:',ranking.tau)
     #print('M',ranking.M)
 
