@@ -69,6 +69,7 @@ class RankingFromPairwise:
         nbWon=0
         nbLost=0
         nbZeros=0
+        nbFailedTest=0
         setOfCuboidsOnSample=L.getCuboids().copy()
         remaining=len(setOfCuboidsOnSample)-1
 
@@ -86,12 +87,16 @@ class RankingFromPairwise:
                 nbZeros=nbZeros+1
             if res==-1:
                 nbLost=nbLost+1
+            if res==-2:
+                nbFailedTest=nbFailedTest+1
         self.N[a] = self.N[a] + nbWon
         #self.N[b] = self.N[b] + nbLost
-        if nbZeros==nb:
+        if nbZeros==nb or nbZeros+nbFailedTest==nb:
             self.updateM(a, b, .5)
+            self.updateM(b, a, .5)
         else:
-            self.updateM(a,b,nbWon/(nb-nbZeros))
+            self.updateM(a,b,nbWon/(nb-(nbZeros+nbFailedTest)))
+            self.updateM(b, a, 1- (nbWon / (nb - (nbZeros+nbFailedTest))))
 
     def run(self,L):
         #for each pair in self.values:
@@ -127,10 +132,11 @@ class RankingFromPairwise:
         self.checkGoodk()
 
     def checkGoodk(self):
-        r, p = self.get_rp()
-        print('threshold:',8 * math.sqrt(math.log( self.n )/ (self.n*p*r)))
+        #r, p = self.get_rp()
+        threshold=8 * math.sqrt(math.log( self.n )/ (self.n*self.p*self.r))
+        print('threshold:',threshold)
         for k in range(len(self.delta)):
-            if self.delta[k] >= 8 * math.sqrt(math.log( self.n )/ (self.n*p*r)):
+            if self.delta[k] >= threshold:
                 self.F.append(True)
             else:
                 self.F.append(False)
