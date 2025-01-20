@@ -62,8 +62,8 @@ class RankingFromPairwise:
         print('Ordered Tau:',orderedTau)
 
     def binomialForPair(self,r,p):
-        return np.random.binomial(r,p)
-        #return r
+        #return np.random.binomial(r,p)
+        return r
 
     def performComparisons(self, L, nb, a,b):
         nbWon=0
@@ -87,7 +87,7 @@ class RankingFromPairwise:
             if res==-1:
                 nbLost=nbLost+1
         self.N[a] = self.N[a] + nbWon
-        self.N[b] = self.N[b] + nbLost
+        #self.N[b] = self.N[b] + nbLost
         if nbZeros==nb:
             self.updateM(a, b, .5)
         else:
@@ -114,7 +114,7 @@ class RankingFromPairwise:
         #order N desc
         orderedN=sort_dict_descending(self.N)
         print("ordered N", orderedN)
-        # orderedN=self.orderedTau
+        orderedN=self.orderedTau
         #print("ordered keys", orderedN.keys())
         for k in range(len(orderedN.keys())-1):
             valk=list(orderedN.keys())[k]
