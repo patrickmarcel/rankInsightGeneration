@@ -4,6 +4,8 @@ import random
 
 from scipy.sparse import dok_matrix
 import numpy as np
+from tqdm import tqdm
+
 from utilities import sort_dict_descending
 from dbStuff import getSample
 from statStuff import welch_ttest, permutation_test, compute_skewness, benjamini_hochberg, benjamini_hochberg_statmod, claireStat
@@ -71,7 +73,7 @@ class RankingFromPairwise:
         return r
 
     #compares a, b on in-memory cuboids
-    def performComparisons(self, L, nb, a,b):
+    def performComparisons(self, L, nb, a,b,method='withTest'):
         nbWon=0
         nbLost=0
         nbZeros=0
@@ -79,34 +81,51 @@ class RankingFromPairwise:
         setOfCuboidsOnSample=L.getCuboids().copy()
         remaining=len(setOfCuboidsOnSample)-1
 
-        for i in range(nb):
-            nbr = random.randint(0, remaining)
-            gb = setOfCuboidsOnSample[nbr]
-            if not self.replacement:
-                remaining = remaining - 1
-                setOfCuboidsOnSample.remove(gb)
-            res=L.compare(a,b,gb,self.test)
-            #print(a,b,res)
-            if res==1:
-                nbWon=nbWon+1
-            if res==0:
-                nbZeros=nbZeros+1
-            if res==-1:
-                nbLost=nbLost+1
-            if res==-2:
-                nbFailedTest=nbFailedTest+1
-        self.N[a] = self.N[a] + nbWon
-        #self.N[b] = self.N[b] + nbLost
-        if nbZeros==nb or nbZeros+nbFailedTest==nb:
-            self.updateM(a, b, .5)
-            self.updateM(b, a, .5)
+        if method == 'withTest':
+            for i in range(nb):
+                nbr = random.randint(0, remaining)
+                gb = setOfCuboidsOnSample[nbr]
+                if not self.replacement:
+                    remaining = remaining - 1
+                    setOfCuboidsOnSample.remove(gb)
+                res=L.compare(a,b,gb,self.test)
+                if res==1:
+                    nbWon=nbWon+1
+                if res==0:
+                    nbZeros=nbZeros+1
+                if res==-1:
+                    nbLost=nbLost+1
+                if res==-2:
+                    nbFailedTest=nbFailedTest+1
+            self.N[a] = self.N[a] + nbWon
+            self.N[b] = self.N[b] + nbLost
+            if nbZeros==nb or nbZeros+nbFailedTest==nb:
+                self.updateM(a, b, .5)
+                self.updateM(b, a, .5)
+            else:
+                self.updateM(a,b,nbWon/(nb-(nbZeros+nbFailedTest)))
+                self.updateM(b, a, 1- (nbWon / (nb - (nbZeros+nbFailedTest))))
         else:
-            self.updateM(a,b,nbWon/(nb-(nbZeros+nbFailedTest)))
-            self.updateM(b, a, 1- (nbWon / (nb - (nbZeros+nbFailedTest))))
+            for i in range(nb):
+                nbr = random.randint(0, remaining)
+                gb = setOfCuboidsOnSample[nbr]
+                if not self.replacement:
+                    remaining = remaining - 1
+                    setOfCuboidsOnSample.remove(gb)
+                nbA,pA,nbB,pB=L.compare(a,b,gb,self.test)
+                nbWon = nbWon + nbA
+                nbLost = nbLost + nbB
+            #CHECK HERE
+            self.N[a] = self.N[a] + nbWon
+            self.N[b] = self.N[b] + nbLost
+            self.updateM(a, b, nbWon / (nb))
+            self.updateM(b, a, 1 - (nbWon / (nb)))
 
-    def run(self,L):
+
+    def run(self,L,method='withTest'):
         #for each pair in self.values:
-        for i in range(len(self.values)):
+
+        for i in tqdm(range(len(self.values)),desc='Performing comparisons on sample'):
             for j in range(i+1,len(self.values)):
                 a,b=self.values[i],self.values[j]
                 # get r and p
@@ -114,7 +133,7 @@ class RankingFromPairwise:
                 # draw number of comparison to make for each pair
                 nbOfComp=self.binomialForPair(r,p)
                 # make comparison and update M, N
-                self.performComparisons(L,nbOfComp,a,b)
+                self.performComparisons(L,nbOfComp,a,b,method='withTest')
         # compute tau
         self.computeTau()
         # compute deltak

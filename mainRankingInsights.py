@@ -31,7 +31,7 @@ if __name__ == '__main__':
 
     start_time = time.time()
     ds=DataSampler(conn, cfg)
-    sample=ds.getSample(10000,samplingMethod = 'naive')
+    sample=ds.getSample(10358,samplingMethod = 'naive')
     l = Lattice(sample)
     #testing = l.pairwise(["departure_airport", "date"], "UA", "DL", "sum")
     #print(testing)
@@ -47,8 +47,8 @@ if __name__ == '__main__':
     p=1
     #ranking=RankingFromPairwise(cfg.prefs, r,p)
     ranking=RankingFromPairwise(adom, r,p, 'Welch', True)
-    ranking.run(l)
-    print('Delta:',ranking.delta)
+    ranking.run(l,method='withoutTest')
+    #print('Delta:',ranking.delta)
     print('F:',ranking.F)
     #print('Tau:',ranking.tau)
     #print('M',ranking.M)
@@ -59,5 +59,5 @@ if __name__ == '__main__':
     print('Hypothesis:',hypothesis)
 
     groupbyAtt = cfg.groupbyAtt[1:]
-    sampleOfLattice=SampleRanking(conn, groupbyAtt, cfg.sel, cfg.meas, cfg.measBase, cfg.function, cfg.table, generateIndex=False)
+    #sampleOfLattice=SampleRanking(conn, groupbyAtt, cfg.sel, cfg.meas, cfg.measBase, cfg.function, cfg.table, generateIndex=False)
 

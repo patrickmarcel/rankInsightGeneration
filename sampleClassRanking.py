@@ -124,39 +124,68 @@ class SampleRanking:
     def clean(self):
         dropAllMVs(self.conn)
 
-    def getGTallLattice(self, pairs,sizeOfR,ratioViolations):
-        print("Computing ground truth on all the lattice")
-        dictGT={}
-        H=Hypothesis()
-        for p in pairs:
-            sampleSize = sizeOfR
+    def compare(self,a,b,test='Welch'):
+        return
 
-            hypothesis, hypothesisGenerationTime, samplingTime, pvalue = H.hypothesisGeneration(self.conn, p, self.sel,
-                                                                                              self.measBase, self.meas,
-                                                                                              self.table, sampleSize,
-                                                                                              allComparison=True)
-            if len(hypothesis) == 2 and hypothesis[0][1] != hypothesis[1][1]:
-            #if len(hypothesis) == 2:
-                valsToSelect = []
-                for h in hypothesis:
-                    valsToSelect.append(h[0])
-                nbMVs = len(self.getAggOverAllLattice())
+    def getGTallLattice(self, values, method='withoutTest'):
+        for i in tqdm(range(len(self.values)), desc='Performing comparisons on lattice'):
+            for j in range(i + 1, len(self.values)):
+                a, b = self.values[i], self.values[j]
+                # make comparison and update M, N
+                self.performComparisons(a, b, method='withoutTest')
 
-                ranks, queryCountviolations, queryCountCuboid, cuboid = generateAllqueriesOnMVs(self.getAggOverAllLattice(),
-                                                                                                self.sel,
-                                                                                                self.measBase,
-                                                                                                self.function,
-                                                                                                self.table,
-                                                                                                tuple(valsToSelect),
-                                                                                                hypothesis,
-                                                                                                self.getAllLattice())
+        return
 
-                realRatio, nbViewOK, sizeofsample, nbInconclusive= H.checkViolations(ratioViolations, conn, ranks, hypothesis, queryCountCuboid, queryCountviolations, nbMVs)
-                dictGT[p] = [nbInconclusive, realRatio]
+    # compares a, b on materialized cuboids
+    def performComparisons(self, a, b, method='withoutTest'):
+            nbWon = 0
+            nbLost = 0
+            nbZeros = 0
+            nbFailedTest = 0
+            setOfCuboidsOnSample = self.allMVs
+            nb=len(self.allMVs)
+            remaining = len(setOfCuboidsOnSample) - 1
 
-        dictGT = utilities.sort_dict_by_second_entry_desc(dictGT)
-        print("Number of comparisons found:", len(dictGT))
-        return dictGT
+            if method == 'withTest':
+                for i in range(nb):
+                    nbr = random.randint(0, remaining)
+                    gb = setOfCuboidsOnSample[nbr]
+                    if not self.replacement:
+                        remaining = remaining - 1
+                        setOfCuboidsOnSample.remove(gb)
+                    res = self.compare(a, b, gb, self.test)
+                    if res == 1:
+                        nbWon = nbWon + 1
+                    if res == 0:
+                        nbZeros = nbZeros + 1
+                    if res == -1:
+                        nbLost = nbLost + 1
+                    if res == -2:
+                        nbFailedTest = nbFailedTest + 1
+                self.N[a] = self.N[a] + nbWon
+                self.N[b] = self.N[b] + nbLost
+                if nbZeros == nb or nbZeros + nbFailedTest == nb:
+                    self.updateM(a, b, .5)
+                    self.updateM(b, a, .5)
+                else:
+                    self.updateM(a, b, nbWon / (nb - (nbZeros + nbFailedTest)))
+                    self.updateM(b, a, 1 - (nbWon / (nb - (nbZeros + nbFailedTest))))
+            else:
+                for i in range(nb):
+                    nbr = random.randint(0, remaining)
+                    gb = setOfCuboidsOnSample[nbr]
+                    if not self.replacement:
+                        remaining = remaining - 1
+                        setOfCuboidsOnSample.remove(gb)
+                    nbA, pA, nbB, pB = self.compare(a, b, gb, self.test)
+                    nbWon = nbWon + nbA
+                    nbLost = nbLost + nbB
+                # CHECK HERE
+                self.N[a] = self.N[a] + nbWon
+                self.N[b] = self.N[b] + nbLost
+                self.updateM(a, b, nbWon / (nb))
+                self.updateM(b, a, 1 - (nbWon / (nb)))
+
 
     def getGTQueriesOverMC(self, pairs,sizeOfR,ratioViolations):
         print("Computing ground truth on queries over materialzed views")

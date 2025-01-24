@@ -60,9 +60,8 @@ class Lattice:
         return cuboid.loc[:,meas]
 
 
-    # return 0 if no comparison, 1 if a>b, -1 if b>a
-    def compare(self, a, b, gb, test ='stat'):
-
+    # return 0 if no comparison, 1 if a>b, -1 if b>a using statistical tests
+    def compare(self, a, b, gb, test ='stat',method='withTest'):
         S = []
         #valsA=np.array(self.getVal(a,self.measure))
         #valsB=np.array(self.getVal(b,self.measure))
@@ -74,7 +73,21 @@ class Lattice:
         skewB = compute_skewness(valsB)
         S.append((a, nA, skewA, valsA))
         S.append((b, nB, skewB, valsB))
-        return self.runStatisticalTest(S, test)
+        if method=='withTest':
+            return self.runStatisticalTest(S, test)
+        else:
+            return self.compareWithoutTest(S)
+
+    # compare without test returning probabilities of a wins over b
+    def compareWithoutTest(self, S):
+        seriesA=S[0][3]
+        seriesB=S[1][3]
+        nbWonA=0
+        for i in range(len(seriesA)):
+            if seriesA[i] != seriesB[i]:
+                nbWon=nbWon+1
+        probaWonA=nbWonA/len(seriesA)
+        return nbWonA,probaWonA,len(seriesA)-nbWonA,1-probaWonA
 
     # legacy code
     def runStatisticalTest(self, S, test='stat'):
