@@ -26,6 +26,8 @@ class RankingFromPairwise:
         self.test=test
         self.replacement=replacement
         self.n=len(values)
+        self.threshold=8 * math.sqrt(math.log( self.n )/ (self.n*self.p*self.r))
+        print('threshold:', self.threshold)
         self.M = dok_matrix((self.n, self.n),dtype=np.float32)
         for i in range(self.n):
             self.M[i,i]=1/2
@@ -37,6 +39,9 @@ class RankingFromPairwise:
         for i in range(len(self.values)):
             a=self.values[i]
             self.N[a]=0
+
+    def getHypothesis(self):
+        return self.hypothesis
 
     def get_rp(self):
         # r= nb of trials = nb of cuboids?
@@ -65,6 +70,7 @@ class RankingFromPairwise:
         #return np.random.binomial(r,p)
         return r
 
+    #compares a, b on in-memory cuboids
     def performComparisons(self, L, nb, a,b):
         nbWon=0
         nbLost=0
@@ -119,6 +125,7 @@ class RankingFromPairwise:
         #order N desc
         orderedN=sort_dict_descending(self.N)
         print("ordered N", orderedN)
+        self.hypothesis=list(orderedN.keys())
         orderedN=self.orderedTau
         #print("ordered keys", orderedN.keys())
         for k in range(len(orderedN.keys())-1):
@@ -133,10 +140,8 @@ class RankingFromPairwise:
 
     def checkGoodk(self):
         #r, p = self.get_rp()
-        threshold=8 * math.sqrt(math.log( self.n )/ (self.n*self.p*self.r))
-        print('threshold:',threshold)
         for k in range(len(self.delta)):
-            if self.delta[k] >= threshold:
+            if self.delta[k] >= self.threshold:
                 self.F.append(True)
             else:
                 self.F.append(False)

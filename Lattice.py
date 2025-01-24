@@ -74,10 +74,10 @@ class Lattice:
         skewB = compute_skewness(valsB)
         S.append((a, nA, skewA, valsA))
         S.append((b, nB, skewB, valsB))
-        return self.comparison(S,test)
+        return self.runStatisticalTest(S, test)
 
     # legacy code
-    def comparison(self,S,test='stat'):
+    def runStatisticalTest(self, S, test='stat'):
         b = claireStat(S[0][2], S[1][2], S[0][1], S[1][1])
         pairwiseComparison = []
         #claireTab.append((S[i - 1][0], S[j][0], b, S[i - 1][3], S[j][3]))
