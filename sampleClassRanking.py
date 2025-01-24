@@ -1,3 +1,6 @@
+from scipy.sparse import dok_matrix
+
+import dbStuff
 from Config import Config
 from Lattice import Lattice
 
@@ -8,6 +11,7 @@ from tqdm import tqdm, trange
 
 import statStuff
 import utilities
+import numpy as np
 import duckdb
 import sqlite3
 
@@ -41,6 +45,20 @@ class SampleRanking:
         self.aggOverMC=[]
         self.MC=[]
 
+    def initializeGT(self, values):
+        self.values=values
+        self.n=len(values)
+        self.M = dok_matrix((self.n, self.n), dtype=np.float32)
+        for i in range(self.n):
+            self.M[i, i] = 1 / 2
+        self.tau = dict()
+        self.delta = []
+        self.F = []
+        # initialize N
+        self.N = dict()
+        for i in range(len(self.values)):
+            a = self.values[i]
+            self.N[a] = 0
 
     def getCurrentSample(self):
         return self.currentSample
@@ -124,20 +142,62 @@ class SampleRanking:
     def clean(self):
         dropAllMVs(self.conn)
 
-    def compare(self,a,b,test='Welch'):
+        # val is empirical probabilty that a beats b
+    def updateM(self, a, b, val):
+            i = self.values.index(a)
+            j = self.values.index(b)
+            self.M[i, j] = val
+
+    # this should be moved elsewhere
+    def runStatisticalTest(self, S, test):
         return
+
+    #this should be moved elsewhere
+    def compareWithoutTest(self, S):
+        seriesA = S[0][3]
+        seriesB = S[1][3]
+        nbWonA = 0
+        nbWonB = 0
+        for i in range(len(seriesA)):
+            if seriesA[i] > seriesB[i]:
+                nbWonA = nbWonA + 1
+            if seriesA[i] < seriesB[i]:
+                nbWonB = nbWonB + 1
+        probaWonA = nbWonA / len(seriesA)
+        probaWonB = nbWonB / len(seriesB)
+        return nbWonA, probaWonA, nbWonB, probaWonB
+
+    def getValInGb(self, a, gb):
+        query='select ' + self.meas  + ' from ' + gb + ' where ' + self.sel + '=' + a + ';'
+        return dbStuff.execute_query(self.conn, query)
+
+    def compare(self,a,b, gb, test='Welch', method='WithoutTest'):
+        S = []
+        valsA = np.array(self.getValInGb(a, gb))
+        valsB = np.array(self.getValInGb(b, gb))
+        nA = len(valsA)
+        nB = len(valsB)
+        skewA = statStuff.compute_skewness(valsA)
+        skewB = statStuff.compute_skewness(valsB)
+        S.append((a, nA, skewA, valsA))
+        S.append((b, nB, skewB, valsB))
+        if method == 'withTest':
+            return self.runStatisticalTest(S, test)
+        else:
+            return self.compareWithoutTest(S)
+
 
     def getGTallLattice(self, values, method='withoutTest'):
-        for i in tqdm(range(len(self.values)), desc='Performing comparisons on lattice'):
-            for j in range(i + 1, len(self.values)):
-                a, b = self.values[i], self.values[j]
-                # make comparison and update M, N
+        self.initializeGT(values)
+        for i in tqdm(range(len(values)), desc='Performing comparisons on lattice'):
+            for j in range(i + 1, len(values)):
+                a, b = values[i], values[j]
                 self.performComparisons(a, b, method='withoutTest')
-
-        return
+        # needs to update ground truth N
+        #self.GT= ...
 
     # compares a, b on materialized cuboids
-    def performComparisons(self, a, b, method='withoutTest'):
+    def performComparisons(self, a, b, test='Welch', replacement=False, method='withoutTest'):
             nbWon = 0
             nbLost = 0
             nbZeros = 0
@@ -150,10 +210,10 @@ class SampleRanking:
                 for i in range(nb):
                     nbr = random.randint(0, remaining)
                     gb = setOfCuboidsOnSample[nbr]
-                    if not self.replacement:
+                    if not replacement:
                         remaining = remaining - 1
                         setOfCuboidsOnSample.remove(gb)
-                    res = self.compare(a, b, gb, self.test)
+                    res = self.compare(a, b, gb,  test='Welch', method='WithoutTest')
                     if res == 1:
                         nbWon = nbWon + 1
                     if res == 0:
@@ -174,10 +234,10 @@ class SampleRanking:
                 for i in range(nb):
                     nbr = random.randint(0, remaining)
                     gb = setOfCuboidsOnSample[nbr]
-                    if not self.replacement:
+                    if not replacement:
                         remaining = remaining - 1
                         setOfCuboidsOnSample.remove(gb)
-                    nbA, pA, nbB, pB = self.compare(a, b, gb, self.test)
+                    nbA, pA, nbB, pB = self.compare(a, b, gb, test)
                     nbWon = nbWon + nbA
                     nbLost = nbLost + nbB
                 # CHECK HERE

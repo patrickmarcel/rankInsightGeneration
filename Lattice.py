@@ -83,11 +83,15 @@ class Lattice:
         seriesA=S[0][3]
         seriesB=S[1][3]
         nbWonA=0
+        nbWonB=0
         for i in range(len(seriesA)):
-            if seriesA[i] != seriesB[i]:
-                nbWon=nbWon+1
+            if seriesA[i] > seriesB[i]:
+                nbWonA=nbWonA+1
+            if seriesA[i] < seriesB[i]:
+                nbWonB=nbWonB+1
         probaWonA=nbWonA/len(seriesA)
-        return nbWonA,probaWonA,len(seriesA)-nbWonA,1-probaWonA
+        probaWonB = nbWonB / len(seriesB)
+        return nbWonA,probaWonA,nbWonB,probaWonB
 
     # legacy code
     def runStatisticalTest(self, S, test='stat'):
