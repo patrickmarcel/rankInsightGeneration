@@ -40,24 +40,26 @@ if __name__ == '__main__':
     #valA=testing[(testing['airline'] == 'DL')]
     #print(valA)
 
-    r=int(math.pow(2,len(cfg.groupbyAtt)-1))
-    #to increase the chances of gaps in deltak, enabling drawing with replacement
-    r=r*1
-    #print('r:',r)
-    p=1
-    #ranking=RankingFromPairwise(cfg.prefs, r,p)
-    ranking=RankingFromPairwise(adom, r,p, 'Welch', True)
-    ranking.run(l,method='withoutTest')
-    #print('Delta:',ranking.delta)
-    print('F:',ranking.F)
-    #print('Tau:',ranking.tau)
-    #print('M',ranking.M)
-    end_time = time.time()
-    timings = end_time - start_time
-    print('Completed in ',timings, 'seconds')
-    hypothesis=ranking.getHypothesis()
-    print('Hypothesis:',hypothesis)
+    computeHyp=True
+    if computeHyp:
+        r=int(math.pow(2,len(cfg.groupbyAtt)-1))
+        #to increase the chances of gaps in deltak, enabling drawing with replacement
+        r=r*1
+        #print('r:',r)
+        p=1
+        #ranking=RankingFromPairwise(cfg.prefs, r,p)
+        ranking=RankingFromPairwise(adom, r,p, 'Welch', True)
+        ranking.run(l,method='withoutTest')
+        #print('Delta:',ranking.delta)
+        print('F:',ranking.F)
+        #print('Tau:',ranking.tau)
+        #print('M',ranking.M)
+        end_time = time.time()
+        timings = end_time - start_time
+        print('Completed in ',timings, 'seconds')
+        hypothesis=ranking.getHypothesis()
+        print('Hypothesis:',hypothesis)
 
     groupbyAtt = cfg.groupbyAtt[1:]
-    #sampleOfLattice=SampleRanking(conn, groupbyAtt, cfg.sel, cfg.meas, cfg.measBase, cfg.function, cfg.table, generateIndex=False)
-
+    sampleOfLattice=SampleRanking(conn, groupbyAtt, cfg.sel, cfg.meas, cfg.measBase, cfg.function, cfg.table, generateIndex=False)
+    print('Ground truth: ',sampleOfLattice.getGTallLattice(adom))

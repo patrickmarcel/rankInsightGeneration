@@ -32,11 +32,14 @@ class SampleRanking:
         self.measBase=measBase
         self.function=function
         self.table=table
-        dropAllMVs(conn)
+        #dropAllMVs(conn)
         #create all MVs
-        print("Creating materialized views")
-        createMV(conn, attInGB, selAtt, measBase, function, table, 1, generateIndex)
-        self.allMVs=getMVnames(conn)
+        if len(getMVnames(conn))!=0:
+            self.allMVs = getMVnames(conn)
+        else:
+            print("Creating materialized views")
+            createMV(conn, attInGB, selAtt, measBase, function, table, 1, generateIndex)
+            self.allMVs=getMVnames(conn)
         #create all aggregate queries
         self.aggOverMV = getAggQueriesOverMV(self.allMVs,self.sel)
         # currentSample is the set of cuboid names in the sample
@@ -150,6 +153,7 @@ class SampleRanking:
 
     # this should be moved elsewhere
     def runStatisticalTest(self, S, test):
+        # so far does nothing, if needed copy code in Lattice
         return
 
     #this should be moved elsewhere
@@ -168,7 +172,7 @@ class SampleRanking:
         return nbWonA, probaWonA, nbWonB, probaWonB
 
     def getValInGb(self, a, gb):
-        query='select ' + self.meas  + ' from ' + gb + ' where ' + self.sel + '=' + a + ';'
+        query='select ' + self.meas  + ' from \"' + gb[0] + '\" where ' + self.sel + '= \'' + a + '\';'
         return dbStuff.execute_query(self.conn, query)
 
     def compare(self,a,b, gb, test='Welch', method='WithoutTest'):
@@ -193,8 +197,10 @@ class SampleRanking:
             for j in range(i + 1, len(values)):
                 a, b = values[i], values[j]
                 self.performComparisons(a, b, method='withoutTest')
-        # needs to update ground truth N
-        #self.GT= ...
+        # return ground truth N
+        orderedN = utilities.sort_dict_descending(self.N)
+        self.GT= list(orderedN.keys())
+        return self.GT
 
     # compares a, b on materialized cuboids
     def performComparisons(self, a, b, test='Welch', replacement=False, method='withoutTest'):
@@ -202,7 +208,7 @@ class SampleRanking:
             nbLost = 0
             nbZeros = 0
             nbFailedTest = 0
-            setOfCuboidsOnSample = self.allMVs
+            setOfCuboidsOnSample = self.allMVs.copy()
             nb=len(self.allMVs)
             remaining = len(setOfCuboidsOnSample) - 1
 
@@ -240,7 +246,6 @@ class SampleRanking:
                     nbA, pA, nbB, pB = self.compare(a, b, gb, test)
                     nbWon = nbWon + nbA
                     nbLost = nbLost + nbB
-                # CHECK HERE
                 self.N[a] = self.N[a] + nbWon
                 self.N[b] = self.N[b] + nbLost
                 self.updateM(a, b, nbWon / (nb))
