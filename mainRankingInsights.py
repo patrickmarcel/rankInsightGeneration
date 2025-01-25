@@ -8,6 +8,7 @@ from DataSampler import DataSampler
 from RankingFromPairwise import RankingFromPairwise
 import time
 from sampleClassRanking import SampleRanking
+from statStuff import transform_to_rankings, compute_kendall_tau
 
 # Demo code for running pairwise comparison on sample
 """
@@ -59,7 +60,15 @@ if __name__ == '__main__':
         print('Completed in ',timings, 'seconds')
         hypothesis=ranking.getHypothesis()
         print('Hypothesis:',hypothesis)
+        tauHypothesis=ranking.getTauHypothesis()
+        print('TauHypothesis:',tauHypothesis)
+        l1, l2 = transform_to_rankings(hypothesis, tauHypothesis)
+        print('Kendall tau between N and Tau: ', compute_kendall_tau(l1, l2))
 
     groupbyAtt = cfg.groupbyAtt[1:]
     sampleOfLattice=SampleRanking(conn, groupbyAtt, cfg.sel, cfg.meas, cfg.measBase, cfg.function, cfg.table, generateIndex=False)
-    print('Ground truth: ',sampleOfLattice.getGTallLattice(adom))
+    groundTruth=sampleOfLattice.getGTallLattice(adom)
+    print('Ground truth: ',groundTruth)
+    l1,l2=transform_to_rankings(hypothesis,groundTruth)
+    print('Kendall tau between hypothesis and ground truth: ', compute_kendall_tau(l1,l2))
+

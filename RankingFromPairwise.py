@@ -45,6 +45,9 @@ class RankingFromPairwise:
     def getHypothesis(self):
         return self.hypothesis
 
+    def getTauHypothesis(self):
+        return self.tauHypothesis
+
     def get_rp(self):
         # r= nb of trials = nb of cuboids?
         # p= probability of each trial
@@ -66,7 +69,10 @@ class RankingFromPairwise:
             taudict[v] = tauv
         orderedTau = sort_dict_descending(taudict)
         self.orderedTau = orderedTau
-        print('Ordered Tau:',orderedTau)
+        orderedTautmp = sort_dict_descending(self.orderedTau)
+        # print("ordered N", orderedN)
+        self.tauHypothesis = list(orderedTautmp.keys())
+        #print('Ordered Tau:',orderedTau)
 
     def binomialForPair(self,r,p):
         #return np.random.binomial(r,p)
@@ -143,7 +149,7 @@ class RankingFromPairwise:
     def computeDeltak(self):
         #order N desc
         orderedN=sort_dict_descending(self.N)
-        print("ordered N", orderedN)
+        #print("ordered N", orderedN)
         self.hypothesis=list(orderedN.keys())
         orderedN=self.orderedTau
         #print("ordered keys", orderedN.keys())

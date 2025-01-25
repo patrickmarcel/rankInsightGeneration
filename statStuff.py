@@ -242,3 +242,15 @@ def claireStat(skew1, skew2, count1, count2, threshold=0.049):
         return True
     else:
         return False
+
+def transform_to_rankings(list1, list2):
+    # Create a dictionary to store rankings for each string in list1
+    rankings_list1 = {string: i + 1 for i, string in enumerate(list1)}
+    rankings_list2 = [rankings_list1[string] for string in list2]
+
+    # Generate the rankings for list1 (1-based index)
+    rankings1 = [i + 1 for i in range(len(list1))]
+
+    return rankings1, rankings_list2
+
+
