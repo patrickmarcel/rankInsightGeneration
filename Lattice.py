@@ -3,6 +3,7 @@ from Config import Config
 from pandas import DataFrame
 import numpy as np
 from statStuff import claireStat, welch_ttest, permutation_test, compute_skewness
+import pandas as pd
 
 
 class Lattice:
@@ -45,19 +46,41 @@ class Lattice:
     def agg(self, gb_set, function):
         return self.data.groupby([self.selection] + gb_set).agg({self.measure: function})
 
+    def gb_agg(self, gb_set, function):
+        if function=='avg':
+            function='mean'
+        return self.data.groupby(gb_set, as_index=False).agg({self.measure: function})
+
     def pairwise(self, gb_set, val1, val2, function):
         return self.data[(self.data[self.selection] == val1) | (self.data[self.selection] == val2)].groupby([self.selection] + gb_set).agg({self.measure: function})
 
     def getVal(self,val1,meas):
         return self.data[(self.data[self.selection] == val1)].loc[:,meas]
 
-    def getValInGb(self,val1,meas,gb):
-        cuboid=self.data[(self.data[self.selection] == val1)]
-        #print(cuboid)
-        cuboid=cuboid.groupby(list(gb),group_keys=True).agg({self.measure: 'sum'})
-        #print(gb)
-        #print(cuboid)
-        return cuboid.loc[:,meas]
+    def getValInGb(self,val1, val2, meas,gb):
+        #cuboid = self.data.groupby(list(gb), group_keys=True).agg({self.measure: self.function})
+        cuboid=self.gb_agg(list(gb),self.function)
+        cuboid1 = cuboid[(cuboid[self.selection] == val1)]
+        cuboid2 = cuboid[(cuboid[self.selection] == val2)]
+        cuboid1=cuboid1.rename(columns={meas:val1})
+        cuboid2=cuboid2.rename(columns={meas:val2})
+        bgtmp=list(gb)
+        bgtmp.remove(self.selection)
+        bgtmp.append(val1)
+        cuboid1=cuboid1[bgtmp]
+        bgtmp.remove(val1)
+        bgtmp.append(val2)
+        cuboid2=cuboid2[bgtmp]
+        #join=pd.concat([cuboid1, cuboid2], axis=1,  join="inner")
+        bgtmp.remove(val2)
+        if len(gb)>1:
+            join=cuboid1.merge(cuboid2, how='inner', on=bgtmp)
+            return join.loc[:,val1], join.loc[:,val2]
+        else:
+            print()
+            valA=cuboid1.loc[:,val1]
+            valB = cuboid2.loc[:, val2]
+            return valA, valB
 
 
     # return 0 if no comparison, 1 if a>b, -1 if b>a using statistical tests
@@ -83,14 +106,14 @@ class Lattice:
         S = []
         #valsA=np.array(self.getVal(a,self.measure))
         #valsB=np.array(self.getVal(b,self.measure))
-        valsA = np.array(self.getValInGb(a, self.measure,gb))
-        valsB = np.array(self.getValInGb(b, self.measure,gb))
+        valsA,valsB = np.array(self.getValInGb(a, b, self.measure,gb))
+        #valsB = np.array(self.getValInGb(b, self.measure,gb))
         nA = len(valsA)
         nB = len(valsB)
-        skewA = compute_skewness(valsA)
-        skewB = compute_skewness(valsB)
-        S.append((a, nA, skewA, valsA))
-        S.append((b, nB, skewB, valsB))
+        #skewA = compute_skewness(valsA)
+        #skewB = compute_skewness(valsB)
+        #S.append((a, nA, skewA, valsA))
+        #S.append((b, nB, skewB, valsB))
         seriesA = S[0][3]
         seriesB = S[1][3]
         nbWonA = 0
@@ -100,9 +123,12 @@ class Lattice:
                 nbWonA = nbWonA + 1
             if seriesA[i] < seriesB[i]:
                 nbWonB = nbWonB + 1
-        probaWonA = nbWonA / len(seriesA)
-        probaWonB = nbWonB / len(seriesB)
-        return nbWonA, probaWonA, nbWonB, probaWonB
+        if len(seriesA)!=0:
+            probaWonA = nbWonA / len(seriesA)
+            probaWonB = nbWonB / len(seriesB)
+            return nbWonA, probaWonA, nbWonB, probaWonB
+        else:
+            return 0,0,0,0
 
 
     # legacy code

@@ -30,9 +30,9 @@ if __name__ == '__main__':
 
     samplingMethod='naive'
     #samplingMethod='congressional'
-    groundTruth = ['G4', 'YV', 'AA', 'OO', 'NK', 'MQ', 'UA', 'WN', 'B6', 'DL', 'OH', '9E', 'YX', 'F9', 'HA', 'AS']
-    computeGT = True
-    computeHyp = False
+    groundTruth = ['WN', 'AA', 'DL', 'OO', 'UA', 'NK', '9E', 'YX', 'MQ', 'YV', 'OH', 'B6', 'F9', 'G4', 'AS', 'HA']
+    computeGT = False
+    computeHyp = True
     #samplesize=10358
     #config='configs/flights100k.ini'
     user='PM'
