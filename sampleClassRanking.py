@@ -167,18 +167,33 @@ class SampleRanking:
                 nbWonA = nbWonA + 1
             if seriesA[i] < seriesB[i]:
                 nbWonB = nbWonB + 1
-        probaWonA = nbWonA / len(seriesA)
-        probaWonB = nbWonB / len(seriesB)
-        return nbWonA, probaWonA, nbWonB, probaWonB
+        if len(seriesA) !=0:
+            probaWonA = nbWonA / len(seriesA)
+            probaWonB = nbWonB / len(seriesB)
+            return nbWonA, probaWonA, nbWonB, probaWonB
+        else:
+            return 0,0,0,0
 
-    def getValInGb(self, a, gb):
-        query='select ' + self.meas  + ' from \"' + gb[0] + '\" where ' + self.sel + '= \'' + a + '\';'
-        return dbStuff.execute_query(self.conn, query)
+    def getValInGb(self, a, b, gb):
+        groupby=gb[0].split(',')[:-1]
+        strgb=''
+        for s in groupby:
+            strgb=strgb+s+','
+        strgb=strgb[:-1]
+        if strgb=='':
+            queryGetGroupByVals = ('select \"'+ a + '\",\"' + b +'\" from (select ' + self.measBase + ' as \"' + a + '\" from \"' + gb[0] + '\" where ' + self.sel + '= \'' + a + '\' ) natural join (' +
+                             'select '  + self.measBase + ' as \"' + b + '\" from \"' + gb[0] + '\" where ' + self.sel + '= \'' + b + '\' );')
+        else:
+            queryGetGroupByVals=('select \"'+ a + '\",\"' + b +'\" from (select ' + strgb  + ', ' + self.measBase + ' as \"' + a + '\" from \"' + gb[0] + '\" where ' + self.sel + '= \'' + a + '\' ) natural join (' +
+                             'select ' + strgb  + ', ' + self.measBase + ' as \"' + b + '\" from \"' + gb[0] + '\" where ' + self.sel + '= \'' + b + '\' );')
+
+        res=dbStuff.execute_query(self.conn, queryGetGroupByVals)
+        return [t[0] for t in res],[t[1] for t in res]
 
     def compare(self,a,b, gb, test='Welch', method='WithoutTest'):
         S = []
-        valsA = np.array(self.getValInGb(a, gb))
-        valsB = np.array(self.getValInGb(b, gb))
+        valsA,valsB = np.array(self.getValInGb(a, b, gb))
+        #valsB = np.array(self.getValInGb(b, a, gb))
         nA = len(valsA)
         nB = len(valsB)
         skewA = statStuff.compute_skewness(valsA)
@@ -199,6 +214,7 @@ class SampleRanking:
                 self.performComparisons(a, b, method='withoutTest')
         # return ground truth N
         orderedN = utilities.sort_dict_descending(self.N)
+        self.orderedN=orderedN
         self.GT= list(orderedN.keys())
         return self.GT
 

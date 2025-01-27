@@ -118,7 +118,8 @@ class RankingFromPairwise:
                 if not self.replacement:
                     remaining = remaining - 1
                     setOfCuboidsOnSample.remove(gb)
-                nbA,pA,nbB,pB=L.compare(a,b,gb,self.test)
+                #nbA,pA,nbB,pB=L.compare(a,b,gb,self.test)
+                nbA, pA, nbB, pB = L.compareWithoutTest(a, b, gb)
                 nbWon = nbWon + nbA
                 nbLost = nbLost + nbB
             #CHECK HERE
@@ -139,7 +140,7 @@ class RankingFromPairwise:
                 # draw number of comparison to make for each pair
                 nbOfComp=self.binomialForPair(r,p)
                 # make comparison and update M, N
-                self.performComparisons(L,nbOfComp,a,b,method='withTest')
+                self.performComparisons(L,nbOfComp,a,b,method)
         # compute tau
         self.computeTau()
         # compute deltak
@@ -149,6 +150,7 @@ class RankingFromPairwise:
     def computeDeltak(self):
         #order N desc
         orderedN=sort_dict_descending(self.N)
+        self.orderedN=orderedN
         #print("ordered N", orderedN)
         self.hypothesis=list(orderedN.keys())
         orderedN=self.orderedTau

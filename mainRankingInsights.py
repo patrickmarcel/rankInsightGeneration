@@ -31,8 +31,8 @@ if __name__ == '__main__':
     samplingMethod='naive'
     #samplingMethod='congressional'
     groundTruth = ['G4', 'YV', 'AA', 'OO', 'NK', 'MQ', 'UA', 'WN', 'B6', 'DL', 'OH', '9E', 'YX', 'F9', 'HA', 'AS']
-    computeGT = False
-    computeHyp = True
+    computeGT = True
+    computeHyp = False
     #samplesize=10358
     #config='configs/flights100k.ini'
     user='PM'
@@ -73,6 +73,7 @@ if __name__ == '__main__':
 
     tabR=[1,2]
     tabSampleSize=[0.01,0.1,0.3,0.5,1]
+    tabSampleSize=[1]
 
     for percentSize in tqdm(tabSampleSize):
         samplesize=sizeOfR*percentSize
@@ -106,6 +107,7 @@ if __name__ == '__main__':
             print('Hypothesis:',hypothesis)
             tauHypothesis=ranking.getTauHypothesis()
             print('TauHypothesis:',tauHypothesis)
+            print('OrderedN:',ranking.orderedN)
             l1, l2 = transform_to_rankings(hypothesis, tauHypothesis)
             print('Kendall tau between N and Tau: ', compute_kendall_tau(l1, l2))
 
@@ -114,6 +116,7 @@ if __name__ == '__main__':
             sampleOfLattice=SampleRanking(conn, groupbyAtt, cfg.sel, cfg.meas, cfg.measBase, cfg.function, cfg.table, generateIndex=False)
             groundTruth=sampleOfLattice.getGTallLattice(adom)
             print('Ground truth: ',groundTruth)
+            print('orderedN:',sampleOfLattice.orderedN)
 
         l1,l2=transform_to_rankings(hypothesis,groundTruth)
         tau, pval = compute_kendall_tau(l1,l2)

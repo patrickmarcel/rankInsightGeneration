@@ -79,19 +79,31 @@ class Lattice:
             return self.compareWithoutTest(S)
 
     # compare without test returning probabilities of a wins over b
-    def compareWithoutTest(self, S):
-        seriesA=S[0][3]
-        seriesB=S[1][3]
-        nbWonA=0
-        nbWonB=0
+    def compareWithoutTest(self, a, b, gb):
+        S = []
+        #valsA=np.array(self.getVal(a,self.measure))
+        #valsB=np.array(self.getVal(b,self.measure))
+        valsA = np.array(self.getValInGb(a, self.measure,gb))
+        valsB = np.array(self.getValInGb(b, self.measure,gb))
+        nA = len(valsA)
+        nB = len(valsB)
+        skewA = compute_skewness(valsA)
+        skewB = compute_skewness(valsB)
+        S.append((a, nA, skewA, valsA))
+        S.append((b, nB, skewB, valsB))
+        seriesA = S[0][3]
+        seriesB = S[1][3]
+        nbWonA = 0
+        nbWonB = 0
         for i in range(len(seriesA)):
             if seriesA[i] > seriesB[i]:
-                nbWonA=nbWonA+1
+                nbWonA = nbWonA + 1
             if seriesA[i] < seriesB[i]:
-                nbWonB=nbWonB+1
-        probaWonA=nbWonA/len(seriesA)
+                nbWonB = nbWonB + 1
+        probaWonA = nbWonA / len(seriesA)
         probaWonB = nbWonB / len(seriesB)
-        return nbWonA,probaWonA,nbWonB,probaWonB
+        return nbWonA, probaWonA, nbWonB, probaWonB
+
 
     # legacy code
     def runStatisticalTest(self, S, test='stat'):
