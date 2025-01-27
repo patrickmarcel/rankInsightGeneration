@@ -12,7 +12,7 @@ class DataSampler():
 
     def getSample(self, sampleSize, samplingMethod = 'naive', method="SYSTEM_ROWS", repeatable=False):
         match samplingMethod:
-            case 'naive': return self.getNaive(sampleSize, method="SYSTEM_ROWS", repeatable=False)
+            case 'naive': return self.getNaive(sampleSize, method, repeatable)
             case 'congressional': return self.getCongressional(sampleSize)
 
     def getNaive(self, sampleSize, method="SYSTEM_ROWS", repeatable=False):
