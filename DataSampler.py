@@ -18,6 +18,7 @@ class DataSampler():
     def getNaive(self, sampleSize, method="SYSTEM_ROWS", repeatable=False):
         #resultVals = getSample(self.conn, self.cfg.measBase, self.cfg.table, self.cfg.sel, sampleSize, method, repeatable, None)
         resultVals=getSample_new(self.conn, sampleSize)
+        #print('size of sample:',len(resultVals))
         return resultVals
 
     def getCongressional(self, sampleSize):

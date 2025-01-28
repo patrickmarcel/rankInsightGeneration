@@ -30,13 +30,17 @@ if __name__ == '__main__':
 
     samplingMethod='naive'
     #samplingMethod='congressional'
-    groundTruth = ['WN', 'AA', 'DL', 'OO', 'UA', 'NK', '9E', 'YX', 'MQ', 'YV', 'OH', 'B6', 'F9', 'G4', 'AS', 'HA']
-    computeGT = False
+    #groundTruth = ['WN', 'AA', 'DL', 'OO', 'UA', 'NK', '9E', 'YX', 'MQ', 'YV', 'OH', 'B6', 'F9', 'G4', 'AS', 'HA']
+    computeGT = True
     computeHyp = True
     #samplesize=10358
     #config='configs/flights100k.ini'
     user='PM'
     theDB = 'F100K'
+
+    #comparison method
+    #method = 'withoutTest'
+    method = 'withTest'
 
     match theDB:
         case 'F9K': cfg = Config.Config('configs/flightsDolap.ini', user)
@@ -83,7 +87,7 @@ if __name__ == '__main__':
         ds=DataSampler(conn, cfg)
         if samplingMethod == 'naive':
             sample=ds.getSample(samplesize,samplingMethod)
-            l = Lattice(sample)
+            l = Lattice(sample,conn)
         else:
             adom,congress = ds.getSample(samplesize, samplingMethod)
             l = Lattice(congress)
@@ -95,7 +99,7 @@ if __name__ == '__main__':
             p=1
             #ranking=RankingFromPairwise(cfg.prefs, r,p)
             ranking=RankingFromPairwise(adom, r,p, 'Welch', True)
-            ranking.run(l,method='withoutTest')
+            ranking.run(l,method)
             #print('Delta:',ranking.delta)
             print('F:',ranking.F)
             #print('Tau:',ranking.tau)
@@ -114,13 +118,18 @@ if __name__ == '__main__':
         if computeGT:
             groupbyAtt = cfg.groupbyAtt[1:]
             sampleOfLattice=SampleRanking(conn, groupbyAtt, cfg.sel, cfg.meas, cfg.measBase, cfg.function, cfg.table, generateIndex=False)
-            groundTruth=sampleOfLattice.getGTallLattice(adom)
+            groundTruth=sampleOfLattice.getGTallLattice(adom,method)
             print('Ground truth: ',groundTruth)
             print('orderedN:',sampleOfLattice.orderedN)
+            tauGT=sampleOfLattice.tauGT
+            print('ordered tau:', tauGT)
+            l1, l2 = transform_to_rankings(groundTruth, tauGT)
+            print('Kendall tau between N and Tau: ', compute_kendall_tau(l1, l2))
 
         l1,l2=transform_to_rankings(hypothesis,groundTruth)
         tau, pval = compute_kendall_tau(l1,l2)
         #print('Kendall tau between hypothesis and ground truth: ', compute_kendall_tau(l1,l2))
         dfError.loc[len(dfError)] = [r,samplesize,tau]
+        print('kendall tau between hypothesis and ground truth:',tau)
     dfError.to_csv(fileResultsError, mode='a', header=True)
 

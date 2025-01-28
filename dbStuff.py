@@ -187,6 +187,39 @@ def getCuboidsOfAtt(attInGB, selAtt):
         pwset2.append(tuple(l))
     return pwset2
 
+
+def createAllMV(conn, attInGB, selAtt, meas, function, table, generateIndex=False):
+    pwset2 = getCuboidsOfAtt(attInGB, selAtt)
+    nbOfMV = len(pwset2)
+    # print(pwset2)
+    # print(int(nbOfMV))
+
+    for nb in range(int(nbOfMV)):
+        gb = pwset2[nb]
+        #pwset2.remove(gb)
+        gbs = ''
+        for s in gb:
+            gbs = gbs + s + ','
+        gbs = gbs[:-1]
+        # query="create materialized view MV" + str(i) + " as select " + gbs + "," + meas + " from " + table + " group by " + gbs +  ";"
+        query = "create materialized view \"" + gbs + "\" as select " + gbs + ", " + function + "(" + meas + ") as " + meas + ", count(*) as count  from " + table + " group by " + gbs + ";"
+        # print(query)
+
+        execute_query(conn, query)
+        if generateIndex == True:
+                # print('creating index on view')
+            generateHashIndex(conn, gbs, selAtt)
+        if generateIndex == 'mc':
+                # print('creating multicolumn index on view')
+            generateMulticolIndex(conn, gbs, gbs, selAtt)
+        if generateIndex == 'cl':
+            generateClusteredIndex(conn, gbs, selAtt)
+
+        if generateIndex == 'mc-cl':
+            generateClusteredIndex(conn, gbs, selAtt)
+            generateMulticolIndex(conn, gbs, gbs, selAtt)
+    return nbOfMV
+
 # percentOfLattice is a float in ]0,1]
 # returns nb of created views
 # todo for avg, should materialize sum and count
@@ -437,6 +470,7 @@ def getSample_new(conn, sampleSize, method="SYSTEM_ROWS", repeatable=False, vals
             sampleSize) + ")" + is_repeatable + " WHERE " + cfg.sel + " in " + str(valsToSelect) +";")
 
     #print('getsample query:', querySample)
+    #querySample="SELECT " + gbs + ", " + cfg.measBase + " FROM " + cfg.table + ';'
     resultVals = execute_query(conn, querySample)
     #print(resultVals)
     #print("Sample size in tuples: ", len(resultVals))

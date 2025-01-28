@@ -94,7 +94,7 @@ class RankingFromPairwise:
                 if not self.replacement:
                     remaining = remaining - 1
                     setOfCuboidsOnSample.remove(gb)
-                res=L.compare(a,b,gb,self.test)
+                res=L.compare(a,b,gb,self.test,method)
                 if res==1:
                     nbWon=nbWon+1
                 if res==0:

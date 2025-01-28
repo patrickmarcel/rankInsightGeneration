@@ -1,3 +1,4 @@
+import dbStuff
 from dbStuff import  getCuboidsOfAtt
 from Config import Config
 from pandas import DataFrame
@@ -18,7 +19,7 @@ class Lattice:
             cls._instance = super(Lattice, cls).__new__(cls)
         return cls._instance
 
-    def __init__(self, sample):
+    def __init__(self, sample,conn):
         #Fetch db info
         cfg = Config()
 
@@ -38,6 +39,7 @@ class Lattice:
         self.cuboids = pwset2
         self.data = DataFrame(sample, columns=self.colNames)
 
+        self.conn=conn
         #print(self.data)
 
     def getCuboids(self):
@@ -75,31 +77,59 @@ class Lattice:
         bgtmp.remove(val2)
         if len(gb)>1:
             join=cuboid1.merge(cuboid2, how='inner', on=bgtmp)
-            return join.loc[:,val1], join.loc[:,val2]
+            #aonmv, bonmv, query = self.checkOnMVs(val1, val2, gb)
+            valA=join.loc[:,val1]
+            valB=join.loc[:,val2]
+            #if len(set(valA).difference(set(aonmv))) != 0 or len(set(valB).difference(set(bonmv))) != 0:
+            #    print(query)
+            #    print(len(set(valA)))
+            #    print(len(set(aonmv)))
+            return valA, valB
         else:
-            print()
-            valA=cuboid1.loc[:,val1]
+            valA = cuboid1.loc[:,val1]
             valB = cuboid2.loc[:, val2]
             return valA, valB
+
+    def checkOnMVs(self, a, b, gb):
+        #groupby=gb[0].split(',')[:-1]
+        groupby=list(gb)
+        gb2=list(gb)[:-1]
+        strgb=''
+        for s in groupby:
+            strgb=strgb+s+','
+        strgb=strgb[:-1]
+        strgb2 = ''
+        for s in gb2:
+            strgb2 = strgb2 + s + ','
+        strgb2 = strgb2[:-1]
+        if strgb2=='':
+            queryGetGroupByVals = ('select \"'+ a + '\",\"' + b +'\" from (select ' + self.measure + ' as \"' + a + '\" from \"' + strgb + '\" where ' + self.selection + '= \'' + a + '\' ) natural join (' +
+                             'select '  + self.measure + ' as \"' + b + '\" from \"' + strgb + '\" where ' + self.selection + '= \'' + b + '\' );')
+        else:
+            queryGetGroupByVals=('select \"'+ a + '\",\"' + b +'\" from (select ' + strgb2  + ', ' + self.measure + ' as \"' + a + '\" from \"' + strgb + '\" where ' + self.selection + '= \'' + a + '\' ) natural join (' +
+                             'select ' + strgb2  + ', ' + self.measure + ' as \"' + b + '\" from \"' + strgb + '\" where ' + self.selection + '= \'' + b + '\' );')
+
+        res=dbStuff.execute_query(self.conn, queryGetGroupByVals)
+        return [t[0] for t in res],[t[1] for t in res],queryGetGroupByVals
 
 
     # return 0 if no comparison, 1 if a>b, -1 if b>a using statistical tests
     def compare(self, a, b, gb, test ='stat',method='withTest'):
         S = []
-        #valsA=np.array(self.getVal(a,self.measure))
-        #valsB=np.array(self.getVal(b,self.measure))
-        valsA = np.array(self.getValInGb(a, self.measure,gb))
-        valsB = np.array(self.getValInGb(b, self.measure,gb))
-        nA = len(valsA)
-        nB = len(valsB)
-        skewA = compute_skewness(valsA)
-        skewB = compute_skewness(valsB)
-        S.append((a, nA, skewA, valsA))
-        S.append((b, nB, skewB, valsB))
         if method=='withTest':
+            valsA=np.array(self.getVal(a,self.measure))
+            valsB=np.array(self.getVal(b,self.measure))
+            nA = len(valsA)
+            nB = len(valsB)
+            skewA = compute_skewness(valsA)
+            skewB = compute_skewness(valsB)
+            S.append((a, nA, skewA, valsA))
+            S.append((b, nB, skewB, valsB))
             return self.runStatisticalTest(S, test)
         else:
-            return self.compareWithoutTest(S)
+            #valsA = np.array(self.getValInGb(a, self.measure, gb))
+            #valsB = np.array(self.getValInGb(b, self.measure, gb))
+            return self.compareWithoutTest(a,b,gb)
 
     # compare without test returning probabilities of a wins over b
     def compareWithoutTest(self, a, b, gb):
@@ -107,6 +137,11 @@ class Lattice:
         #valsA=np.array(self.getVal(a,self.measure))
         #valsB=np.array(self.getVal(b,self.measure))
         valsA,valsB = np.array(self.getValInGb(a, b, self.measure,gb))
+        #print("group by:",gb)
+        #print('a',a)
+        #print('b',b)
+        #print("valsA:",valsA)
+        #print("valsB:",valsB)
         #valsB = np.array(self.getValInGb(b, self.measure,gb))
         nA = len(valsA)
         nB = len(valsB)
@@ -114,8 +149,10 @@ class Lattice:
         #skewB = compute_skewness(valsB)
         #S.append((a, nA, skewA, valsA))
         #S.append((b, nB, skewB, valsB))
-        seriesA = S[0][3]
-        seriesB = S[1][3]
+        #seriesA = S[0][3]
+        #seriesB = S[1][3]
+        seriesA=valsA
+        seriesB=valsB
         nbWonA = 0
         nbWonB = 0
         for i in range(len(seriesA)):
@@ -123,9 +160,9 @@ class Lattice:
                 nbWonA = nbWonA + 1
             if seriesA[i] < seriesB[i]:
                 nbWonB = nbWonB + 1
-        if len(seriesA)!=0:
-            probaWonA = nbWonA / len(seriesA)
-            probaWonB = nbWonB / len(seriesB)
+        if (nbWonA+nbWonB)!=0:
+            probaWonA = nbWonA / (nbWonA+nbWonB)
+            probaWonB = nbWonB / (nbWonA+nbWonB)
             return nbWonA, probaWonA, nbWonB, probaWonB
         else:
             return 0,0,0,0

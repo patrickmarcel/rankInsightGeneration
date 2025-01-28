@@ -16,9 +16,10 @@ import duckdb
 import sqlite3
 
 
-from dolap import countViolations
+from utilities import powerset, sort_dict_descending
+
 from dbStuff import dropAllMVs, getAggQueriesOverMV, createMV, getMVnames, connect_to_db, generateAllPairs, \
-    execute_query, getSizeOf, dropAllIndexOnMVs, generateIndexesOnMVs
+    execute_query, getSizeOf, dropAllIndexOnMVs, generateIndexesOnMVs, createAllMV
 from bounders import generateAllqueriesOnMVs, findMV
 from  Hypothesis import Hypothesis
 
@@ -34,11 +35,14 @@ class SampleRanking:
         self.table=table
         #dropAllMVs(conn)
         #create all MVs
-        if len(getMVnames(conn))!=0:
+        pwset=powerset(attInGB)
+        if len(getMVnames(conn))==len(pwset):
+            print("Materialized views alread created")
             self.allMVs = getMVnames(conn)
         else:
             print("Creating materialized views")
-            createMV(conn, attInGB, selAtt, measBase, function, table, 1, generateIndex)
+            #createMV(conn, attInGB, selAtt, measBase, function, table, 1, generateIndex)
+            createAllMV(conn, attInGB, selAtt, measBase, function, table, generateIndex=False)
             self.allMVs=getMVnames(conn)
         #create all aggregate queries
         self.aggOverMV = getAggQueriesOverMV(self.allMVs,self.sel)
@@ -157,9 +161,9 @@ class SampleRanking:
         return
 
     #this should be moved elsewhere
-    def compareWithoutTest(self, S):
-        seriesA = S[0][3]
-        seriesB = S[1][3]
+    def compareWithoutTest(self, seriesA,seriesB):
+        #seriesA = S[0][3]
+        #seriesB = S[1][3]
         nbWonA = 0
         nbWonB = 0
         for i in range(len(seriesA)):
@@ -167,12 +171,31 @@ class SampleRanking:
                 nbWonA = nbWonA + 1
             if seriesA[i] < seriesB[i]:
                 nbWonB = nbWonB + 1
-        if len(seriesA) !=0:
-            probaWonA = nbWonA / len(seriesA)
-            probaWonB = nbWonB / len(seriesB)
+        if (nbWonA+nbWonB) !=0:
+            probaWonA = nbWonA / (nbWonA+nbWonB)
+            probaWonB = nbWonB / (nbWonA+nbWonB)
             return nbWonA, probaWonA, nbWonB, probaWonB
         else:
             return 0,0,0,0
+
+    def getOneValInGb(self, a, gb):
+        groupby = gb[0].split(',')[:-1]
+        strgb = ''
+        for s in groupby:
+            strgb = strgb + s + ','
+        strgb = strgb[:-1]
+        if strgb == '':
+            queryGetGroupByVals = (
+                        'select ' + self.measBase + ' as \"' + a + '\" from \"' +
+                        gb[0] + '\" where ' + self.sel + '= \'' + a + '\' ;')
+        else:
+            queryGetGroupByVals = (
+                        'select '  + self.measBase + ' as \"' + a + '\" from \"' +
+                        gb[0] + '\" where ' + self.sel + '= \'' + a + '\';')
+
+        res = dbStuff.execute_query(self.conn, queryGetGroupByVals)
+        return res
+
 
     def getValInGb(self, a, b, gb):
         groupby=gb[0].split(',')[:-1]
@@ -192,26 +215,27 @@ class SampleRanking:
 
     def compare(self,a,b, gb, test='Welch', method='WithoutTest'):
         S = []
-        valsA,valsB = np.array(self.getValInGb(a, b, gb))
-        #valsB = np.array(self.getValInGb(b, a, gb))
-        nA = len(valsA)
-        nB = len(valsB)
-        skewA = statStuff.compute_skewness(valsA)
-        skewB = statStuff.compute_skewness(valsB)
-        S.append((a, nA, skewA, valsA))
-        S.append((b, nB, skewB, valsB))
         if method == 'withTest':
+            valsA = np.array(self.getOneValInGb(a, gb))
+            valsB = np.array(self.getOneValInGb(b, gb))
+            nA = len(valsA)
+            nB = len(valsB)
+            skewA = statStuff.compute_skewness(valsA)
+            skewB = statStuff.compute_skewness(valsB)
+            S.append((a, nA, skewA, valsA))
+            S.append((b, nB, skewB, valsB))
             return self.runStatisticalTest(S, test)
         else:
-            return self.compareWithoutTest(S)
+            valsA, valsB = np.array(self.getValInGb(a, b, gb))
+            return self.compareWithoutTest(valsA,valsB)
 
 
-    def getGTallLattice(self, values, method='withoutTest'):
+    def getGTallLattice(self, values, method):
         self.initializeGT(values)
         for i in tqdm(range(len(values)), desc='Performing comparisons on lattice'):
             for j in range(i + 1, len(values)):
                 a, b = values[i], values[j]
-                self.performComparisons(a, b, method='withoutTest')
+                self.performComparisons(a, b, 'Welch', 'False', method)
         # return ground truth N
         orderedN = utilities.sort_dict_descending(self.N)
         self.orderedN=orderedN
@@ -235,7 +259,7 @@ class SampleRanking:
                     if not replacement:
                         remaining = remaining - 1
                         setOfCuboidsOnSample.remove(gb)
-                    res = self.compare(a, b, gb,  test='Welch', method='WithoutTest')
+                    res = self.compare(a, b, gb,  'Welch', method)
                     if res == 1:
                         nbWon = nbWon + 1
                     if res == 0:
@@ -253,20 +277,35 @@ class SampleRanking:
                     self.updateM(a, b, nbWon / (nb - (nbZeros + nbFailedTest)))
                     self.updateM(b, a, 1 - (nbWon / (nb - (nbZeros + nbFailedTest))))
             else:
-                for i in range(nb):
-                    nbr = random.randint(0, remaining)
-                    gb = setOfCuboidsOnSample[nbr]
-                    if not replacement:
-                        remaining = remaining - 1
-                        setOfCuboidsOnSample.remove(gb)
-                    nbA, pA, nbB, pB = self.compare(a, b, gb, test)
+                for gb in self.allMVs:
+                    #nbr = random.randint(0, remaining)
+                    #gb = setOfCuboidsOnSample[nbr]
+                    #if not replacement:
+                    #    remaining = remaining - 1
+                    #    setOfCuboidsOnSample.remove(gb)
+                    nbA, pA, nbB, pB = self.compare(a, b, gb, test,method)
                     nbWon = nbWon + nbA
                     nbLost = nbLost + nbB
                 self.N[a] = self.N[a] + nbWon
                 self.N[b] = self.N[b] + nbLost
                 self.updateM(a, b, nbWon / (nb))
                 self.updateM(b, a, 1 - (nbWon / (nb)))
+            self.computeTau()
 
+
+    def computeTau(self):
+        self.tau=(1/self.n) * self.M.sum(axis=1)
+        taudict={}
+        for v in self.values:
+            indexintau = self.values.index(v)
+            tauv = self.tau[indexintau][0]
+            taudict[v] = tauv
+        orderedTau = sort_dict_descending(taudict)
+        self.orderedTau = orderedTau
+        orderedTautmp = sort_dict_descending(self.orderedTau)
+        # print("ordered N", orderedN)
+        self.tauGT = list(orderedTautmp.keys())
+        #print('Ordered Tau:',orderedTau)
 
     def getGTQueriesOverMC(self, pairs,sizeOfR,ratioViolations):
         print("Computing ground truth on queries over materialzed views")
