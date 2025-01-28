@@ -77,7 +77,7 @@ if __name__ == '__main__':
 
     tabR=[1,2]
     tabSampleSize=[0.01,0.1,0.3,0.5,1]
-    tabSampleSize=[1]
+    #tabSampleSize=[1]
 
     for percentSize in tqdm(tabSampleSize):
         samplesize=sizeOfR*percentSize
