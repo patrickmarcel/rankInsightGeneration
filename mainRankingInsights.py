@@ -28,7 +28,7 @@ if __name__ == '__main__':
 
     #parameters
 
-    #samplingMethod='naive'
+    samplingMethod='naive'
     samplingMethod='congressional'
     #groundTruth = ['WN', 'AA', 'DL', 'OO', 'UA', 'NK', '9E', 'YX', 'MQ', 'YV', 'OH', 'B6', 'F9', 'G4', 'AS', 'HA']
     groundTruth=['G4', 'YV', 'AA', 'OO', 'NK', 'MQ', 'UA', 'WN', 'DL', 'OH', 'B6', '9E', 'YX', 'HA', 'F9', 'AS']
@@ -89,7 +89,7 @@ if __name__ == '__main__':
             start_time = time.time()
             ds=DataSampler(conn, cfg)
             if samplingMethod == 'naive':
-                sample=ds.getSample(samplesize, adom, samplingMethod, adom)
+                sample=ds.getSample(samplesize, adom, samplingMethod)
                 l = Lattice(sample,conn)
             else:
                 newadom,congress = ds.getSample(samplesize, adom, samplingMethod)

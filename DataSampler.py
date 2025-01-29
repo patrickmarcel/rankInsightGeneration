@@ -14,7 +14,9 @@ class DataSampler():
 
     def getSample(self, sampleSize, adom, samplingMethod = 'naive', method="SYSTEM_ROWS", repeatable=False):
         match samplingMethod:
-            case 'naive': return self.getNaive(sampleSize, method, repeatable)
+            case 'naive':
+                sample=self.getNaive(sampleSize, method, repeatable)
+                return list(map(lambda x: x[1:], sample))
             case 'congressional': return self.getCongressional(sampleSize, adom)
 
     def getNaive(self, sampleSize, method="SYSTEM_ROWS", repeatable=False):
@@ -32,9 +34,14 @@ class DataSampler():
 
         querySample = "SELECT ctid, " + sel + ", " + measBase + " FROM " + table + " where " + sel + " = '" + str(state) + "' limit " + str(sampleSize) + ";"
 
-        #querySample = ("SELECT " + sel + ", " + measBase + " FROM " + table + " TABLESAMPLE " + "SYSTEM_ROWS" + " (" + str(sampleSize) + ")" + " where " + sel + " = '" + str(state) + "';")
+        # modifs patrick
+        gbs = ''
+        for s in self.cfg.groupbyAtt:
+            gbs = gbs + s + ','
+        gbs = gbs[:-1]
+        querySample = ("SELECT " + gbs + ", " + measBase + " FROM " + table + " TABLESAMPLE " + "SYSTEM_ROWS" + " (" + str(sampleSize) + ")" + " where " + sel + " = '" + str(state) + "';")
 
-        ##print('stat query:', querySample)
+        #print('state query:', querySample)
         resultVals = execute_query(conn, querySample)
         return resultVals
 
@@ -48,7 +55,7 @@ class DataSampler():
 
         #sample_size = int(table_size * sampleSize)
         sample_size = sampleSize
-        alpha = 0.50
+        alpha = 0.5
         house_size = sample_size * alpha
         senate_size = sample_size * (1 - alpha)
 
@@ -73,9 +80,12 @@ class DataSampler():
         while len(house_clean)+len(senate) > house_size + senate_size:
             house_clean.pop(randint(0, len(house_clean) - 1))
         congress = house_clean + list(senate)
+        #print(congress)
         #print("sampler", len(house_clean), "/", len(house))
 
         # END - fetch the congressional sample
         #print("sampler", len(congress), "/", house_size+senate_size)
+
+        #return adom, self.getSample(sampleSize, adom, samplingMethod = 'naive', method="SYSTEM_ROWS", repeatable=False)
         return adom, list(map(lambda x : x[1:],congress))
 
