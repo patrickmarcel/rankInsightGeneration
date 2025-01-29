@@ -70,7 +70,7 @@ class DataSampler():
             if sample not in senate:
                 house_clean.append(sample)
 
-        while len(house_clean) > house_size:
+        while len(house_clean)+len(senate) > house_size + senate_size:
             house_clean.pop(randint(0, len(house_clean) - 1))
         congress = house_clean + list(senate)
         #print("sampler", len(house_clean), "/", len(house))
