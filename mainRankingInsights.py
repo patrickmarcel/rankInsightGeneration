@@ -28,8 +28,8 @@ if __name__ == '__main__':
 
     #parameters
 
-    samplingMethod='naive'
-    #samplingMethod='congressional'
+    #samplingMethod='naive'
+    samplingMethod='congressional'
     #groundTruth = ['WN', 'AA', 'DL', 'OO', 'UA', 'NK', '9E', 'YX', 'MQ', 'YV', 'OH', 'B6', 'F9', 'G4', 'AS', 'HA']
     groundTruth=['G4', 'YV', 'AA', 'OO', 'NK', 'MQ', 'UA', 'WN', 'DL', 'OH', 'B6', '9E', 'YX', 'HA', 'F9', 'AS']
     computeGT = False
@@ -56,7 +56,7 @@ if __name__ == '__main__':
     current_time = time.localtime()
     formatted_time = time.strftime("%d-%m-%y:%H:%M:%S", current_time)
     fileResultsError = 'results/error_' + formatted_time + '_' + theDB + '.csv'
-    column_namesError = ['r','samplesize','tau']
+    column_namesError = ['r','samplesize','k','tau']
     #fileResultsF1 = 'results/f1-r@k_' + formatted_time + '_' + theDB + '.csv'
     #column_namesF1 = ['Runs', 'Initial Sample', 'Query Sample', 'Precision on Lattice', 'Recall on Lattice', 'F1 on Lattice', 'Recall@k on Lattice', 'Precision on Queries', 'Recall on Queries', 'F1 on Queries', 'Recall@k on Queries', 'k','Number of Comparisons','Number of Welch','Number of permutation']
     #fileResultsTimes = 'results/times-' + formatted_time + '_' + theDB + '.csv'
@@ -77,22 +77,23 @@ if __name__ == '__main__':
     sizeOfR = getSizeOf(conn, cfg.table)
 
     tabR=[1,2,5,10]
+    tabR=[1]
     tabSampleSize=[0.01,0.1,0.3,0.5,1]
     #tabSampleSize=[1]
 
-    for coef in tabR:
-        for percentSize in tqdm(tabSampleSize):
+    for coef in tqdm(tabR, desc='coef for r'):
+        for percentSize in tqdm(tabSampleSize, desc='sample size'):
             samplesize=sizeOfR*percentSize
 
 
             start_time = time.time()
             ds=DataSampler(conn, cfg)
             if samplingMethod == 'naive':
-                sample=ds.getSample(samplesize,samplingMethod)
+                sample=ds.getSample(samplesize, adom, samplingMethod, adom)
                 l = Lattice(sample,conn)
             else:
-                adom,congress = ds.getSample(samplesize, samplingMethod)
-                l = Lattice(congress)
+                newadom,congress = ds.getSample(samplesize, adom, samplingMethod)
+                l = Lattice(congress,conn)
 
             if computeHyp:
                 r=int(math.pow(2,len(cfg.groupbyAtt)-1))
@@ -125,13 +126,17 @@ if __name__ == '__main__':
                 print('orderedN:',sampleOfLattice.orderedN)
                 tauGT=sampleOfLattice.tauGT
                 print('ordered tau:', tauGT)
+                print('F:',sampleOfLattice.F)
                 l1, l2 = transform_to_rankings(groundTruth, tauGT)
                 print('Kendall tau between N and Tau: ', compute_kendall_tau(l1, l2))
 
+            #for k in [3,5,10,16]:
+            #l1,l2=transform_to_rankings(hypothesis[:k],groundTruth[:k])
+            k=16
             l1,l2=transform_to_rankings(hypothesis,groundTruth)
             tau, pval = compute_kendall_tau(l1,l2)
             #print('Kendall tau between hypothesis and ground truth: ', compute_kendall_tau(l1,l2))
-            dfError.loc[len(dfError)] = [r,samplesize,tau]
+            dfError.loc[len(dfError)] = [r,samplesize,k,tau]
             print('kendall tau between hypothesis and ground truth:',tau)
     dfError.to_csv(fileResultsError, mode='a', header=True)
 
