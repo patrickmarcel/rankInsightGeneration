@@ -1,6 +1,6 @@
 import numpy as np
 import scipy.stats as stats
-from exceptiongroup import catch
+#from exceptiongroup import catch
 from scipy import stats
 from scipy.stats import skew
 from scipy.stats import f

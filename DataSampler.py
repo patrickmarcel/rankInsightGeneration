@@ -1,3 +1,5 @@
+from random import randint
+
 from dbStuff import getSample, execute_query, getSample_new
 from statStuff import welch_ttest, permutation_test, compute_skewness, benjamini_hochberg, claireStat
 from statsmodels.stats.multitest import fdrcorrection
@@ -28,9 +30,9 @@ class DataSampler():
 
     def get_state_sample(self, conn, measBase, table, sel, sampleSize, state):
 
-        #querySample = "SELECT " + sel + ", " + measBase + " FROM " + table + " where " + sel + " = '" + str(state) + "' limit " + str(sampleSize) + ";"
+        querySample = "SELECT ctid, " + sel + ", " + measBase + " FROM " + table + " where " + sel + " = '" + str(state) + "' limit " + str(sampleSize) + ";"
 
-        querySample = ("SELECT " + sel + ", " + measBase + " FROM " + table + " TABLESAMPLE " + "SYSTEM_ROWS" + " (" + str(sampleSize) + ")" + " where " + sel + " = '" + str(state) + "';")
+        #querySample = ("SELECT " + sel + ", " + measBase + " FROM " + table + " TABLESAMPLE " + "SYSTEM_ROWS" + " (" + str(sampleSize) + ")" + " where " + sel + " = '" + str(state) + "';")
 
         ##print('stat query:', querySample)
         resultVals = execute_query(conn, querySample)
@@ -46,22 +48,34 @@ class DataSampler():
 
         #sample_size = int(table_size * sampleSize)
         sample_size = sampleSize
-        alpha = 0.10
+        alpha = 0.50
         house_size = sample_size * alpha
         senate_size = sample_size * (1 - alpha)
 
         #house = getSample(conn, measBase, table, sel, house_size, method="SYSTEM_ROWS", repeatable=False)
-        house = getSample_new(conn, house_size, method="SYSTEM_ROWS", repeatable=False)
+        house = getSample_new(conn, house_size + 0.1*senate_size, method="SYSTEM_ROWS", repeatable=False)
 
 
-        senate = []
+        senate = set()
         state_sample_size = int(senate_size / len(adom))
         for state in adom:
-            senate.extend(self.get_state_sample(conn, measBase, table, sel, state_sample_size, state))
+            senate.update(self.get_state_sample(conn, measBase, table, sel, state_sample_size, state))
 
         if adom_restr:
             house = list(filter(lambda x: x[0] in adom_restr, house))
-        congress = house + senate
+
+        #remove duplicates
+        house_clean = []
+        for sample in house:
+            if sample not in senate:
+                house_clean.append(sample)
+
+        while len(house_clean) > house_size:
+            house_clean.pop(randint(0, len(house_clean) - 1))
+        congress = house_clean + list(senate)
+        #print("sampler", len(house_clean), "/", len(house))
+
         # END - fetch the congressional sample
-        return adom, congress
+        #print("sampler", len(congress), "/", house_size+senate_size)
+        return adom, list(map(lambda x : x[1:],congress))
 

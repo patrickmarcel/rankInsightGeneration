@@ -462,11 +462,11 @@ def getSample_new(conn, sampleSize, method="SYSTEM_ROWS", repeatable=False, vals
 
     if valsToSelect==None:
         querySample = (
-            "SELECT " + gbs + ", " + cfg.measBase + " FROM " + cfg.table + " TABLESAMPLE " + method + " (" + str(
+            "SELECT ctid, " + gbs + ", " + cfg.measBase + " FROM " + cfg.table + " TABLESAMPLE " + method + " (" + str(
         sampleSize) + ")" + is_repeatable + ";")
     else:
         querySample = (
-                "SELECT " + gbs + ", " + cfg.measBase + " FROM " + cfg.table + " TABLESAMPLE " + method + " (" + str(
+                "SELECT ctid, " + gbs + ", " + cfg.measBase + " FROM " + cfg.table + " TABLESAMPLE " + method + " (" + str(
             sampleSize) + ")" + is_repeatable + " WHERE " + cfg.sel + " in " + str(valsToSelect) +";")
 
     #print('getsample query:', querySample)
