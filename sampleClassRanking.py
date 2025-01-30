@@ -308,7 +308,8 @@ class SampleRanking:
 
     def getGTallLattice(self, values, method, test='Welch'):
         self.initializeGT(values)
-        for i in tqdm(range(len(values)), desc='Performing comparisons on lattice'):
+#        for i in tqdm(range(len(values)), desc='Performing comparisons on lattice'):
+        for i in range(len(values)):
             for j in range(i + 1, len(values)):
                 a, b = values[i], values[j]
                 self.performComparisons(a, b, test, 'False', method)

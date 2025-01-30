@@ -31,9 +31,9 @@ if __name__ == '__main__':
     samplingMethod='naive'
     #samplingMethod='congressional'
     #groundTruth = ['WN', 'AA', 'DL', 'OO', 'UA', 'NK', '9E', 'YX', 'MQ', 'YV', 'OH', 'B6', 'F9', 'G4', 'AS', 'HA']
-    #groundTruth=['G4', 'YV', 'AA', 'OO', 'MQ', 'NK', 'UA', 'WN', 'DL', 'B6', 'OH', '9E', 'YX', 'HA', 'F9', 'AS']
+    groundTruth=['G4', 'YV', 'AA', 'OO', 'NK', 'MQ', 'UA', 'WN', 'DL', 'B6', 'OH', '9E', 'F9', 'HA', 'YX', 'AS']
     computeGT = True
-    computeHyp = False
+    computeHyp = True
     #samplesize=10358
     #config='configs/flights100k.ini'
     user='PM'
@@ -47,7 +47,7 @@ if __name__ == '__main__':
     #type of test done: stat=using Claire's stat, Welch=only Welch, Premutation=only permutation
     test='stat'
 
-    nbRun=1
+    nbRun=3
 
     match theDB:
         case 'F9K': cfg = Config.Config('configs/flightsDolap.ini', user)
@@ -85,14 +85,13 @@ if __name__ == '__main__':
 
     tabR=[1,2,5,10]
     tabR=[1]
-    tabSampleSize=[0.01,0.1,0.3,0.5]
-    tabSampleSize=[1]
+    tabSampleSize=[0.01,0.1,0.3,0.5,1]
+    #tabSampleSize=[0.1]
 
     for nb in tqdm(range(nbRun), desc='run'):
         for coef in tqdm(tabR, desc='coef for r'):
             for percentSize in tqdm(tabSampleSize, desc='sample size'):
                 samplesize=sizeOfR*percentSize
-
 
                 start_time = time.time()
                 ds=DataSampler(conn, cfg)
@@ -109,7 +108,7 @@ if __name__ == '__main__':
                     r=r*coef
                     p=1
                     #ranking=RankingFromPairwise(cfg.prefs, r,p)
-                    ranking=RankingFromPairwise(adom, r,p, test, True)
+                    ranking=RankingFromPairwise(adom, r,p, test, False)
                     ranking.run(l,method)
                     #print('Delta:',ranking.delta)
                     print('F:',ranking.F)

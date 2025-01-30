@@ -116,21 +116,30 @@ class Lattice:
     # return 0 if no comparison, 1 if a>b, -1 if b>a using statistical tests
     def compare(self, a, b, gb, test ='stat',method='withTest'):
         S = []
-        if method=='withTest':
-            valsA=np.array(self.getVal(a,self.measure))
-            valsB=np.array(self.getVal(b,self.measure))
-            #valsA, valsB = np.array(self.getValInGb(a, b, self.measure, gb))
-            nA = len(valsA)
-            nB = len(valsB)
-            skewA = compute_skewness(valsA)
-            skewB = compute_skewness(valsB)
-            S.append((a, nA, skewA, valsA))
-            S.append((b, nB, skewB, valsB))
-            return self.runStatisticalTest(S, test)
-        else:
-            #valsA = np.array(self.getValInGb(a, self.measure, gb))
-            #valsB = np.array(self.getValInGb(b, self.measure, gb))
-            return self.compareWithoutTest(a,b,gb)
+        match method:
+            case 'withTest':
+                valsA, valsB = np.array(self.getValInGb(a, b, self.measure, gb))
+                nA = len(valsA)
+                nB = len(valsB)
+                skewA = compute_skewness(valsA)
+                skewB = compute_skewness(valsB)
+                S.append((a, nA, skewA, valsA))
+                S.append((b, nB, skewB, valsB))
+                return self.runStatisticalTest(S, test)
+            case 'withoutTest':
+                #valsA = np.array(self.getValInGb(a, self.measure, gb))
+                #valsB = np.array(self.getValInGb(b, self.measure, gb))
+                return self.compareWithoutTest(a,b,gb)
+            case 'onlyFacts':
+                valsA = np.array(self.getVal(a, self.measure))
+                valsB = np.array(self.getVal(b, self.measure))
+                nA = len(valsA)
+                nB = len(valsB)
+                skewA = compute_skewness(valsA)
+                skewB = compute_skewness(valsB)
+                S.append((a, nA, skewA, valsA))
+                S.append((b, nB, skewB, valsB))
+                return self.runStatisticalTest(S, test)
 
     # compare without test returning probabilities of a wins over b
     def compareWithoutTest(self, a, b, gb):
