@@ -119,6 +119,7 @@ class Lattice:
         if method=='withTest':
             valsA=np.array(self.getVal(a,self.measure))
             valsB=np.array(self.getVal(b,self.measure))
+            #valsA, valsB = np.array(self.getValInGb(a, b, self.measure, gb))
             nA = len(valsA)
             nB = len(valsB)
             skewA = compute_skewness(valsA)

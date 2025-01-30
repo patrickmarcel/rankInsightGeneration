@@ -37,7 +37,7 @@ class SampleRanking:
         #create all MVs
         pwset=powerset(attInGB)
         if len(getMVnames(conn))==len(pwset):
-            print("Materialized views alread created")
+            print("Materialized views already created")
             self.allMVs = getMVnames(conn)
         else:
             print("Creating materialized views")
@@ -163,7 +163,7 @@ class SampleRanking:
         match test:
             case 'stat':
                 if b:
-                    # print("Welch test can be used")
+                    #print("Welch test can be used")
                     # self.nbWelch = self.nbWelch + 1
                     comp = 0  # not significant
                     if len(S[0][3]) <= 1 or len(S[1][3]) <= 1:
@@ -176,7 +176,7 @@ class SampleRanking:
                             comp = 1
                     # pairwiseComparison.append((S[0][0], S[1][0], comp, t_stat, float(p_value)))
                 else:
-                    # print("Permutation test is used")
+                    #print("Permutation test is used")
                     # self.nbPerm = self.nbPerm + 1
                     comp = 0  # not significant
                     if len(S[0][3] <= 1) or len(S[1][3] <= 1):
@@ -255,6 +255,13 @@ class SampleRanking:
         res = dbStuff.execute_query(self.conn, queryGetGroupByVals)
         return res
 
+    def getOneValInR(self, a):
+        queryGetGroupByVals = (
+                        'select '  + self.measBase + ' as \"' + a + '\" from \"' +
+                        self.table + '\" where ' + self.sel + '= \'' + a + '\';')
+
+        res = dbStuff.execute_query(self.conn, queryGetGroupByVals)
+        return res
 
     def getValInGb(self, a, b, gb):
         groupby=gb[0].split(',')[:-1]
@@ -274,27 +281,37 @@ class SampleRanking:
 
     def compare(self,a,b, gb, test='Welch', method='WithoutTest'):
         S = []
-        if method == 'withTest':
-            valsA = np.array(self.getOneValInGb(a, gb))
-            valsB = np.array(self.getOneValInGb(b, gb))
-            nA = len(valsA)
-            nB = len(valsB)
-            skewA = statStuff.compute_skewness(valsA)
-            skewB = statStuff.compute_skewness(valsB)
-            S.append((a, nA, skewA, valsA))
-            S.append((b, nB, skewB, valsB))
-            return self.runStatisticalTest(S, test)
-        else:
-            valsA, valsB = np.array(self.getValInGb(a, b, gb))
-            return self.compareWithoutTest(valsA,valsB)
+        match method:
+            case 'withTest':
+                valsA = np.array(self.getOneValInGb(a, gb))
+                valsB = np.array(self.getOneValInGb(b, gb))
+                nA = len(valsA)
+                nB = len(valsB)
+                skewA = statStuff.compute_skewness(valsA)
+                skewB = statStuff.compute_skewness(valsB)
+                S.append((a, nA, skewA, valsA))
+                S.append((b, nB, skewB, valsB))
+                return self.runStatisticalTest(S, test)
+            case 'withoutTest':
+                valsA, valsB = np.array(self.getValInGb(a, b, gb))
+                return self.compareWithoutTest(valsA,valsB)
+            case 'onlyFacts':
+                valsA = np.array(self.getOneValInR(a))
+                valsB = np.array(self.getOneValInR(b))
+                nA = len(valsA)
+                nB = len(valsB)
+                skewA = statStuff.compute_skewness(valsA)
+                skewB = statStuff.compute_skewness(valsB)
+                S.append((a, nA, skewA, valsA))
+                S.append((b, nB, skewB, valsB))
+                return self.runStatisticalTest(S, test)
 
-
-    def getGTallLattice(self, values, method):
+    def getGTallLattice(self, values, method, test='Welch'):
         self.initializeGT(values)
         for i in tqdm(range(len(values)), desc='Performing comparisons on lattice'):
             for j in range(i + 1, len(values)):
                 a, b = values[i], values[j]
-                self.performComparisons(a, b, 'Welch', 'False', method)
+                self.performComparisons(a, b, test, 'False', method)
         # return ground truth N
         orderedN = utilities.sort_dict_descending(self.N)
         self.orderedN=orderedN
@@ -311,14 +328,47 @@ class SampleRanking:
             nb=len(self.allMVs)
             remaining = len(setOfCuboidsOnSample) - 1
 
-            if method == 'withTest':
-                for i in range(nb):
-                    nbr = random.randint(0, remaining)
-                    gb = setOfCuboidsOnSample[nbr]
-                    if not replacement:
-                        remaining = remaining - 1
-                        setOfCuboidsOnSample.remove(gb)
-                    res = self.compare(a, b, gb,  'Welch', method)
+            match method:
+                case 'withTest':
+                    for i in range(nb):
+                        nbr = random.randint(0, remaining)
+                        gb = setOfCuboidsOnSample[nbr]
+                        if not replacement:
+                            remaining = remaining - 1
+                            setOfCuboidsOnSample.remove(gb)
+                        res = self.compare(a, b, gb,  test, method)
+                        if res == 1:
+                            nbWon = nbWon + 1
+                        if res == 0:
+                            nbZeros = nbZeros + 1
+                        if res == -1:
+                            nbLost = nbLost + 1
+                        if res == -2:
+                            nbFailedTest = nbFailedTest + 1
+                    self.N[a] = self.N[a] + nbWon
+                    self.N[b] = self.N[b] + nbLost
+                    if nbZeros == nb or nbZeros + nbFailedTest == nb:
+                        self.updateM(a, b, .5)
+                        self.updateM(b, a, .5)
+                    else:
+                        self.updateM(a, b, nbWon / (nb - (nbZeros + nbFailedTest)))
+                        self.updateM(b, a, 1 - (nbWon / (nb - (nbZeros + nbFailedTest))))
+                case 'withoutTest':
+                    for gb in self.allMVs:
+                        #nbr = random.randint(0, remaining)
+                        #gb = setOfCuboidsOnSample[nbr]
+                        #if not replacement:
+                        #    remaining = remaining - 1
+                        #    setOfCuboidsOnSample.remove(gb)
+                        nbA, pA, nbB, pB = self.compare(a, b, gb, test,method)
+                        nbWon = nbWon + nbA
+                        nbLost = nbLost + nbB
+                    self.N[a] = self.N[a] + nbWon
+                    self.N[b] = self.N[b] + nbLost
+                    self.updateM(a, b, nbWon / (nb))
+                    self.updateM(b, a, 1 - (nbWon / (nb)))
+                case 'onlyFacts':
+                    res = self.compare(a, b, gb='None', test='stat', method='onlyFacts')
                     if res == 1:
                         nbWon = nbWon + 1
                     if res == 0:
@@ -327,28 +377,14 @@ class SampleRanking:
                         nbLost = nbLost + 1
                     if res == -2:
                         nbFailedTest = nbFailedTest + 1
-                self.N[a] = self.N[a] + nbWon
-                self.N[b] = self.N[b] + nbLost
-                if nbZeros == nb or nbZeros + nbFailedTest == nb:
-                    self.updateM(a, b, .5)
-                    self.updateM(b, a, .5)
-                else:
-                    self.updateM(a, b, nbWon / (nb - (nbZeros + nbFailedTest)))
-                    self.updateM(b, a, 1 - (nbWon / (nb - (nbZeros + nbFailedTest))))
-            else:
-                for gb in self.allMVs:
-                    #nbr = random.randint(0, remaining)
-                    #gb = setOfCuboidsOnSample[nbr]
-                    #if not replacement:
-                    #    remaining = remaining - 1
-                    #    setOfCuboidsOnSample.remove(gb)
-                    nbA, pA, nbB, pB = self.compare(a, b, gb, test,method)
-                    nbWon = nbWon + nbA
-                    nbLost = nbLost + nbB
-                self.N[a] = self.N[a] + nbWon
-                self.N[b] = self.N[b] + nbLost
-                self.updateM(a, b, nbWon / (nb))
-                self.updateM(b, a, 1 - (nbWon / (nb)))
+                    self.N[a] = self.N[a] + nbWon
+                    self.N[b] = self.N[b] + nbLost
+                    if nbZeros == nb or nbZeros + nbFailedTest == nb:
+                        self.updateM(a, b, .5)
+                        self.updateM(b, a, .5)
+                    else:
+                        self.updateM(a, b, nbWon / (nb - (nbZeros + nbFailedTest)))
+                        self.updateM(b, a, 1 - (nbWon / (nb - (nbZeros + nbFailedTest))))
             self.computeTau()
 
 

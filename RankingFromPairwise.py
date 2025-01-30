@@ -132,7 +132,7 @@ class RankingFromPairwise:
     def run(self,L,method='withTest'):
         #for each pair in self.values:
 
-        for i in tqdm(range(len(self.values)),desc='Performing comparisons on sample'):
+        for i in range(len(self.values)):
             for j in range(i+1,len(self.values)):
                 a,b=self.values[i],self.values[j]
                 # get r and p

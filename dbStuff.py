@@ -469,7 +469,7 @@ def getSample_new(conn, sampleSize, method="SYSTEM_ROWS", repeatable=False, vals
                 "SELECT ctid, " + gbs + ", " + cfg.measBase + " FROM " + cfg.table + " TABLESAMPLE " + method + " (" + str(
             sampleSize) + ")" + is_repeatable + " WHERE " + cfg.sel + " in " + str(valsToSelect) +";")
 
-    #print('house query:', querySample)
+    #print('sampling query:', querySample)
     #querySample="SELECT " + gbs + ", " + cfg.measBase + " FROM " + cfg.table + ';'
     resultVals = execute_query(conn, querySample)
     #print(resultVals)

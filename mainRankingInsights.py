@@ -29,19 +29,25 @@ if __name__ == '__main__':
     #parameters
 
     samplingMethod='naive'
-    samplingMethod='congressional'
+    #samplingMethod='congressional'
     #groundTruth = ['WN', 'AA', 'DL', 'OO', 'UA', 'NK', '9E', 'YX', 'MQ', 'YV', 'OH', 'B6', 'F9', 'G4', 'AS', 'HA']
-    groundTruth=['G4', 'YV', 'AA', 'OO', 'NK', 'MQ', 'UA', 'WN', 'DL', 'OH', 'B6', '9E', 'YX', 'HA', 'F9', 'AS']
-    computeGT = False
-    computeHyp = True
+    #groundTruth=['G4', 'YV', 'AA', 'OO', 'MQ', 'NK', 'UA', 'WN', 'DL', 'B6', 'OH', '9E', 'YX', 'HA', 'F9', 'AS']
+    computeGT = True
+    computeHyp = False
     #samplesize=10358
     #config='configs/flights100k.ini'
     user='PM'
     theDB = 'F100K'
 
-    #comparison method
+    #comparison method withoutTest=checking direct comparisons on lattice, withTest=statistical tests on lattice, onlyFact=statistical test on R only
     #method = 'withoutTest'
-    method = 'withTest'
+    #method = 'withTest'
+    method = 'onlyFacts'
+
+    #type of test done: stat=using Claire's stat, Welch=only Welch, Premutation=only permutation
+    test='stat'
+
+    nbRun=1
 
     match theDB:
         case 'F9K': cfg = Config.Config('configs/flightsDolap.ini', user)
@@ -72,71 +78,73 @@ if __name__ == '__main__':
     conn = connect_to_db(cfg.dbname, cfg.user, cfg.password, cfg.host, cfg.port)
 
     adom = [x[0] for x in execute_query(conn, "select distinct  " + cfg.sel + " from " + cfg.table + ";")]
+
     #table_size = execute_query(conn, "select count(1) from " + cfg.table + ";")[0][0]
 
     sizeOfR = getSizeOf(conn, cfg.table)
 
     tabR=[1,2,5,10]
     tabR=[1]
-    tabSampleSize=[0.01,0.1,0.3,0.5,1]
-    #tabSampleSize=[1]
+    tabSampleSize=[0.01,0.1,0.3,0.5]
+    tabSampleSize=[1]
 
-    for coef in tqdm(tabR, desc='coef for r'):
-        for percentSize in tqdm(tabSampleSize, desc='sample size'):
-            samplesize=sizeOfR*percentSize
+    for nb in tqdm(range(nbRun), desc='run'):
+        for coef in tqdm(tabR, desc='coef for r'):
+            for percentSize in tqdm(tabSampleSize, desc='sample size'):
+                samplesize=sizeOfR*percentSize
 
 
-            start_time = time.time()
-            ds=DataSampler(conn, cfg)
-            if samplingMethod == 'naive':
-                sample=ds.getSample(samplesize, adom, samplingMethod)
-                l = Lattice(sample,conn)
-            else:
-                newadom,congress = ds.getSample(samplesize, adom, samplingMethod)
-                l = Lattice(congress,conn)
+                start_time = time.time()
+                ds=DataSampler(conn, cfg)
+                if samplingMethod == 'naive':
+                    sample=ds.getSample(samplesize, adom, samplingMethod)
+                    l = Lattice(sample,conn)
+                else:
+                    newadom,congress = ds.getSample(samplesize, adom, samplingMethod)
+                    l = Lattice(congress,conn)
 
-            if computeHyp:
-                r=int(math.pow(2,len(cfg.groupbyAtt)-1))
-                #to increase the chances of gaps in deltak, enabling drawing with replacement
-                r=r*coef
-                p=1
-                #ranking=RankingFromPairwise(cfg.prefs, r,p)
-                ranking=RankingFromPairwise(adom, r,p, 'Welch', True)
-                ranking.run(l,method)
-                #print('Delta:',ranking.delta)
-                print('F:',ranking.F)
-                #print('Tau:',ranking.tau)
-                #print('M',ranking.M)
-                end_time = time.time()
-                timings = end_time - start_time
-                print('Completed in ',timings, 'seconds')
-                hypothesis=ranking.getHypothesis()
-                print('Hypothesis:',hypothesis)
-                tauHypothesis=ranking.getTauHypothesis()
-                print('TauHypothesis:',tauHypothesis)
-                print('OrderedN:',ranking.orderedN)
-                l1, l2 = transform_to_rankings(hypothesis, tauHypothesis)
-                print('Kendall tau between N and Tau: ', compute_kendall_tau(l1, l2))
+                if computeHyp:
+                    r=int(math.pow(2,len(cfg.groupbyAtt)-1))
+                    #to increase the chances of gaps in deltak, enabling drawing with replacement
+                    r=r*coef
+                    p=1
+                    #ranking=RankingFromPairwise(cfg.prefs, r,p)
+                    ranking=RankingFromPairwise(adom, r,p, test, True)
+                    ranking.run(l,method)
+                    #print('Delta:',ranking.delta)
+                    print('F:',ranking.F)
+                    #print('Tau:',ranking.tau)
+                    #print('M',ranking.M)
+                    end_time = time.time()
+                    timings = end_time - start_time
+                    print('Completed in ',timings, 'seconds')
+                    hypothesis=ranking.getHypothesis()
+                    print('Hypothesis:',hypothesis)
+                    tauHypothesis=ranking.getTauHypothesis()
+                    print('TauHypothesis:',tauHypothesis)
+                    print('OrderedN:',ranking.orderedN)
+                    l1, l2 = transform_to_rankings(hypothesis, tauHypothesis)
+                    print('Kendall tau between N and Tau: ', compute_kendall_tau(l1, l2))
 
-            if computeGT:
-                groupbyAtt = cfg.groupbyAtt[1:]
-                sampleOfLattice=SampleRanking(conn, groupbyAtt, cfg.sel, cfg.meas, cfg.measBase, cfg.function, cfg.table, generateIndex=False)
-                groundTruth=sampleOfLattice.getGTallLattice(adom,method)
-                print('Ground truth: ',groundTruth)
-                print('orderedN:',sampleOfLattice.orderedN)
-                tauGT=sampleOfLattice.tauGT
-                print('ordered tau:', tauGT)
-                print('F:',sampleOfLattice.F)
-                l1, l2 = transform_to_rankings(groundTruth, tauGT)
-                print('Kendall tau between N and Tau: ', compute_kendall_tau(l1, l2))
+                if computeGT:
+                    groupbyAtt = cfg.groupbyAtt[1:]
+                    sampleOfLattice=SampleRanking(conn, groupbyAtt, cfg.sel, cfg.meas, cfg.measBase, cfg.function, cfg.table, generateIndex=False)
+                    groundTruth=sampleOfLattice.getGTallLattice(adom,method)
+                    print('Ground truth: ',groundTruth)
+                    print('orderedN:',sampleOfLattice.orderedN)
+                    tauGT=sampleOfLattice.tauGT
+                    print('ordered tau:', tauGT)
+                    print('F:',sampleOfLattice.F)
+                    l1, l2 = transform_to_rankings(groundTruth, tauGT)
+                    print('Kendall tau between N and Tau: ', compute_kendall_tau(l1, l2))
 
-            #for k in [3,5,10,16]:
-            #l1,l2=transform_to_rankings(hypothesis[:k],groundTruth[:k])
-            k=16
-            l1,l2=transform_to_rankings(hypothesis,groundTruth)
-            tau, pval = compute_kendall_tau(l1,l2)
-            #print('Kendall tau between hypothesis and ground truth: ', compute_kendall_tau(l1,l2))
-            dfError.loc[len(dfError)] = [r,samplesize,k,tau]
-            print('kendall tau between hypothesis and ground truth:',tau)
+                #for k in [3,5,10,16]:
+                #l1,l2=transform_to_rankings(hypothesis[:k],groundTruth[:k])
+                k=16
+                l1,l2=transform_to_rankings(hypothesis,groundTruth)
+                tau, pval = compute_kendall_tau(l1,l2)
+                #print('Kendall tau between hypothesis and ground truth: ', compute_kendall_tau(l1,l2))
+                dfError.loc[len(dfError)] = [r,samplesize,k,tau]
+                print('kendall tau between hypothesis and ground truth:',tau)
     dfError.to_csv(fileResultsError, mode='a', header=True)
 

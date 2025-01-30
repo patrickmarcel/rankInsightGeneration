@@ -73,7 +73,9 @@ def sort_dict_descending(input_dict):
         dict: A new dictionary sorted in descending order of values.
     """
     # Sort the dictionary by its values in descending order
-    sorted_items = sorted(input_dict.items(), key=lambda item: item[1], reverse=True)
+    #sorted_items = sorted(input_dict.items(), key=lambda item: item[1], reverse=True)
+    # Sort by value (descending) then by key (ascending)
+    sorted_items = sorted(input_dict.items(), key=lambda x: (-x[1], x[0]))
 
     # Convert the sorted items back into a dictionary
     sorted_dict = dict(sorted_items)
