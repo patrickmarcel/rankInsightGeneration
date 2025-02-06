@@ -643,7 +643,8 @@ if __name__ == "__main__":
     #config.read('configs/flights.ini')
     #config.read('configs/artificial.ini')
     #config.read('configs/ssb.ini')
-    config.read('configs/flights100k.ini')
+    config.read('configs/healthinsurance.ini')
+    #config.read('configs/flights100k.ini')
     # The system this is running on
     USER = "PM"
 
@@ -664,7 +665,7 @@ if __name__ == "__main__":
     # Connect to the database
     conn = connect_to_db(dbname, user, password, host, port)
 
-    dropAllMVs(conn)
+    #dropAllMVs(conn)
     #newtable,atts=generateArtificialDataset(conn,10,2,2,10,'log')
     #newtable,atts=generateArtificialDataset(conn,500000,10,10,10,'log')
     #print(getDensity(conn,newtable,atts))

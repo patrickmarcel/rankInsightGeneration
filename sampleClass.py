@@ -387,12 +387,15 @@ def runTimingsByCuboids():
         #s1.generateRandomMC(percentOfLattice)
         #mvnames = s1.getMC()
 
-        generateIndex='group'
+        #generateIndex='group'
+        generateIndex = 'false'
         test = 'stat'
 
         sampleRatio=0.4
         #for percentOfLattice in tqdm(tabTest, desc="percent of lattice", leave=False):
-        for generateIndex in tqdm([False, 'group'], desc="index", leave=False):
+        #for ratioCuboidOK in [0.2,0.4,0.6,0.8]:
+        for ratioViolations in [0.1, 0.2,0.3,0.4,0.5]:
+        #for generateIndex in tqdm([False, 'group'], desc="index", leave=False):
             for sampleRatio in tqdm(tabTest, desc="sample ratio", leave=False):
         #for test in ['Welch','Permutation']:
 
@@ -485,7 +488,8 @@ def runTimingsByCuboids():
                 end_time = time.time()
                 timings = end_time - start_time
                 count = count + 1
-                dfTimes.loc[len(dfTimes)] = [nr, generateIndex, count, timings, ratioCuboidOK, sampleRatio, test]
+                #dfTimes.loc[len(dfTimes)] = [nr, generateIndex, count, timings, ratioCuboidOK, sampleRatio, test]
+                dfTimes.loc[len(dfTimes)] = [nr, generateIndex, count, timings, ratioCuboidOK, ratioViolations, sampleRatio, test]
 
         dfTimes.to_csv(fileResultsTimes,mode='a',header=False)
     s1.clean()
@@ -494,9 +498,10 @@ def runTimingsByCuboids():
 if __name__ == "__main__":
 
     # The user
-    USER = "AC"
+    USER = "PM"
     # The DB we want
-    theDB = 'FDEBUG'
+    theDB = 'F100K'
+    theDB = 'health'
     match theDB:
         case 'F9K': config = Config('configs/flightsDolap.ini', USER)
         case 'FDEBUG': config = Config('configs/flights.ini', "AC")
@@ -504,6 +509,7 @@ if __name__ == "__main__":
         case 'F600K': config = Config('configs/flightsquarterDolap.ini', USER)
         case 'F3M' : config = Config('configs/flights1923Dolap.ini', USER)
         case 'SSB': config = Config('configs/ssbDolap.ini', USER)
+        case 'health': config = Config('configs/healthinsurance.ini', USER)
 
     # exporting results to csv
     current_time = time.localtime()
@@ -515,6 +521,8 @@ if __name__ == "__main__":
 
     fileResultsTimes = 'results/times-' + formatted_time + '_' + theDB + '.csv'
     column_namesTimes = ['Runs', 'Index',  'count', 'Time', 'Ratio cuboid','sample ratio','Test']
+    # testing ratio cuboids and ration violations
+    #column_namesTimes = ['Runs', 'Index', 'count', 'Time', 'Ratio cuboids', 'Ratio violations', 'sample ratio','Test']
 
     # Create an empty DataFrame with the specified columns
     dfError = pd.DataFrame(columns=column_namesError)
@@ -570,5 +578,5 @@ if __name__ == "__main__":
     if comparison:
         runComparisons()
     else:
-        #runTimings()
-        runTimingsByCuboids()
+        runTimings()
+        #runTimingsByCuboids()
