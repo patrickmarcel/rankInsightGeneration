@@ -321,7 +321,8 @@ def runTimings():
         #for percentOfLattice in tqdm(tabTest, desc="lattice", leave=False):
         #    s1.generateRandomMC(percentOfLattice)
         #    mvnames = s1.getMC()
-        for generateIndex in tqdm([False, True, 'mc','cl','mc-cl'], desc="index", leave=False):
+        #for generateIndex in tqdm([False, True, 'mc','cl','mc-cl'], desc="index", leave=False):
+        for generateIndex in tqdm([True,'mc'], desc="index", leave=False):
         #for generateIndex in ['mc-cl']:
             dropAllIndexOnMVs(conn, mvnames)
             generateIndexesOnMVs(conn, sel, mvnames, generateIndex)
