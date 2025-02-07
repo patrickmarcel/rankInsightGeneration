@@ -201,22 +201,30 @@ def runComparisons():
     s1 = Sample(conn, groupbyAtt, sel, config.meas, config.measBase, config.function, config.table)
     #s1.generateRandomMC(0.4)
 
-    dictGTLattice = s1.getGTallLattice(pairs, sizeOfR, ratioViolations)
+    #new tests on ratioCuboidOK and ratioViolations
+    for nr in tqdm(range(nbruns), desc='Runs'):
+        for ratioViolations in [0.1,0.2,0.3,0.4,0.5]:
+            dictGTLattice = s1.getGTallLattice(pairs, sizeOfR, ratioViolations)
+    #cut here
+
+    #dictGTLattice = s1.getGTallLattice(pairs, sizeOfR, ratioViolations)
     #dictGTMC = s1.getGTQueriesOverMC(pairs, sizeOfR, ratioViolations)
 
 
-    for nr in tqdm(range(nbruns), desc='Runs'):
+    #for nr in tqdm(range(nbruns), desc='Runs'):
         # for nr in trange(nbruns, desc='Runs'):
 
-        for initsampleRatio in tqdm(tabTest, desc='Init sample'):
+        #for initsampleRatio in tqdm(tabTest, desc='Init sample'):
         #for initsampleRatio in tqdm([0.01,0.1,1]):
 
             s1 = Sample(conn, groupbyAtt, sel, config.meas, config.measBase, config.function, config.table, 'cl')
             s1.generateRandomMC(0.4)
             dictGTMC = s1.getGTQueriesOverMC(pairs, sizeOfR, ratioViolations)
 
-            #for inc in [0.4,0.6,1]:
-            for inc in tabTest:
+            inc=0.4
+            for ratioCuboidOK in [0.4,0.6,0.8,1]:
+            #for inc in [0.4]:
+            #for inc in tabTest:
                 # if cumulate
                 s1.increaseSample(inc)
                 # else
@@ -287,7 +295,7 @@ def runComparisons():
 
                         errorOnLattice = abs(prediction - (nbViewOK / nbMVs))
 
-                        dfError.loc[len(dfError)] = [nr, initsampleRatio, inc, p, errorOnMC, errorOnLattice, prediction]
+                        dfError.loc[len(dfError)] = [nr, initsampleRatio, inc, p, errorOnMC, errorOnLattice, prediction,ratioCuboidOK,ratioViolations]
                         dict[p] = [errorOnLattice, prediction]
                     # flush csv
 
@@ -298,7 +306,7 @@ def runComparisons():
                 pkL, rkL, fkL = utilities.f_measure_first_k_keys(dict, dictGTLattice, k)
                 pkQ, rkQ, fkQ = utilities.f_measure_first_k_keys(dict, dictGTMC, k)
                 dfF1.loc[len(dfF1)] = [nr, initsampleRatio, inc, precisionLattice, recallLattice, f1Lattice, rkL,
-                                       precisionQueries, recallQueries, f1Queries, rkQ, k,len(dict),H.getNbWelch(),H.getNbPerm()]
+                                       precisionQueries, recallQueries, f1Queries, rkQ, k,len(dict),H.getNbWelch(),H.getNbPerm(),ratioCuboidOK,ratioViolations]
 
         dfError.to_csv(fileResultsError,mode='a',header=False)
         dfF1.to_csv(fileResultsF1,mode='a',header=False)
@@ -502,7 +510,7 @@ if __name__ == "__main__":
     USER = "PM"
     # The DB we want
     theDB = 'F100K'
-    theDB = 'health'
+    #theDB = 'health'
     match theDB:
         case 'F9K': config = Config('configs/flightsDolap.ini', USER)
         case 'FDEBUG': config = Config('configs/flights.ini', "AC")
@@ -524,6 +532,12 @@ if __name__ == "__main__":
     column_namesTimes = ['Runs', 'Index',  'count', 'Time', 'Ratio cuboid','sample ratio','Test']
     # testing ratio cuboids and ration violations
     #column_namesTimes = ['Runs', 'Index', 'count', 'Time', 'Ratio cuboids', 'Ratio violations', 'sample ratio','Test']
+    column_namesError = ['Runs', 'Initial Sample', 'Query Sample', 'Pair', 'Error on materialized', 'Error on lattice',
+                         'Prediction','Ratio cuboids', 'Ratio violations']
+    column_namesF1 = ['Runs', 'Initial Sample', 'Query Sample', 'Precision on Lattice', 'Recall on Lattice',
+                      'F1 on Lattice', 'Recall@k on Lattice', 'Precision on Queries', 'Recall on Queries',
+                      'F1 on Queries', 'Recall@k on Queries', 'k', 'Number of Comparisons', 'Number of Welch',
+                      'Number of permutation','Ratio cuboids', 'Ratio violations']
 
     # Create an empty DataFrame with the specified columns
     dfError = pd.DataFrame(columns=column_namesError)
@@ -556,7 +570,7 @@ if __name__ == "__main__":
 
     sizeOfR = getSizeOf(conn, config.table)
 
-    initsampleRatio=0.4
+    initsampleRatio=0.25
 
     ratioCuboidOK = 0.4
     ratioViolations=0.4
@@ -574,7 +588,7 @@ if __name__ == "__main__":
     tabTest = [0.1, 0.25, 0.5]
     #tabTest=[0.001,0.01,0.1,0.25,0.5,0.75,1]
 
-    comparison=False
+    comparison=True
 
     if comparison:
         runComparisons()
